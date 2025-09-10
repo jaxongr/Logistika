@@ -1,0 +1,96 @@
+{
+  "userRoles": {
+    "8098211117": {
+      "role": "yukchi",
+      "isRegistered": true,
+      "registrationDate": "2025-09-10T18:51:57.834Z",
+      "profile": {
+        "phone": "Telefon raqam: +998901234567",
+        "company": "Kompaniya nomi: \"Logistics Pro\" LLC",
+        "address": "Manzil: Toshkent shahar",
+        "contact": "Mas'ul shaxs: Anvar Karimov"
+      }
+    },
+    "5968018488": {
+      "role": "haydovchi",
+      "isRegistered": true,
+      "registrationDate": "2025-09-10T19:48:23.993Z",
+      "profile": {
+        "fullName": "Jaxongir toxtashboyev",
+        "phone": "+998945642233",
+        "minTonnage": 16,
+        "maxTonnage": 20,
+        "personalizedQuestions": [
+          {
+            "from": "Samarqand Payariq",
+            "to": "Qarshi Koson",
+            "weight": "18 tonna",
+            "type": "Temir-beton konstruksiya",
+            "minCapacity": 16,
+            "maxCapacity": 25
+          },
+          {
+            "from": "Urganch Gurlen",
+            "to": "Termiz Muzrobod",
+            "weight": "14 tonna",
+            "type": "Quyosh panellari",
+            "minCapacity": 10,
+            "maxCapacity": 18
+          }
+        ],
+        "priceSurveyAnswers": [
+          {
+            "question": "Samarqand Payariq → Qarshi Koson (18 tonna Temir-beton konstruksiya)",
+            "answer": "2 500 000 so'm"
+          },
+          {
+            "question": "Urganch Gurlen → Termiz Muzrobod (14 tonna Quyosh panellari)",
+            "answer": "2 500 000 so'm"
+          }
+        ]
+      }
+    },
+    "6099086283": {
+      "role": "haydovchi",
+      "isRegistered": true,
+      "registrationDate": "2025-09-10T19:53:43.617Z",
+      "profile": {
+        "fullName": "Jaxongir kamolob",
+        "phone": "+998945642234",
+        "minTonnage": 11,
+        "maxTonnage": 15,
+        "personalizedQuestions": [
+          {
+            "from": "Urganch Gurlen",
+            "to": "Termiz Muzrobod",
+            "weight": "14 tonna",
+            "type": "Quyosh panellari",
+            "minCapacity": 10,
+            "maxCapacity": 18
+          },
+          {
+            "from": "Toshkent Bektimir",
+            "to": "Samarqand Urgut",
+            "weight": "10 tonna",
+            "type": "Qurilish materiallari",
+            "minCapacity": 6,
+            "maxCapacity": 15
+          }
+        ],
+        "priceSurveyAnswers": [
+          {
+            "question": "Urganch Gurlen → Termiz Muzrobod (14 tonna Quyosh panellari)",
+            "answer": "2 500 000 so'm"
+          },
+          {
+            "question": "Toshkent Bektimir → Samarqand Urgut (10 tonna Qurilish materiallari)",
+            "answer": "2 500 000 so'm"
+          }
+        ]
+      }
+    }
+  },
+  "driverOffers": {},
+  "cargoOffers": {},
+  "timestamp": "2025-09-10T19:56:11.040Z"
+}

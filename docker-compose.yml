@@ -1,0 +1,93 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: autoposter_postgres
+    environment:
+      POSTGRES_DB: autoposter_bot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-password123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - autoposter_network
+
+  # Redis for BullMQ
+  redis:
+    image: redis:7-alpine
+    container_name: autoposter_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - autoposter_network
+    command: redis-server --appendonly yes
+
+  # NestJS Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: autoposter_app
+    environment:
+      NODE_ENV: production
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: autoposter_bot
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-password123}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      WEBAPP_URL: ${WEBAPP_URL}
+      UPLOAD_PATH: ./uploads
+      PAYMENT_CARD_NUMBER: ${PAYMENT_CARD_NUMBER}
+      PAYMENT_CARD_HOLDER: ${PAYMENT_CARD_HOLDER}
+    volumes:
+      - uploads_data:/app/uploads
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    networks:
+      - autoposter_network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: autoposter_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+      - uploads_data:/var/www/uploads
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - autoposter_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  uploads_data:
+    driver: local
+
+networks:
+  autoposter_network:
+    driver: bridge

@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run start:dev:*)",
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Read(//c/Users/Pro/Desktop/**)",
+      "Bash(pkill:*)",
+      "Bash(npm run build:*)",
+      "Bash(taskkill:*)",
+      "Bash(npm run start:prod:*)",
+      "Bash(del:*)",
+      "Bash(npm start)",
+      "Bash(xargs ls:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
