@@ -664,6 +664,9 @@ export class BotService implements OnModuleInit {
         case 'admin_orders':
           await this.showAdminOrders(ctx);
           break;
+        case 'admin_payments':
+          await this.showAdminPayments(ctx);
+          break;
         case 'admin_reports':
           await this.showAdminReports(ctx);
           break;
@@ -9508,9 +9511,10 @@ Use "🖥️ Admin Control Panel" for complete control!
       .text('📊 Statistika', 'admin_stats')
       .text('👥 Foydalanuvchilar', 'admin_users').row()
       .text('📋 Orderlar', 'admin_orders')
-      .text('🤖 AI Analytics', 'ai_analytics').row()
-      .text('📈 Hisobotlar', 'admin_reports')
-      .text('⚙️ Sozlamalar', 'admin_system').row()
+      .text('💳 To\'lovlar', 'admin_payments').row()
+      .text('🤖 AI Analytics', 'ai_analytics')
+      .text('📈 Hisobotlar', 'admin_reports').row()
+      .text('⚙️ Sozlamalar', 'admin_system')
       .text('🔙 Orqaga', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
@@ -9648,6 +9652,62 @@ ${ordersText || 'Order yo\'q'}
       .text('🔍 Order Qidirish', 'admin_search_order')
       .text('📊 Order Statistika', 'admin_order_stats').row()
       .text('🔄 Yangilash', 'admin_orders')
+      .text('🔙 Admin Panel', 'admin_panel');
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  }
+
+  private async showAdminPayments(ctx: any) {
+    const adminUsers = [5772668259];
+    if (!adminUsers.includes(ctx.from.id)) {
+      await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
+      return;
+    }
+
+    // To'lovlar statistikasini hisoblash
+    const pendingPayments = Array.from(this.pendingPayments.values()).filter(p => p.status === 'pending');
+    const approvedPayments = Array.from(this.pendingPayments.values()).filter(p => p.status === 'approved');
+    const rejectedPayments = Array.from(this.pendingPayments.values()).filter(p => p.status === 'rejected');
+
+    // Oxirgi to'lovlar
+    const recentPayments = Array.from(this.pendingPayments.entries())
+      .sort(([, a], [, b]) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
+
+    let paymentsText = '';
+    recentPayments.forEach(([paymentId, payment], index) => {
+      const statusIcon = payment.status === 'pending' ? '⏳' : payment.status === 'approved' ? '✅' : '❌';
+      paymentsText += `${index + 1}. ${statusIcon} ${payment.amount.toLocaleString()} so'm - User ${payment.userId}\n`;
+    });
+
+    const message = `
+💳 <b>TO'LOVLAR BOSHQARUVI</b>
+
+📊 <b>STATISTIKA:</b>
+⏳ Kutilayotgan: ${pendingPayments.length} ta
+✅ Tasdiqlangan: ${approvedPayments.length} ta
+❌ Rad qilingan: ${rejectedPayments.length} ta
+📈 Jami: ${this.pendingPayments.size} ta to'lov
+
+💰 <b>OXIRGI TO'LOVLAR:</b>
+${paymentsText || 'Hozircha to\'lovlar yo\'q'}
+
+🏦 <b>TO'LOV MA'LUMOTLARI:</b>
+🔢 Karta: ${process.env.PAYMENT_CARD_NUMBER || '9860****5678'}
+👤 Ega: ${process.env.PAYMENT_CARD_HOLDER || 'Yolda Logistics'}
+🏪 Bank: ${process.env.PAYMENT_PROVIDER || 'Uzcard'}
+
+⏰ <b>Vaqt:</b> ${new Date().toLocaleString('uz-UZ')}
+    `;
+
+    const keyboard = new InlineKeyboard()
+      .text('⏳ Kutilayotgan to\'lovlar', 'pending_payments')
+      .text('📊 To\'lov statistikasi', 'admin_payment_stats').row()
+      .text('💳 Karta ma\'lumotlari', 'admin_payment_info')
+      .text('🔄 Yangilash', 'admin_payments').row()
       .text('🔙 Admin Panel', 'admin_panel');
 
     await this.safeEditMessage(ctx, message, {
