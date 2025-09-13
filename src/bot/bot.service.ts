@@ -1757,41 +1757,52 @@ ${stats.recentReferrals.length === 0 ? 'Hozircha taklif yo\'q' :
 
   private async showBotPricing(ctx: any) {
     const message = `
-🤖 <b>Bot xabar yuborish tariflari</b>
+🚚 <b>YO'LDA LOGISTICS - TARIF PLANLARI</b>
 
-📅 <b>1 Kun</b> - 7,000 so'm
-• Limitlarsiz xabar yuborish
-• Barcha bot imkoniyatlari
-• Texnik yordam
+💎 <b>PREMIUM PAKETLAR:</b>
 
-📅 <b>1 Hafta</b> - 20,000 so'm  
-• Limitlarsiz xabar yuborish
-• Barcha bot imkoniyatlari
-• Texnik yordam
-• 🔥 Eng ommabop!
+📅 <b>1 Kun - 15,000 so'm</b>
+• Logistika xizmati
+• Yuk va haydovchi qidirish
+• 24/7 qo'llab-quvvatlash
 
-📅 <b>1 Oy</b> - 60,000 so'm
-• Limitlarsiz xabar yuborish
-• Barcha bot imkoniyatlari
-• Texnik yordam
-• Premium qo'llab-quvvatlash
+📅 <b>1 Hafta - 50,000 so'm</b> 🔥
+• VIP haydovchi statusi
+• Afzallikli yuk taqsimoti
+• Premium texnik yordam
 
-🆓 <b>Bepul:</b> 10 ta xabar (har qanday foydalanuvchi)
+📅 <b>1 Oy - 150,000 so'm</b>
+• Premium logistika paketi
+• Cheksiz yuk e'loni
+• Eng yaxshi haydovchilar bazasi
 
-💳 <b>To'lov usullari:</b>
-• Plastik karta (Uzcard, Humo)
-• Bank o'tkazmalari
+📅 <b>3 Oy - 400,000 so'm</b> ⭐
+• Biznes tarif (eng ommabop)
+• Korporativ imkoniyatlar
+• Maxsus chegirmalar
 
-🛡️ <b>Kafolat:</b>
-• To'lov qabul qilingandan keyin darhol aktivlashadi
-• 24/7 texnik yordam
+📅 <b>6 Oy - 750,000 so'm</b>
+• Pro logistika xizmati
+• VIP mijoz statusi
+• Premium analytics
+
+📅 <b>1 Yil - 1,200,000 so'm</b>
+• Korporativ tarif
+• Eng yuqori prioritet
+• Shaxsiy menejer
+
+🏦 <b>To'lov:</b> Uzcard plastik karta orqali
+🛡️ <b>Kafolat:</b> Darhol faollashtirish va to'liq qo'llab-quvvatlash
     `;
 
     const keyboard = new InlineKeyboard()
-      .text('💳 1 Kun - 7,000', 'buy_1day')
-      .text('🔥 1 Hafta - 20,000', 'buy_1week').row()
-      .text('⭐ 1 Oy - 60,000', 'buy_1month')
-      .text('🔙 Orqaga', 'pricing').row();
+      .text('💳 1 Kun - 15k', 'buy_1day')
+      .text('🔥 1 Hafta - 50k', 'buy_1week').row()
+      .text('⭐ 1 Oy - 150k', 'buy_1month')
+      .text('💎 3 Oy - 400k', 'buy_3month').row()
+      .text('🏆 6 Oy - 750k', 'buy_6month')
+      .text('👑 1 Yil - 1.2M', 'buy_1year').row()
+      .text('🔙 Orqaga', 'pricing');
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
@@ -1832,9 +1843,12 @@ Toshkent → Samarqand (15 tonna yuk) uchun narxlar
   // To'lov ko'rsatish
   private async showPayment(ctx: any, plan: string) {
     const prices = {
-      '1day': { name: '1 Kun', amount: 7000 },
-      '1week': { name: '1 Hafta', amount: 20000 },
-      '1month': { name: '1 Oy', amount: 60000 }
+      '1day': { name: '1 Kun', amount: 15000, description: 'Logistika xizmati' },
+      '1week': { name: '1 Hafta', amount: 50000, description: 'VIP haydovchi statusi' },
+      '1month': { name: '1 Oy', amount: 150000, description: 'Premium logistika paketi' },
+      '3month': { name: '3 Oy', amount: 400000, description: 'Biznes tarif (eng ommabop)' },
+      '6month': { name: '6 Oy', amount: 750000, description: 'Pro logistika xizmati' },
+      '1year': { name: '1 Yil', amount: 1200000, description: 'Korporativ tarif' }
     };
     
     const planInfo = prices[plan];
@@ -1844,7 +1858,8 @@ Toshkent → Samarqand (15 tonna yuk) uchun narxlar
     }
 
     const paymentCardNumber = process.env.PAYMENT_CARD_NUMBER || '9860120112345678';
-    const paymentCardHolder = process.env.PAYMENT_CARD_HOLDER || 'AutoPoster Bot';
+    const paymentCardHolder = process.env.PAYMENT_CARD_HOLDER || 'Yolda Logistics';
+    const paymentProvider = process.env.PAYMENT_PROVIDER || 'Uzcard';
 
     const message = `
 💳 <b>To'lov ma'lumotlari</b>
