@@ -2,10 +2,11 @@ import { Controller, Get, Res } from '@nestjs/common';
 import { Response } from 'express';
 import * as path from 'path';
 import { AppService } from './app.service';
-
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService
+  ) {}
 
   @Get()
   root(@Res() res: Response) {
@@ -24,6 +25,39 @@ export class AppController {
         message: 'Mini-App endpoint',
         bot_token: '8479156569:AAEm3WzUo1d3rITQ7dDVtiSMeMZOEZdxx3Q',
         status: 'ready'
+      });
+    }
+  }
+
+  @Get('driver')
+  driverApp(@Res() res: Response) {
+    try {
+      return res.sendFile(path.join(process.cwd(), 'public', 'driver-webapp.html'));
+    } catch (error) {
+      console.log('Driver webapp HTML file not found');
+      return res.json({ 
+        message: 'Driver Mini-App endpoint',
+        status: 'ready'
+      });
+    }
+  }
+
+  @Get('admin')
+  adminPanel(@Res() res: Response) {
+    try {
+      return res.sendFile(path.join(process.cwd(), 'public', 'admin-panel.html'));
+    } catch (error) {
+      console.log('Admin panel HTML file not found');
+      return res.json({ 
+        message: 'Admin Panel endpoint',
+        status: 'ready',
+        features: [
+          'Orders Management',
+          'Driver Management',
+          'Analytics & Reports',
+          'System Settings',
+          'Real-time Monitoring'
+        ]
       });
     }
   }

@@ -1,0 +1,29 @@
+PK                                                                                                                                  
+This is a placeholder APK file for Yo'lda Driver v1.0.0
+
+To create a real APK, please:
+1. Install Android Studio with Android SDK
+2. Set up ANDROID_HOME environment variable  
+3. Install Java JDK 8 or higher
+4. Navigate to YOLDA-APK directory
+5. Run: gradlew assembleRelease
+
+The project structure is ready with:
+- AndroidManifest.xml ✅
+- MainActivity.java ✅  
+- String resources ✅
+- Build configuration ✅
+- Professional Yandex Go-style UI ✅
+- Location tracking capabilities ✅
+- Order management system ✅
+
+Features included:
+🚛 Professional driver interface
+📱 Responsive mobile design  
+📍 Location tracking ready
+📦 Order management
+📊 Driver statistics
+🔔 Real-time notifications
+💼 Professional branding
+
+Install requirements and run BUILD-APK.bat in YOLDA-APK directory to generate the actual APK file.

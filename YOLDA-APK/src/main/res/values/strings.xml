@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Yo'lda Driver</string>
+    <string name="welcome_message">Xush kelibsiz!</string>
+    <string name="login_subtitle">Professional haydovchilar platformasi</string>
+    <string name="phone_placeholder">+998 XX XXX XX XX</string>
+    <string name="login_button">Tizimga kirish</string>
+    <string name="online_status">Online</string>
+    <string name="new_orders">Yangi buyurtmalar</string>
+    <string name="accept_order">Qabul qilish</string>
+    <string name="reject_order">Rad etish</string>
+    <string name="today_trips">Bugungi reyslar</string>
+    <string name="acceptance_rate">Qabul darajasi</string>
+    <string name="rating">Reyting</string>
+    <string name="orders_tab">Buyurtmalar</string>
+    <string name="map_tab">Xarita</string>
+    <string name="stats_tab">Statistika</string>
+    <string name="profile_tab">Profil</string>
+</resources>

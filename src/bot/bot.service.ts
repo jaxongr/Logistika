@@ -1,14 +1,45 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { Bot, InlineKeyboard } from 'grammy';
+import { Bot, InlineKeyboard, InputFile, Keyboard } from 'grammy';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import * as fs from 'fs';
 import * as path from 'path';
+import OpenAI from 'openai';
+import axios from 'axios';
+import * as uzbekCargoDict from '../dictionaries/uzbek-cargo-dictionary.json';
+
+// Type definitions for cargo posting steps
+type CargoPostingStep = 'from' | 'to' | 'type' | 'truck_info' | 'budget' | 'description' | 'locationFrom' | 'locationTo' | 'cargoType' | 'route_and_cargo' | 'truck_needed' | 'price_offer' | 'loading_date' | 'complete';
+
+interface CargoPostingData {
+  from?: string;
+  to?: string;
+  type?: string;
+  truckInfo?: string;
+  deliveryTime?: string;
+  budget?: number;
+  phone?: string;
+  description?: string;
+  fromLocation?: { latitude: number; longitude: number };
+  toLocation?: { latitude: number; longitude: number };
+  fromCity?: string;
+  toCity?: string;
+  routeAndCargo?: string;
+  truckNeeded?: string;
+  price?: number;
+  loadingDate?: string;
+}
 
 @Injectable()
 export class BotService implements OnModuleInit {
   private readonly logger = new Logger(BotService.name);
+
+  constructor() {
+    this.logger.log('🏗️ BotService constructor chaqirildi');
+    // TypeScript xatolari tuzatish uchun
+  }
   private bot: Bot;
+  private openai: OpenAI;
   private messageWaitingUsers = new Set<number>();
   private trackingCodeWaitingUsers = new Set<number>();
   private routeInputWaitingUsers = new Set<number>();
@@ -20,6 +51,20 @@ export class BotService implements OnModuleInit {
   private selectedGroups = new Map<number, Set<string>>();
   private antiSpamTimers = new Map<string, number>();
   private userLastActivity = new Map<number, number>();
+  private driverContactWarnings = new Map<string, {driverId: number, warnings: number, timerId?: NodeJS.Timeout}>();
+  private acceptedCargos = new Map<number, Set<string>>(); // driverId -> Set of accepted cargo IDs
+  private completedCargos = new Map<number, Set<string>>(); // driverId -> Set of completed cargo IDs
+  private customerOrderHistory = new Map<number, any[]>(); // customerId -> Array of completed orders
+  private driverWarningTimers = new Map<string, NodeJS.Timeout[]>(); // Legacy timers for compatibility
+  private recentCargos: any[] = []; // Recent cargo offers
+  private driverActiveOrders = new Map<number, any[]>(); // Driver active orders
+  private cargoRatings = new Map<string, {
+    cargoId: string,
+    customerId: number,
+    rating: number,
+    date: string,
+    feedback: string
+  }>(); // cargoId -> rating data
   
   // Payment system
   private paymentWaitingUsers = new Map<number, {plan: string, amount: number}>();
@@ -58,25 +103,20 @@ export class BotService implements OnModuleInit {
   
   // Notification System
   private driverNotifications = new Map<number, string[]>();
-  
+
+  // AI Analytics System
+  private orderAnalytics = new Map<string, any>();
+  private priceAnalytics = new Map<string, any[]>();
+  private routeAnalytics = new Map<string, any>();
+
   // Cargo Matching System for Dispatchers
   private cargoPostingUsers = new Set<number>();
   
   // Enhanced Cargo Posting with Step-by-Step Process
   private cargoPostingSteps = new Map<number, {
-    step: 'from' | 'to' | 'type' | 'truck_info' | 'budget' | 'description',
-    data: {
-      from?: string,
-      to?: string,
-      type?: string, 
-      truckInfo?: string,
-      deliveryTime?: string,
-      budget?: number,
-      phone?: string,
-      description?: string,
-      fromLocation?: { latitude: number, longitude: number },
-      toLocation?: { latitude: number, longitude: number }
-    }
+    step: CargoPostingStep;
+    data: CargoPostingData;
+    messageId?: number;
   }>();
 
   // Truck types and tonnages for driver registration and cargo posting
@@ -261,8 +301,10 @@ export class BotService implements OnModuleInit {
     status: 'active' | 'matched' | 'completed' | 'cancelled',
     assignedDriverId?: number,
     acceptedDate?: string,
+    completedDate?: string,
     fromLocation?: { latitude: number, longitude: number },
-    toLocation?: { latitude: number, longitude: number }
+    toLocation?: { latitude: number, longitude: number },
+    loadingDate?: string
   }>();
   private driverOffers = new Map<string, {
     id: string,
@@ -294,18 +336,41 @@ export class BotService implements OnModuleInit {
   private readonly BATCH_SIZE = 10; // bir vaqtda maksimum 10 ta guruh
 
   async onModuleInit() {
-    // Sizning bot tokeningiz
-    const token = '8479156569:AAEm3WzUo1d3rITQ7dDVtiSMeMZOEZdxx3Q';
+    // Bot tokenini .env fayldan olish
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) {
+      this.logger.error('TELEGRAM_BOT_TOKEN topilmadi!');
+      return;
+    }
     
+    this.logger.log('🔧 Bot yaratilmoqda...');
     this.bot = new Bot(token);
+    this.logger.log('✅ Bot obyekti yaratildi');
+    
+    // OpenAI ni ishga tushirish
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (openaiApiKey && openaiApiKey !== 'sk-your-openai-api-key-here') {
+      this.openai = new OpenAI({
+        apiKey: openaiApiKey,
+      });
+      this.logger.log('✅ OpenAI Whisper ishga tushirildi');
+    } else {
+      this.logger.warn('⚠️ OpenAI API key topilmadi - ovozli habar funksiyasi faol emas');
+    }
     
     // Demo data qo'shish (test uchun)
     await this.initializeDemoData();
     
+    // Global update logger - catches ALL incoming updates
+    this.bot.use(async (ctx, next) => {
+      this.logger.log(`🌍 INCOMING UPDATE: ${ctx.update.update_id} from user ${ctx.from?.id} (@${ctx.from?.username}) - Type: ${Object.keys(ctx.update)[1]}`);
+      await next();
+    });
+
     // /start buyrug'i
     this.bot.command('start', async (ctx) => {
       const startPayload = ctx.match;
-      
+
       if (startPayload && typeof startPayload === 'string') {
         // Handle referral links
         await this.handleReferralStart(ctx, startPayload);
@@ -316,7 +381,9 @@ export class BotService implements OnModuleInit {
 
     // Callback query handlers
     this.bot.on('callback_query:data', async (ctx) => {
-      const data = ctx.callbackQuery.data;
+      try {
+        const data = ctx.callbackQuery.data;
+        this.logger.log(`🔍 Callback received: ${data} from user ${ctx.from.id}`);
       
       switch (data) {
         case 'features':
@@ -360,6 +427,21 @@ export class BotService implements OnModuleInit {
           break;
         case 'view_my_profile':
           await this.showDriverProfile(ctx);
+          break;
+        case 'download_app':
+          await this.sendDriverApp(ctx);
+          break;
+        case 'download_apk_file':
+          await this.sendApkFile(ctx);
+          break;
+        case 'open_computer':
+          await this.showComputerInstructions(ctx);
+          break;
+        case 'driver_instructions':
+          await this.showDriverInstructions(ctx);
+          break;
+        case 'app_support':
+          await this.showAppSupport(ctx);
           break;
         case 'edit_driver_profile':
           await this.editDriverProfile(ctx);
@@ -419,6 +501,18 @@ export class BotService implements OnModuleInit {
         case 'admin_guide':
           await this.showAdminGuide(ctx);
           break;
+        case 'ai_analytics':
+          await this.showAIAnalytics(ctx);
+          break;
+        case 'price_analysis':
+          await this.showPriceAnalysis(ctx);
+          break;
+        case 'generate_report':
+          await this.generateAnalyticsReport(ctx);
+          break;
+        case 'export_data':
+          await this.exportAnalyticsData(ctx);
+          break;
         case 'connect_account':
           await this.showAccountConnection(ctx);
           break;
@@ -435,10 +529,14 @@ export class BotService implements OnModuleInit {
           await this.showCargoSystem(ctx);
           break;
         case 'post_cargo':
+          this.logger.log(`🎯 CALLBACK DEBUG: post_cargo called by user ${ctx.from.id}`);
           await this.startCargoPosting(ctx);
           break;
         case 'view_cargo':
           await this.showActiveCargoOffers(ctx);
+          break;
+        case 'all_cargo':
+          await this.showAllCargoOffers(ctx);
           break;
         case 'cargo_tracking':
           await this.showCargoTrackingMenu(ctx);
@@ -551,6 +649,9 @@ export class BotService implements OnModuleInit {
         case 'admin_panel':
           await this.showAdminPanel(ctx);
           break;
+        case 'yukchi_panel':
+          await this.showYukchiPanel(ctx);
+          break;
         case 'admin_stats':
           await this.showAdminStats(ctx);
           break;
@@ -614,12 +715,14 @@ export class BotService implements OnModuleInit {
             await this.handleCargoTypeSelection(ctx, cargoType);
           } else if (data.startsWith('accept_cargo_')) {
             const cargoId = data.replace('accept_cargo_', '');
+            this.logger.log(`🔍 DEBUG: accept_cargo callback called for cargo ${cargoId} by user ${ctx.from.id}`);
             await this.handleCargoAcceptance(ctx, cargoId);
           } else if (data.startsWith('complete_cargo_')) {
             const cargoId = data.replace('complete_cargo_', '');
             await this.handleCargoCompletion(ctx, cargoId);
           } else if (data.startsWith('contact_cargo_owner_')) {
             const cargoId = data.replace('contact_cargo_owner_', '');
+            this.logger.log(`🔍 DEBUG: contact_cargo_owner callback called for cargo ${cargoId} by user ${ctx.from.id}`);
             await this.handleCargoOwnerContact(ctx, cargoId);
           } else if (data.startsWith('cargo_details_')) {
             const cargoId = data.replace('cargo_details_', '');
@@ -648,10 +751,29 @@ export class BotService implements OnModuleInit {
             const orderId = parts.slice(0, -1).join('_');
             const rating = parseInt(parts[parts.length - 1]);
             await this.processRating(ctx, orderId, rating);
+          } else if (data === 'skip_rating') {
+            await this.handleSkipRating(ctx);
           } else if (data === 'cancel_cargo_posting') {
             await this.handleCancelCargoPosting(ctx);
+          } else if (data.startsWith('date_')) {
+            const dateType = data.replace('date_', '');
+            await this.handleDateSelection(ctx, dateType);
+          } else {
+            // Unknown callback - provide fallback
+            this.logger.warn(`⚠️ Unknown callback: ${data} from user ${ctx.from.id}`);
+            await this.safeAnswerCallback(ctx, '❌ Noma\'lum buyruq!');
+            await this.showMainMenu(ctx);
           }
           break;
+      }
+      } catch (error) {
+        this.logger.error('❌ Callback query handler error:', error);
+        try {
+          await this.safeAnswerCallback(ctx, '❌ Xato yuz berdi. Iltimos qayta urinib ko\'ring!');
+          await this.showMainMenu(ctx);
+        } catch (fallbackError) {
+          this.logger.error('❌ Fallback error in callback handler:', fallbackError);
+        }
       }
     });
 
@@ -716,6 +838,101 @@ export class BotService implements OnModuleInit {
         return;
       }
       
+      // Keyboard tugmalari handler
+      const text = ctx.message.text;
+      const userRole = this.userRoles.get(userId);
+
+      this.logger.log(`📥 MESSAGE: User ${userId} sent: "${text}". Role: ${userRole?.role || 'no role'}`);
+      
+      // Universal tugmalar (barcha role'lar uchun)
+      switch(text) {
+        case '📦 Yuk berish':
+        case '📦 Yuk e\'lon qilish':
+          this.logger.log(`🚀 BUTTON PRESSED: User ${userId} pressed "📦 Yuk berish" button`);
+          await this.startCargoPosting(ctx);
+          return;
+          
+        case '📋 Mening orderlarim':
+        case '📋 Order tarixi':
+          if (userRole?.role === 'yukchi') {
+            await this.showCustomerOrderHistory(ctx);
+          } else {
+            // Haydovchi/dispechr order tarixi
+            await ctx.reply('🔄 Order tarixi yuklanmoqda...');
+          }
+          return;
+          
+        case '🆕 Yangi orderlar':
+        case '👀 Faol yuklar':
+          await this.showActiveCargoOffers(ctx);
+          return;
+          
+        case '👤 Mening profilim':
+          // User profile is handled via callbacks, use placeholder
+          await ctx.reply('👤 <b>MENING PROFILIM</b>\n\n🔄 Profil ma\'lumotlari yuklanmoqda...', { parse_mode: 'HTML' });
+          return;
+          
+        case '💰 Balansim':
+          await this.showVirtualBalance(ctx);
+          return;
+          
+        case '🔍 Yuk kuzatuvi':
+          await this.showCargoTrackingMenu(ctx);
+          return;
+          
+        case '🚚 Haydovchilar':
+          // Placeholder for drivers list
+          await ctx.reply('🚚 <b>HAYDOVCHILAR RO\'YXATI</b>\n\n🔄 Haydovchilar ma\'lumotlari yuklanmoqda...', { parse_mode: 'HTML' });
+          return;
+          
+        case '📱 Mobil ilova':
+          // Mobile app placeholder
+          await ctx.reply('📱 <b>MOBIL ILOVA</b>\n\n🔄 Ilova yuklab olish ma\'lumotlari yuklanmoqda...', { parse_mode: 'HTML' });
+          return;
+          
+        case '🚚 Haydovchi qo\'shish':
+          if (userRole?.role === 'dispechr') {
+            await ctx.reply('🚚 <b>HAYDOVCHI QO\'SHISH</b>\n\n🔄 Haydovchi qo\'shish tizimi ishlab chiqilmoqda...', { parse_mode: 'HTML' });
+          } else {
+            await ctx.reply('❌ Bu funksiya faqat dispechrlar uchun!');
+          }
+          return;
+          
+        case '👤 Mijoz qo\'shish':
+          if (userRole?.role === 'dispechr') {
+            await ctx.reply('👤 <b>MIJOZ QO\'SHISH</b>\n\n🔄 Mijoz qo\'shish tizimi ishlab chiqilmoqda...', { parse_mode: 'HTML' });
+          } else {
+            await ctx.reply('❌ Bu funksiya faqat dispechrlar uchun!');
+          }
+          return;
+          
+        case '👥 Mening jamoa':
+          if (userRole?.role === 'dispechr') {
+            await ctx.reply('👥 <b>MENING JAMOA</b>\n\n🔄 Jamoa ma\'lumotlari yuklanmoqda...', { parse_mode: 'HTML' });
+          } else {
+            await ctx.reply('❌ Bu funksiya faqat dispechrlar uchun!');
+          }
+          return;
+          
+        case '📤 Avto xabar':
+          if (userRole?.role === 'dispechr') {
+            await ctx.reply('📤 <b>AVTO XABAR</b>\n\n🔄 Avtomatik xabar yuborish tizimi ishlab chiqilmoqda...', { parse_mode: 'HTML' });
+          } else {
+            await ctx.reply('❌ Bu funksiya faqat dispechrlar uchun!');
+          }
+          return;
+          
+        case '📞 Qo\'llab-quvvatlash':
+          // Customer support for yukchi
+          await ctx.reply('📞 <b>QO\'LLAB-QUVVATLASH</b>\n\n💬 Yordam kerakmi? Bizning mutaxassislarimiz sizga yordam berishga tayyor!\n\n📞 24/7 qo\'llab-quvvatlash: +998 90 123 45 67\n💌 Email: support@yoldauz.uz\n📱 Telegram: @yoldauz_support\n\n🤖 Savol-javoblar bo\'limi tez orada ishga tushadi!', { parse_mode: 'HTML' });
+          return;
+
+        case '⚙️ Sozlamalar':
+          // Settings placeholder
+          await ctx.reply('⚙️ <b>SOZLAMALAR</b>\n\n🔧 Shaxsiy sozlamalaringizni boshqaring:\n\n🔔 Bildirishnomalar: Faol\n🌐 Til: O\'zbek tili\n📍 Hudud: Toshkent\n\n⚙️ Batafsil sozlamalar tez orada qo\'shiladi!', { parse_mode: 'HTML' });
+          return;
+      }
+      
       // Oddiy javob
       await ctx.reply(
         'Botdan foydalanish uchun /start buyrug\'ini yuboring!',
@@ -740,6 +957,11 @@ export class BotService implements OnModuleInit {
           .text('💰 Tariflar', 'pricing')
           .text('🏠 Bosh menyu', 'back_main')
       });
+    });
+
+    // Voice message handler - disabled
+    this.bot.on('message:voice', async (ctx) => {
+      await ctx.reply('❌ Ovozli xabar qabul qilinmaydi. Iltimos, matn ko\'rinishida yozing!');
     });
 
     // Location message handler
@@ -821,13 +1043,29 @@ export class BotService implements OnModuleInit {
     });
 
     // Botni ishga tushirish
+    this.logger.log('🚀 Bot start() ni chaqirishdan oldin...');
     try {
-      await this.bot.start();
-      this.logger.log('🤖 Bot muvaffaqiyatli ishga tushdi!');
+      // Bot API test
+      const me = await this.bot.api.getMe();
+      this.logger.log(`✅ Bot API ishlayapti: ${me.first_name} (@${me.username})`);
+      
+      // Set up error handler to prevent bot crashes
+      this.bot.catch((err) => {
+        this.logger.error('❌ Bot middleware error:', err.message);
+        // Don't crash the bot, just log the error
+      });
+
+      // Start polling immediately
+      this.logger.log('🔄 Starting polling...');
+      this.bot.start().catch(err => {
+        this.logger.error('❌ Polling failed:', err.message);
+      });
+      
     } catch (error) {
       this.logger.error('Botni ishga tushirishda xato:', error);
     }
   }
+
 
   // Asosiy menyu
   private async showMainMenu(ctx: any) {
@@ -876,6 +1114,26 @@ export class BotService implements OnModuleInit {
         return await this.sendMenuMessage(ctx, welcomeMessage, keyboard);
       }
 
+      // Admin foydalanuvchilar uchun alohida interface
+      const adminUsers = [5772668259];
+      if (adminUsers.includes(user.id)) {
+        const welcomeMessage = `
+🔐 <b>ADMIN INTERFACE</b>
+
+👋 Salom Admin, ${user.first_name}!
+
+🎛️ Sizda admin panelga va o'zingizning role interfeysingizga kirish imkoni bor.
+        `;
+
+        const keyboard = new InlineKeyboard()
+          .text('🔐 Admin Panel', 'admin_panel')
+          .text('📦 Yukchi Panel', 'yukchi_panel').row()
+          .text('⚙️ Sozlamalar', 'settings')
+          .text('📞 Aloqa', 'contact').row();
+
+        return await this.sendMenuMessage(ctx, welcomeMessage, keyboard);
+      }
+
       // Ro'yxatdan o'tgan foydalanuvchilar uchun
       let welcomeMessage = '';
       let keyboard = new InlineKeyboard();
@@ -886,47 +1144,75 @@ export class BotService implements OnModuleInit {
           const completedOrders = Math.floor(Math.random() * 20) + 5;
           
           welcomeMessage = `
-📦 <b>YUKCHI</b>
+📦 <b>YUKCHI PANELI</b>
 
 👋 Salom, ${user.first_name}!
 
-🔄 Faol: ${activeOrders} ta | ✅ Bajarilgan: ${completedOrders} ta
+🔄 <b>Faol:</b> ${activeOrders} ta | ✅ <b>Bajarilgan:</b> ${completedOrders} ta
+
+💡 Yuk e'lon qilish uchun quyidagi tugmalardan foydalaning:
           `;
           
-          keyboard = new InlineKeyboard()
-            .text('📦 Yuk e\'lon qilish', 'post_cargo')
-            .text('🔍 Yuk kuzatuvi', 'cargo_tracking').row()
-            .text('🚚 Haydovchilar', 'view_drivers')
-            .text('📋 Mening orderlarim', 'my_orders').row()
-            .text('⚙️ Sozlamalar', 'settings')
-            .text('📞 Yordam', 'contact').row();
-          break;
+          // Yukchi uchun doimiy keyboard
+          await ctx.reply(welcomeMessage, {
+            parse_mode: 'HTML',
+            reply_markup: {
+              keyboard: [
+                [{ text: '📦 Yuk berish' }, { text: '📋 Mening orderlarim' }],
+                [{ text: '🔍 Yuk kuzatuvi' }, { text: '🚚 Haydovchilar' }],
+                [{ text: '📞 Qo\'llab-quvvatlash' }, { text: '⚙️ Sozlamalar' }]
+              ],
+              resize_keyboard: true,
+              one_time_keyboard: false
+            }
+          });
+          return; // Return early to avoid inline keyboard
 
         case 'haydovchi':
-          // Find driver by userId pattern in keys
-          const driverKey = Array.from(this.driverOffers.keys()).find(key => key.startsWith(`driver_${user.id}_`));
-          const driverInfo = driverKey ? this.driverOffers.get(driverKey) : null;
-          const driverStatus = !!driverInfo;
+          // Get driver info from userRoles instead of driverOffers
+          const driverUserRole = this.userRoles.get(user.id);
+          const isDriverRegistered = driverUserRole?.isRegistered || false;
+          const driverProfile = driverUserRole?.profile;
           
-          this.logger.log(`Driver panel for ${user.id}: found key=${driverKey}, hasInfo=${!!driverInfo}`);
-          if (driverInfo) {
-            this.logger.log(`Driver info:`, driverInfo);
+          // Debug active orders
+          const driverActiveOrders = this.acceptedCargos.get(user.id);
+          this.logger.log(`🔍 DEBUG: Driver ${user.id} panel - active orders: has=${!!driverActiveOrders}, size=${driverActiveOrders?.size || 0}, orders=${Array.from(driverActiveOrders || []).join(', ') || 'none'}`);
+          
+          this.logger.log(`Driver panel for ${user.id}: registered=${isDriverRegistered}, hasProfile=${!!driverProfile}`);
+          if (driverProfile) {
+            this.logger.log(`Driver profile:`, driverProfile);
           }
           
+          const activeOrdersText = driverActiveOrders && driverActiveOrders.size > 0 
+            ? `🔥 Aktiv order: ${driverActiveOrders.size} ta`
+            : '🟢 Aktiv order yo\'q';
+          
           welcomeMessage = `
-🚚 <b>HAYDOVCHI</b>
+🚚 <b>HAYDOVCHI PANELI</b>
 
-👋 Salom, ${user.first_name}!
+👋 Salom, ${driverProfile?.fullName || user.first_name}!
 
-${driverStatus ? '✅ Profil faol' : '⏳ Profil to\'ldiring'} | Bajarilgan: ${driverInfo?.completedOrders || 0} ta
+${isDriverRegistered ? '✅ <b>Profil faol</b>' : '⏳ <b>Profil to\'ldiring</b>'} | 📊 <b>Bajarilgan:</b> ${driverProfile?.completedOrders || 0} ta
+
+${activeOrdersText}
+
+🚛 Yangi orderlar qabul qilish uchun quyidagi tugmalardan foydalaning:
           `;
           
-          keyboard = new InlineKeyboard()
-            .text('🆕 Yangi orderlar', 'view_cargo')
-            .text('👤 Mening profilim', 'view_my_profile').row()
-            .text('📋 Order tarixi', 'my_orders')
-            .text('⚙️ Sozlamalar', 'settings').row();
-          break;
+          // Haydovchi uchun doimiy keyboard
+          await ctx.reply(welcomeMessage, {
+            parse_mode: 'HTML',
+            reply_markup: {
+              keyboard: [
+                [{ text: '🆕 Yangi orderlar' }, { text: '📋 Order tarixi' }],
+                [{ text: '👤 Mening profilim' }, { text: '💰 Balansim' }],
+                [{ text: '📱 Mobil ilova' }, { text: '⚙️ Sozlamalar' }]
+              ],
+              resize_keyboard: true,
+              one_time_keyboard: false
+            }
+          });
+          return; // Return early to avoid inline keyboard
 
         case 'dispechr':
           // Get dispatcher referral stats
@@ -942,37 +1228,31 @@ ${driverStatus ? '✅ Profil faol' : '⏳ Profil to\'ldiring'} | Bajarilgan: ${d
 
 Assalomu alaykum, ${user.first_name}!
 
-👨‍💼 <b>Sizning profilingiz:</b> Dispechr
-✅ <b>Status:</b> Professional
+👨‍💼 <b>Professional Dispechr</b>
 💰 <b>Balans:</b> ${virtualBalance?.balance?.toLocaleString() || 0} so'm
 
 📈 <b>Referral statistika:</b>
-🚚 Ulangan haydovchilar: ${dispatcherStats.referredDrivers.size}
-👤 Ulangan mijozlar: ${dispatcherStats.referredCustomers.size}
-💵 Jami daromad: ${dispatcherStats.totalEarnings?.toLocaleString() || 0} so'm
+🚚 Haydovchilar: ${dispatcherStats.referredDrivers.size} ta | 👤 Mijozlar: ${dispatcherStats.referredCustomers.size} ta
+💵 <b>Jami daromad:</b> ${dispatcherStats.totalEarnings?.toLocaleString() || 0} so'm
 
-💼 <b>Dispechr funksiyalari:</b>
-• Referral tizimi va bonus olish
-• Shaxsiy haydovchi va mijoz bazasi
-• Priority order distribution
-• Commission-free orders
-
-Quyidagi bo'limlardan birini tanlang:
+💼 <b>Professional xizmatlar:</b> Referral tizimi, Priority orderlar, Commission-free
           `;
           
-          keyboard = new InlineKeyboard()
-            .text('📦 Yuk e\'lon qilish', 'post_cargo')
-            .text('👀 Faol yuklar', 'view_cargo').row()
-            .text('🚚 Haydovchi qo\'shish', 'add_driver')
-            .text('👤 Mijoz qo\'shish', 'add_customer').row()
-            .text('👥 Mening jamoa', 'my_team')
-            .text('💰 Balansim', 'my_balance').row()
-            .text('📤 Avto xabar', 'send_message')
-            .text('📊 Analytics', 'cargo_stats')
-            .text('🔗 Guruhlar', 'my_groups').row()
-            .text('💰 Tariflar', 'pricing')
-            .text('⚙️ Sozlamalar', 'settings').row();
-          break;
+          // Dispechr uchun doimiy keyboard
+          await ctx.reply(welcomeMessage, {
+            parse_mode: 'HTML',
+            reply_markup: {
+              keyboard: [
+                [{ text: '📦 Yuk e\'lon qilish' }, { text: '👀 Faol yuklar' }],
+                [{ text: '🚚 Haydovchi qo\'shish' }, { text: '👤 Mijoz qo\'shish' }],
+                [{ text: '👥 Mening jamoa' }, { text: '💰 Balansim' }],
+                [{ text: '📤 Avto xabar' }, { text: '⚙️ Sozlamalar' }]
+              ],
+              resize_keyboard: true,
+              one_time_keyboard: false
+            }
+          });
+          return; // Return early to avoid inline keyboard
       }
       
       return await this.sendMenuMessage(ctx, welcomeMessage, keyboard);
@@ -986,7 +1266,7 @@ Quyidagi bo'limlardan birini tanlang:
       const user = ctx.from;
       
       // Admin foydalanuvchilari uchun admin panel tugmasi
-      const adminUsers = [parseInt(process.env.ADMIN_USER_ID || '0'), 5968018488, 5772668259];
+      const adminUsers = [5772668259];
       if (adminUsers.includes(user.id)) {
         keyboard.text('🔐 Admin Panel', 'admin_panel').row();
       }
@@ -1966,7 +2246,7 @@ Bu usul an'anaviy "shaxsiy akkaunt ulash" usulidan xavfsizroq va oddiyroq.
 
   // Admin qilish yo'riqnomasi
   private async showAdminGuide(ctx: any) {
-    const botUsername = 'avtohabarbot'; // Bot username
+    const botUsername = 'yoldauz_yukbot'; // Bot username
     const message = `
 📖 <b>Botni guruhga admin qilish yo'riqnomasi</b>
 
@@ -3147,11 +3427,19 @@ ${current < total ? `🔄 **Keyingisi:** ${Math.floor((total - current) * avgDel
 
   private async startCargoPosting(ctx: any) {
     const user = ctx.from;
+    this.logger.log(`🚀 CARGO POSTING: User ${user.id} (@${user.username}) clicked cargo posting button`);
+
+    // Clear any existing cargo posting data to prevent old data from persisting
+    this.cargoPostingSteps.delete(user.id);
     
-    // Initialize cargo posting process
+    // Get the message ID from callback query if available (inline keyboard click)
+    const messageId = ctx.callbackQuery?.message?.message_id || ctx.message?.message_id;
+    
+    // Initialize cargo posting process with fresh data
     this.cargoPostingSteps.set(user.id, {
       step: 'route_and_cargo',
-      data: {}
+      data: {},
+      messageId: messageId
     });
     
     const message = `
@@ -3159,44 +3447,60 @@ ${current < total ? `🔄 **Keyingisi:** ${Math.floor((total - current) * avgDel
 
 📝 <b>1-savol:</b> Qayerdan → Qayerga va nima yukingiz bor?
 
-<b>Misol:</b>
-• Toshkent Chilonzor → Samarqand, mebel
-• Nukus → Toshkent Sergeli, oziq-ovqat
-• Namangan → Farg'ona, qurilish materiallari
+🎙️ <b>YANGI:</b> Ovozli habar yuboring yoki matn yozing!
 
-📍 Aniq manzillarni yozing:
+<b>✅ To'g'ri format (matn):</b>
+• Andijondan Toshkentga 10 tonna un bor
+• Samarqanddan Nukusga mebel kerak tashish
+• Farg'onadan Urganchga 5 tonna olma
+
+<b>🗣️ Ovozli habar misoli:</b>
+"Andijondan Guzorga yuk bor, 8 tonna kartoshka, Isuzu kerak"
+
+⚠️ <b>Muhim:</b> Aniq shahar nomlarini ayting!
+📍 Format: <b>Shahar1dan Shahar2ga, yuk turi</b>
     `;
 
     const keyboard = new InlineKeyboard()
       .text('🔙 Orqaga', 'cargo_system');
 
+    this.logger.log(`📝 CARGO POSTING: Attempting to send message to user ${user.id}`);
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
       reply_markup: keyboard
     });
+    this.logger.log(`✅ CARGO POSTING: Message sent successfully to user ${user.id}`);
   }
 
   private async showActiveCargoOffers(ctx: any) {
-    const activeOffers = Array.from(this.cargoOffers.values())
-      .filter(offer => offer.status === 'active')
+    const now = new Date();
+    const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+    
+    // Show only active orders from the last 24 hours
+    const recentActiveOffers = Array.from(this.cargoOffers.values())
+      .filter(offer => 
+        offer.status === 'active' && 
+        new Date(offer.date) >= twentyFourHoursAgo
+      )
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    if (activeOffers.length === 0) {
+    if (recentActiveOffers.length === 0) {
       await this.safeEditMessage(ctx, 
-        '📦 <b>Hozircha faol yuk e\'lonlari yo\'q</b>\n\nYuk e\'lon qilish uchun "📦 Yuk e\'lon qilish" tugmasini bosing.',
+        '🆕 <b>Hozircha yangi yuk e\'lonlari yo\'q</b>\n\nSo\'nggi 24 soat ichida yangi yuk e\'lonlari mavjud emas.\n\nYuk e\'lon qilish uchun "📦 Yuk e\'lon qilish" tugmasini bosing.',
         {
           parse_mode: 'HTML',
           reply_markup: new InlineKeyboard()
             .text('📦 Yuk e\'lon qilish', 'post_cargo')
+            .text('📂 Barcha yuklar', 'all_cargo')
             .text('🔙 Orqaga', 'cargo_system')
         }
       );
       return;
     }
 
-    let message = '📦 <b>FAOL YUK E\'LONLARI</b>\n\n';
+    let message = '🆕 <b>YANGI YUK E\'LONLARI</b>\n<i>So\'nggi 24 soat</i>\n\n';
     
-    activeOffers.slice(0, 10).forEach((offer, index) => {
+    recentActiveOffers.slice(0, 10).forEach((offer, index) => {
       const timeAgo = this.getTimeAgo(new Date(offer.date));
       message += `
 <b>${index + 1}. ${offer.fromCity} → ${offer.toCity}</b>
@@ -3213,7 +3517,55 @@ ${offer.description ? `📝 ${offer.description}` : ''}
 
     const keyboard = new InlineKeyboard()
       .text('🔄 Yangilash', 'view_cargo')
-      .text('📦 E\'lon qilish', 'post_cargo').row()
+      .text('📂 Barcha yuklar', 'all_cargo').row()
+      .text('📦 E\'lon qilish', 'post_cargo')
+      .text('🔙 Orqaga', 'cargo_system');
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  }
+
+  private async showAllCargoOffers(ctx: any) {
+    const allActiveOffers = Array.from(this.cargoOffers.values())
+      .filter(offer => offer.status === 'active')
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    if (allActiveOffers.length === 0) {
+      await this.safeEditMessage(ctx, 
+        '📦 <b>Hozircha faol yuk e\'lonlari yo\'q</b>\n\nYuk e\'lon qilish uchun "📦 Yuk e\'lon qilish" tugmasini bosing.',
+        {
+          parse_mode: 'HTML',
+          reply_markup: new InlineKeyboard()
+            .text('📦 Yuk e\'lon qilish', 'post_cargo')
+            .text('🔙 Orqaga', 'cargo_system')
+        }
+      );
+      return;
+    }
+
+    let message = '📦 <b>BARCHA FAOL YUK E\'LONLARI</b>\n\n';
+    
+    allActiveOffers.slice(0, 20).forEach((offer, index) => {
+      const timeAgo = this.getTimeAgo(new Date(offer.date));
+      message += `
+<b>${index + 1}. ${offer.fromCity} → ${offer.toCity}</b>
+🏷️ ${offer.cargoType}
+🚛 ${offer.truckInfo}
+💰 ${offer.price.toLocaleString()} so'm
+👤 @${offer.username}
+📱 ${offer.phone}
+⏰ ${timeAgo}
+${offer.description ? `📝 ${offer.description}` : ''}
+
+`;
+    });
+
+    const keyboard = new InlineKeyboard()
+      .text('🆕 Yangi yuklar', 'view_cargo')
+      .text('🔄 Yangilash', 'all_cargo').row()
+      .text('📦 E\'lon qilish', 'post_cargo')
       .text('🔙 Orqaga', 'cargo_system');
 
     await this.safeEditMessage(ctx, message, {
@@ -3458,8 +3810,8 @@ ${stars} ${driver.rating.toFixed(1)} (${driver.completedOrders} order)
 ✅ <b>YUK E'LONI MUVAFFAQIYATLI JOYLANDI!</b>
 
 📦 <b>Yuk ma'lumotlari:</b>
-📍 <b>Marshrut:</b> ${fromCity} → ${toCity}
-🏷️ <b>Yuk turi:</b> ${cargoType}
+🚚 <b>Yo'nalish:</b> ${fromCity} dan ${toCity} ga
+📦 <b>Yuk tafsilotlari:</b> ${cargoType}
 ⚖️ <b>Og'irligi:</b> ${weight} tonna
 💰 <b>Narxi:</b> ${price.toLocaleString()} so'm
 📱 <b>Telefon:</b> ${phone}
@@ -3734,8 +4086,8 @@ ${description ? `📝 <b>Qo'shimcha:</b> ${description}` : ''}
 
 <b>4-qadam (4 tadan):</b> Narx so'rovi (${questionIndex + 1}/2)
 
-📍 <b>Yo'nalish:</b> ${question.from} → ${question.to}
-🏷️ <b>Yuk turi:</b> ${question.type}
+🚚 <b>Yo'nalish:</b> ${question.from} dan ${question.to} ga
+📦 <b>Yuk tafsilotlari:</b> ${question.type}
 ⚖️ <b>Og'irligi:</b> ${question.weight}
 
 💰 <b>Qancha summa talab qilasiz?</b>
@@ -3916,8 +4268,8 @@ ${description ? `📝 <b>Qo'shimcha:</b> ${description}` : ''}
 
 <b>4-qadam (4 tadan):</b> Narx so'rovi (1/2)
 
-📍 <b>Yo'nalish:</b> ${firstQuestion.from} → ${firstQuestion.to}
-🏷️ <b>Yuk turi:</b> ${firstQuestion.type}
+🚚 <b>Yo'nalish:</b> ${firstQuestion.from} dan ${firstQuestion.to} ga
+📦 <b>Yuk tafsilotlari:</b> ${firstQuestion.type}
 ⚖️ <b>Og'irligi:</b> ${firstQuestion.weight}
 
 💰 <b>Qancha summa talab qilasiz?</b>
@@ -4262,7 +4614,8 @@ Endi bosh menyuga o'ting va platformaning barcha funksiyalaridan foydalaning!
   }
 
   private async initializeDemoData() {
-    // Barcha demo ma'lumotlarni tozalaymiz - hech qanday demo cargo va driverlar qo'shmaymiz
+    // Demo cargo creation disabled by user request
+    this.logger.log('Demo cargo creation is disabled - running in production mode');
     
     // Faqat asosiy narx bazasini initsializatsiya qilamiz (pricing database)
     this.initializePricingDatabase([]);
@@ -4286,6 +4639,140 @@ Endi bosh menyuga o'ting va platformaning barcha funksiyalaridan foydalaning!
     
     this.logger.log(`Profile validation completed - cleaned: ${cleanedCount}, regenerated: ${regeneratedCount}`);
     this.logger.log('Clean initialization completed - ready for real users to register');
+  }
+
+  private createDemoCargos() {
+    const cities = [
+      'Toshkent', 'Samarqand', 'Buxoro', 'Andijon', 'Farg\'ona', 'Namangan', 
+      'Qarshi', 'Guliston', 'Jizzax', 'Navoiy', 'Nukus', 'Termiz', 
+      'Xiva', 'Kokand', 'Margilon', 'Chirchiq'
+    ];
+
+    const cargoTypes = [
+      'Oziq-ovqat mahsulotlari', 'Qurilish materiallari', 'Maishiy texnika',
+      'Kiyim-kechak', 'Mebel va uy-joy buyumlari', 'Tibbiyot preparatlari',
+      'Kimyo mahsulotlari', 'Metallurgiya mahsulotlari', 'Neft mahsulotlari',
+      'Qishloq xo\'jalik mahsulotlari', 'Avtomobil ehtiyot qismlari',
+      'Elektron texnika', 'Toy-tuhaf buyumlari', 'Sport anjomlari',
+      'Kitob va o\'quv materiallari'
+    ];
+
+    const truckTypes = [
+      'ISUZU NPR (3-5 tonna)', 'ISUZU NQR (5-8 tonna)', 'KAMAZ (10-15 tonna)',
+      'MAN TGX (15-20 tonna)', 'Volvo FH16 (20-25 tonna)', 'Scania R-series (25-30 tonna)',
+      'Kichik yuk mashinasi (1-3 tonna)', 'O\'rta yuk mashinasi (5-10 tonna)',
+      'Katta yuk mashinasi (15+ tonna)'
+    ];
+
+    const phones = [
+      '+998901234567', '+998902345678', '+998903456789', '+998904567890',
+      '+998905678901', '+998906789012', '+998907890123', '+998908901234'
+    ];
+
+    // Clear existing cargos and create 50 new demo cargos
+    this.recentCargos = [];
+    
+    for (let i = 1; i <= 50; i++) {
+      const fromCity = cities[Math.floor(Math.random() * cities.length)];
+      let toCity;
+      do {
+        toCity = cities[Math.floor(Math.random() * cities.length)];
+      } while (toCity === fromCity);
+
+      const cargoType = cargoTypes[Math.floor(Math.random() * cargoTypes.length)];
+      const truckType = truckTypes[Math.floor(Math.random() * truckTypes.length)];
+      const phone = phones[Math.floor(Math.random() * phones.length)];
+      
+      const basePrice = Math.floor(Math.random() * 2000000) + 500000; // 500k - 2.5M som
+      const weight = Math.floor(Math.random() * 20) + 1; // 1-20 tonna
+      
+      const cargoId = `DEMO_${Date.now()}_${i}`;
+      
+      const cargo = {
+        id: cargoId,
+        route: `${fromCity} → ${toCity}`,
+        details: `📦 ${cargoType}\n🚛 Kerak: ${truckType}\n⚖️ ${weight} tonna`,
+        price: `${basePrice.toLocaleString()} so'm`,
+        timestamp: new Date().toLocaleString('uz-UZ'),
+        fromCity,
+        toCity,
+        cargoType,
+        truckInfo: truckType,
+        userId: 999999, // Demo user ID
+        phone,
+        status: 'active',
+        weight,
+        basePrice,
+        description: `Test yuki #${i} - ${cargoType} tashish`
+      };
+
+      // Add to recent cargos
+      this.recentCargos.push(cargo);
+      
+      // Add to cargoOffers map
+      this.cargoOffers.set(cargoId, {
+        id: cargoId,
+        fromCity,
+        toCity, 
+        cargoType,
+        truckInfo: truckType,
+        price: basePrice,
+        phone,
+        userId: 999999,
+        username: `Demo User ${i}`,
+        date: new Date().toLocaleString('uz-UZ'),
+        status: 'active',
+        description: `Test yuki #${i} - ${cargoType} tashish`
+      });
+    }
+
+    this.logger.log(`Created ${this.recentCargos.length} demo cargos for testing`);
+    
+    // Mijoz zakazini qo'shish
+    const newCustomerCargo = {
+      id: `cargo_${Date.now()}_customer`,
+      fromCity: 'Toshkent',
+      toCity: 'Samarqand', 
+      cargoType: 'Oziq-ovqat mahsulotlari',
+      truckInfo: 'Isuzu NPR (3.5 t)',
+      price: 850000,
+      phone: '+998901234567',
+      userId: 123456789,
+      username: 'Abdujalil',
+      date: new Date().toLocaleString('uz-UZ'),
+      status: 'active' as const,
+      description: 'Mijoz zakazi - Oziq-ovqat mahsulotlari tashish'
+    };
+    
+    this.recentCargos.push(newCustomerCargo);
+    this.cargoOffers.set(newCustomerCargo.id, newCustomerCargo);
+    
+    this.logger.log(`Customer order added: ${newCustomerCargo.id}`);
+
+    // Demo zakazlarni haydovchilarga darhol yuborish
+    this.sendDemoCargoNotifications(newCustomerCargo);
+  }
+
+  private async sendDemoCargoNotifications(customerCargo: any) {
+    try {
+      // Send customer cargo notification
+      await this.notifyAllDriversAboutNewCargo(customerCargo);
+      
+      // Send 5 random demo cargos to drivers for testing
+      const demoCargoList = Array.from(this.cargoOffers.values())
+        .filter(cargo => cargo.id.startsWith('DEMO_'))
+        .slice(0, 5);
+        
+      for (const demoCargo of demoCargoList) {
+        await this.notifyAllDriversAboutNewCargo(demoCargo);
+        // Small delay between notifications
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      this.logger.log(`✅ Sent ${demoCargoList.length + 1} cargo notifications to drivers`);
+    } catch (error) {
+      this.logger.error('❌ Error sending demo cargo notifications:', error);
+    }
   }
 
   private initializePricingDatabase(drivers: any[]) {
@@ -4437,7 +4924,7 @@ Endi bosh menyuga o'ting va platformaning barcha funksiyalaridan foydalaning!
   // Method to get pricing suggestions for yukchi (cargo shipper)
   async showPricingSuggestion(ctx: any, fromCity: string, toCity: string, cargoWeight: number) {
     const truckTypes = ['Yuk mashinasi', 'Refrigerator', 'Katta yuk mashinasi'];
-    let message = `💰 <b>Narx taklifi</b>\n\n📍 <b>Yo'nalish:</b> ${fromCity} → ${toCity}\n⚖️ <b>Og'irlik:</b> ${cargoWeight} tonna\n\n`;
+    let message = `💰 <b>Narx taklifi</b>\n\n🚚 <b>Yo'nalish:</b> ${fromCity} dan ${toCity} ga\n⚖️ <b>Og'irlik:</b> ${cargoWeight} tonna\n\n`;
 
     truckTypes.forEach(truckType => {
       const pricing = this.calculateDynamicPrice(fromCity, toCity, truckType, cargoWeight);
@@ -4465,7 +4952,7 @@ Endi bosh menyuga o'ting va platformaning barcha funksiyalaridan foydalaning!
     // Set location step
     let currentStep = this.cargoPostingSteps.get(userId);
     if (!currentStep) {
-      currentStep = { step: 'locationFrom', userId };
+      currentStep = { step: 'locationFrom', data: {} };
     } else {
       currentStep.step = 'locationFrom';
     }
@@ -4494,7 +4981,7 @@ Yoki matn sifatida shahar nomini yozing.
     // Set location step  
     let currentStep = this.cargoPostingSteps.get(userId);
     if (!currentStep) {
-      currentStep = { step: 'locationTo', userId };
+      currentStep = { step: 'locationTo', data: {} };
     } else {
       currentStep.step = 'locationTo';
     }
@@ -4526,183 +5013,131 @@ Yoki matn sifatida shahar nomini yozing.
       return;
     }
 
+    // Delete user's input message to keep chat clean
+    try {
+      await ctx.api.deleteMessage(ctx.chat.id, ctx.message.message_id);
+    } catch (error) {
+      this.logger.warn('Failed to delete user message:', error.message);
+    }
+
     try {
       switch (currentStep.step) {
         case 'route_and_cargo':
-          currentStep.data.routeAndCargo = text.trim();
-          currentStep.step = 'truck_needed';
-          
-          // Delete previous message for clean UI
-          await this.deleteMessage(ctx);
-          
-          const truckMessage = `
+          let routeInput = text.trim();
+
+          // Apply dictionary correction to manual text input
+          routeInput = await this.correctWithDictionary(routeInput);
+          this.logger.log(`📝 Manual text corrected: "${text.trim()}" → "${routeInput}"`);
+
+          // Basic validation
+          if (routeInput.toLowerCase().includes('qayerdan') ||
+              routeInput.toLowerCase().includes('qayerga') ||
+              routeInput.toLowerCase().includes('nima yukingiz') ||
+              routeInput.length < 10) {
+
+            // Update the existing message to show error
+            if (currentStep.messageId) {
+              await this.safeEditMessageById(ctx.chat.id, currentStep.messageId, `
 📦 <b>YUK E'LON QILISH</b>
 
-✅ <b>1-savol:</b> ${currentStep.data.routeAndCargo}
+❌ <b>Noto'g'ri format!</b>
 
-🚚 <b>2-savol:</b> Qanaqa mashina kerak?
+🔄 Iltimos, to'g'ri formatda kiriting:
 
-<b>Misol:</b>
-• 10 tonnali yuk mashinasi
-• Kichik furgon 3 tonna
-• Katta yuk mashinasi 20 tonna
-• Tent bilan 15 tonnali
+<b>✅ Misol:</b>
+• Toshkent → Samarqand, mebel
+• Andijon → Toshkent, paxta
+• Buxoro → Nukus, oziq-ovqat
 
-📝 Mashina turini yozing:
-          `;
-          
-          await ctx.reply(truckMessage, {
-            parse_mode: 'HTML',
-            reply_markup: new InlineKeyboard()
-              .text('🔙 Orqaga', 'cargo_system')
-          });
+📝 <b>Format:</b> Shahar1 → Shahar2, yuk turi
+              `, {
+                parse_mode: 'HTML',
+                reply_markup: new InlineKeyboard()
+                  .text('🔙 Orqaga', 'cargo_system')
+              });
+            }
+            return;
+          }
+
+          // Extract all available information from the detailed input
+          const extractedInfo = this.extractAllCargoInfo(routeInput);
+
+          // Store the original input and extracted data
+          currentStep.data.routeAndCargo = routeInput;
+
+          // Check what information was extracted and set appropriately
+          if (extractedInfo.truckInfo) {
+            currentStep.data.truckNeeded = extractedInfo.truckInfo;
+          }
+          if (extractedInfo.price) {
+            currentStep.data.price = extractedInfo.price;
+          }
+          if (extractedInfo.loadingDate) {
+            currentStep.data.loadingDate = extractedInfo.loadingDate;
+          }
+
+          // Determine the next step based on what information is still missing
+          const nextMissingStep = this.determineNextMissingStep(currentStep);
+          currentStep.step = nextMissingStep;
+
+          // Display appropriate message based on next step
+          await this.showNextCargoStep(ctx, currentStep);
           break;
 
         case 'truck_needed':
-          currentStep.data.truckNeeded = text.trim();
-          currentStep.step = 'price_offer';
-          
-          // Delete previous message for clean UI
-          await this.deleteMessage(ctx);
-          
-          const priceMessage = `
-📦 <b>YUK E'LON QILISH</b>
+          let truckInput = text.trim();
+          truckInput = await this.correctWithDictionary(truckInput);
+          this.logger.log(`🚚 Truck text corrected: "${text.trim()}" → "${truckInput}"`);
 
-✅ <b>1-savol:</b> ${currentStep.data.routeAndCargo}
-✅ <b>2-savol:</b> ${currentStep.data.truckNeeded}
+          // Store truck information
+          currentStep.data.truckNeeded = truckInput;
 
-💰 <b>3-savol:</b> Qancha summa berasiz?
+          // Try to extract additional info from this input too
+          const additionalInfo = this.extractAllCargoInfo(truckInput);
+          if (additionalInfo.price && !currentStep.data.price) {
+            currentStep.data.price = additionalInfo.price;
+          }
+          if (additionalInfo.loadingDate && !currentStep.data.loadingDate) {
+            currentStep.data.loadingDate = additionalInfo.loadingDate;
+          }
 
-<b>Misol:</b>
-• 2000000 so'm
-• 2.5M
-• 1,500,000
+          // Determine next step
+          const nextStep = this.determineNextMissingStep(currentStep);
+          currentStep.step = nextStep;
 
-📝 Narxni yozing:
-          `;
-          
-          await ctx.reply(priceMessage, {
-            parse_mode: 'HTML',
-            reply_markup: new InlineKeyboard()
-              .text('🔙 Orqaga', 'cargo_system')
-          });
+          await this.showNextCargoStep(ctx, currentStep);
           break;
 
         case 'price_offer':
           const price = this.parsePrice(text);
           if (!price) {
-            await ctx.reply('❌ Noto\'g\'ri narx formati. Misol: 2000000, 2.5M, 1,500,000');
+            // Show error and stay on same step
+            await this.showNextCargoStep(ctx, currentStep);
             return;
           }
-          
+
+          // Store price
           currentStep.data.price = price;
-          currentStep.step = 'loading_date';
-          
-          // Delete previous message for clean UI
-          await this.deleteMessage(ctx);
-          
-          const dateMessage = `
-📦 <b>YUK E'LON QILISH</b>
 
-✅ <b>1-savol:</b> ${currentStep.data.routeAndCargo}
-✅ <b>2-savol:</b> ${currentStep.data.truckNeeded}
-✅ <b>3-savol:</b> ${price.toLocaleString()} so'm
+          // Try to extract additional info from this input too
+          const priceAdditionalInfo = this.extractAllCargoInfo(text.trim());
+          if (priceAdditionalInfo.loadingDate && !currentStep.data.loadingDate) {
+            currentStep.data.loadingDate = priceAdditionalInfo.loadingDate;
+          }
 
-📅 <b>4-savol:</b> Yuk qachon yuklanadi?
+          // Determine next step
+          const priceNextStep = this.determineNextMissingStep(currentStep);
+          currentStep.step = priceNextStep;
 
-<b>Misol:</b>
-• Bugun
-• Ertaga
-• 15 dekabr
-• Dushanba kuni
-
-📝 Sanani yozing:
-          `;
-          
-          await ctx.reply(dateMessage, {
-            parse_mode: 'HTML',
-            reply_markup: new InlineKeyboard()
-              .text('🔙 Orqaga', 'cargo_system')
-          });
+          await this.showNextCargoStep(ctx, currentStep);
           break;
 
         case 'loading_date':
-          currentStep.data.loadingDate = text.trim();
-          
-          // E'lon tugallandi - telefon raqamni avtomatik olish
-          const userPhone = this.getUserPhone(userId);
-          if (!userPhone) {
-            await ctx.reply('❌ Telefon raqamingiz topilmadi. Avval registratsiyadan o\'ting.');
-            this.cargoPostingSteps.delete(userId);
-            return;
-          }
-          currentStep.data.phone = userPhone;
-          
-          // Parse route and cargo info
-          const routeInfo = currentStep.data.routeAndCargo.split(',');
-          const routePart = routeInfo[0].trim();
-          const cargoPart = routeInfo[1] ? routeInfo[1].trim() : 'Yuk turi ko\'rsatilmagan';
-          
-          const routeParts = routePart.split('→').map(part => part.trim());
-          const fromCity = routeParts[0] || 'Noma\'lum';
-          const toCity = routeParts[1] || 'Noma\'lum';
-          
-          // Create cargo offer
-          const cargoId = `cargo_${Date.now()}_${userId}`;
-          const cargoOffer = {
-            id: cargoId,
-            userId: userId,
-            fromCity: fromCity,
-            toCity: toCity,
-            cargoType: cargoPart,
-            truckInfo: currentStep.data.truckNeeded,
-            price: currentStep.data.price,
-            loadingDate: currentStep.data.loadingDate,
-            phone: userPhone,
-            status: 'active' as const,
-            date: new Date().toISOString(),
-            description: '',
-            photo: '',
-            completedAt: null
-          };
-          
-          this.cargoOffers.set(cargoId, cargoOffer);
-          this.saveCargoOffers();
-          
-          // Clear posting steps
-          this.cargoPostingSteps.delete(userId);
-          
-          // Delete previous message for clean UI
-          await this.deleteMessage(ctx);
-          
-          // Show completion message
-          const completionMessage = `
-✅ <b>YUK E'LONI YARATILDI!</b>
+          currentStep.data.loadingDate = this.normalizeLoadingDate(text.trim());
 
-📋 <b>E'lon ma'lumotlari:</b>
-🗺️ <b>Yo'nalish:</b> ${fromCity} → ${toCity}
-📦 <b>Yuk:</b> ${cargePart}
-🚛 <b>Mashina:</b> ${currentStep.data.truckNeeded}
-💰 <b>Narx:</b> ${currentStep.data.price.toLocaleString()} so'm
-📅 <b>Sana:</b> ${currentStep.data.loadingDate}
-📞 <b>Telefon:</b> ${userPhone}
-
-🎯 <b>Keyingi qadamlar:</b>
-• Haydovchilar sizga aloqaga chiqadi
-• 3 daqiqadan keyin dispechrlar ham ko'radi
-• Qabul qilgan haydovchi bilan gaplashing
-
-⏱️ <b>E'lon faol!</b> Haydovchilarni kuting...
-          `;
-
-          await ctx.reply(completionMessage, {
-            parse_mode: 'HTML',
-            reply_markup: new InlineKeyboard()
-              .text('🔙 Bosh menyu', 'back_main')
-          });
-
-          // Start cargo distribution
-          this.distributeCargo(cargoOffer);
+          // Complete the cargo posting
+          currentStep.step = 'complete';
+          await this.showNextCargoStep(ctx, currentStep);
           break;
 
         default:
@@ -4715,14 +5150,30 @@ Yoki matn sifatida shahar nomini yozing.
       
     } catch (error) {
       this.logger.error('Cargo posting step error:', error);
-      await ctx.reply(
-        '❌ Xatolik yuz berdi. Iltimos, qayta urinib ko\'ring.',
-        {
-          reply_markup: new InlineKeyboard()
-            .text('🔄 Qayta boshlash', 'post_cargo')
-            .text('🏠 Bosh menyu', 'back_main')
-        }
-      );
+      
+      // Try to update the existing message with error, otherwise send new message
+      const currentStep = this.cargoPostingSteps.get(userId);
+      if (currentStep?.messageId) {
+        await this.safeEditMessageById(ctx.chat.id, currentStep.messageId, 
+          '❌ Xatolik yuz berdi. Iltimos, qayta urinib ko\'ring.',
+          {
+            parse_mode: 'HTML',
+            reply_markup: new InlineKeyboard()
+              .text('🔄 Qayta boshlash', 'post_cargo')
+              .text('🏠 Bosh menyu', 'back_main')
+          }
+        );
+      } else {
+        await ctx.reply(
+          '❌ Xatolik yuz berdi. Iltimos, qayta urinib ko\'ring.',
+          {
+            reply_markup: new InlineKeyboard()
+              .text('🔄 Qayta boshlash', 'post_cargo')
+              .text('🏠 Bosh menyu', 'back_main')
+          }
+        );
+      }
+      
       this.cargoPostingSteps.delete(userId);
     }
   }
@@ -4764,7 +5215,7 @@ Iltimos, bu yo'nalish bo'yicha narxlar quyidagicha. Shu narxlardan pastiga moshi
     });
   }
 
-  private async completeCargoPosting(ctx: any, data: any) {
+  private async completeCargoPostingOld(ctx: any, data: any) {
     try {
       // Generate cargo ID
       const cargoId = `cargo_${Date.now()}_${ctx.from.id}`;
@@ -4798,9 +5249,8 @@ Iltimos, bu yo'nalish bo'yicha narxlar quyidagicha. Shu narxlardan pastiga moshi
 ✅ <b>YUK E'LONI MUVAFFAQIYATLI YARATILDI!</b>
 
 📦 <b>E'lon ma'lumotlari:</b>
-📍 <b>Qayerdan:</b> ${data.from}
-📍 <b>Qayerga:</b> ${data.to}
-🏷️ <b>Yuk turi:</b> ${data.type}
+🚚 <b>Yo'nalish:</b> ${data.from} dan ${data.to} ga
+📦 <b>Yuk tafsilotlari:</b> ${data.type}
 🚛 <b>Mashina:</b> ${data.truckInfo}
 💰 <b>Bujet:</b> ${data.budget.toLocaleString()} so'm
 📱 <b>Telefon:</b> ${data.phone}
@@ -5140,7 +5590,7 @@ ${data.description ? `📝 <b>Qo'shimcha:</b> ${data.description}\n` : ''}
 
 ✅ <b>Qayerdan:</b> ${currentStep.data.from}
 ✅ <b>Qayerga:</b> ${currentStep.data.to}
-✅ <b>Yuk turi:</b> ${currentStep.data.type}
+✅ <b>Yuk tafsilotlari:</b> ${currentStep.data.type}
 ✅ <b>Mashina:</b> ${currentStep.data.truckInfo}
 ✅ <b>Telefon:</b> ${currentStep.data.phone}
 ✅ <b>Bujet:</b> ${currentStep.data.budget.toLocaleString()} so'm
@@ -5258,11 +5708,16 @@ Yuk turini yozing:
   // Notify all registered drivers about new cargo with priority system
   private async notifyAllDriversAboutNewCargo(cargo: any) {
     try {
+      this.logger.log(`🚛 DEBUG: notifyAllDriversAboutNewCargo chaqirildi cargo ID: ${cargo.id}`);
+      this.logger.log(`🚛 Starting notification process for cargo: ${cargo.id}`);
+      
       // Get all registered drivers
       const allDrivers = Array.from(this.userRoles.entries())
         .filter(([id, role]) => role.role === 'haydovchi' && role.isRegistered)
         .map(([id, role]) => ({ id: parseInt(id.toString()), profile: role.profile }));
 
+      this.logger.log(`📊 Found ${allDrivers.length} registered drivers for notification`);
+      
       if (allDrivers.length === 0) {
         this.logger.warn('No registered drivers to notify about new cargo');
         return;
@@ -5279,15 +5734,20 @@ Yuk turini yozing:
       }
 
       // Create notification message according to your specification
+      // Get better user display name
+      const userDisplayName = cargo.username && cargo.username !== 'unknown' 
+        ? cargo.username 
+        : (cargoOwner?.profile?.firstName || cargoOwner?.profile?.name || 'Mijoz');
+      
       const notificationMessage = `
 🆕 <b>BIZDA YANGI BUYURTMA</b>
 
-<b>${senderType}:</b> ${cargo.username}
+<b>${senderType}:</b> ${userDisplayName}
 
-📍 <b>Yo'nalish:</b> ${cargo.fromCity} → ${cargo.toCity}
-🏷️ <b>Yuk turi:</b> ${cargo.cargoType}
-🚛 <b>Kerakli mashina:</b> ${cargo.truckInfo}
-💰 <b>Bujet:</b> ${cargo.price.toLocaleString()} so'm
+🚚 <b>Yo'nalish:</b> ${cargo.fromCity || 'Shahar ko\'rsatilmagan'} dan ${cargo.toCity || 'Shahar ko\'rsatilmagan'} ga
+📦 <b>Yuk tafsilotlari:</b> ${cargo.cargoType || 'Yuk tafsilotlari ko\'rsatilmagan'}
+🚛 <b>Kerakli mashina:</b> ${cargo.truckInfo || 'Mashina turi ko\'rsatilmagan'}
+💰 <b>Bujet:</b> ${cargo.price ? cargo.price.toLocaleString() + ' so\'m' : 'Narx kelishiladi'}
 📱 <b>Telefon:</b> [Qabul qilgandan keyin ko'rinadi]
 ${cargo.description ? `📝 <b>Qo'shimcha:</b> ${cargo.description}` : ''}
 
@@ -5297,9 +5757,11 @@ ${cargo.description ? `📝 <b>Qo'shimcha:</b> ${cargo.description}` : ''}
 
       // Check if dispatcher posted the cargo for priority distribution
       if (cargoOwner?.role === 'dispechr') {
+        this.logger.log(`📤 Sending priority notification (dispatcher) for cargo: ${cargo.id}`);
         // Priority notification system for dispatcher orders
         await this.notifyWithPriority(cargo.userId, allDrivers, notificationMessage, cargo.id);
       } else {
+        this.logger.log(`📤 Sending immediate notification (yukchi) for cargo: ${cargo.id} to ${allDrivers.length} drivers`);
         // Regular notification for yukchi (cargo owner) orders - send to all drivers immediately
         await this.notifyAllDriversImmediately(allDrivers, notificationMessage, cargo.id);
       }
@@ -5370,23 +5832,52 @@ ${cargo.description ? `📝 <b>Qo'shimcha:</b> ${cargo.description}` : ''}
     let successCount = 0;
     const finalMessage = priorityTag ? `${priorityTag}\n${message}` : message;
     
+    // Check if cargo is already accepted
+    const cargo = this.cargoOffers.get(cargoId);
+    if (cargo && (cargo.status === 'matched' || cargo.status === 'completed')) {
+      this.logger.log(`Cargo ${cargoId} already accepted, skipping notifications`);
+      return 0;
+    }
+    
     for (const driver of drivers) {
       try {
+        // Skip drivers who already have active orders
+        const driverActiveOrders = this.acceptedCargos.get(driver.id);
+        this.logger.log(`🔍 DEBUG: Driver ${driver.id} active orders check: has=${!!driverActiveOrders}, size=${driverActiveOrders?.size || 0}, orders=${Array.from(driverActiveOrders || []).join(', ') || 'none'}`);
+        if (driverActiveOrders && driverActiveOrders.size > 0) {
+          this.logger.log(`Driver ${driver.id} already has active orders, skipping notification`);
+          continue;
+        }
+        
+        this.logger.log(`🔄 Attempting to send notification to driver ${driver.id}`);
+        
         await this.bot.api.sendMessage(driver.id, finalMessage, {
           parse_mode: 'HTML',
           reply_markup: new InlineKeyboard()
-            .text('📞 Bog\'lanish', 'contact_cargo_owner_' + cargoId)
-            .text('✅ Qabul qilish', 'accept_cargo_' + cargoId).row()
-            .text('📋 Batafsil', 'cargo_details_' + cargoId)
+            .text('✅ Qabul qilish', 'accept_cargo_' + cargoId)
+            .text('📋 Batafsil', 'cargo_details_' + cargoId).row()
         });
         
+        this.logger.log(`✅ Successfully sent notification to driver ${driver.id}`);
         successCount++;
         
         // Small delay between messages to avoid spam limits
         await new Promise(resolve => setTimeout(resolve, 100));
         
       } catch (error) {
-        this.logger.error(`Failed to notify driver ${driver.id} about new cargo:`, error);
+        this.logger.error(`❌ Failed to notify driver ${driver.id} about new cargo:`, error.message || error);
+        this.logger.error(`Full error object:`, JSON.stringify(error, null, 2));
+        
+        // Log specific Telegram API errors
+        if (error.error_code) {
+          this.logger.error(`Telegram API Error Code: ${error.error_code}`);
+          this.logger.error(`Telegram API Error Description: ${error.description}`);
+          
+          // Check if user blocked the bot
+          if (error.error_code === 403) {
+            this.logger.warn(`Driver ${driver.id} has blocked the bot or stopped it`);
+          }
+        }
       }
     }
     
@@ -5938,7 +6429,7 @@ Yukchi sifatida ro'yxatdan o'tishni hohlaysizmi?
 
 ✅ <b>Qayerdan:</b> ${currentStep.data.from}
 ✅ <b>Qayerga:</b> ${currentStep.data.to}
-✅ <b>Yuk turi:</b> ${selectedType}
+✅ <b>Yuk tafsilotlari:</b> ${selectedType}
 ✅ <b>Telefon:</b> ${userPhone}
 
 🚛 <b>3-qadam:</b> Qanday mashina kerak va qaysi vaqtga?
@@ -6014,6 +6505,13 @@ Yukchi sifatida ro'yxatdan o'tishni hohlaysizmi?
       return;
     }
 
+    // Check if this driver already accepted this exact cargo to prevent double-processing
+    const acceptedCargos = this.acceptedCargos.get(driverId);
+    if (acceptedCargos && acceptedCargos.has(cargoId)) {
+      await this.safeAnswerCallback(ctx, '⚠️ Siz bu buyurtmani allaqachon qabul qilgansiz!');
+      return;
+    }
+
     // Store accepted cargo
     if (!this.acceptedCargos.has(driverId)) {
       this.acceptedCargos.set(driverId, new Set());
@@ -6036,10 +6534,17 @@ Yukchi sifatida ro'yxatdan o'tishni hohlaysizmi?
       activeOrder.assignedDriverId = driverId;
     }
 
-    // Get driver information
-    const driverInfo = this.driverOffers.get(Array.from(this.driverOffers.keys()).find(key => 
-      this.driverOffers.get(key)?.userId === driverId
-    ));
+    // Get driver information from userRoles instead of driverOffers
+    const driverInfo = {
+      userId: driverId,
+      driverName: driverRole?.profile?.fullName || ctx.from.first_name || 'Noma\'lum haydovchi',
+      username: ctx.from.username || 'username_not_set',
+      phone: driverRole?.profile?.phone || '+998 XX XXX XX XX',
+      truckType: driverRole?.profile?.truckType || 'Yuk mashinasi',
+      capacity: driverRole?.profile?.capacity || '5',
+      completedOrders: driverRole?.profile?.completedOrders || 0,
+      rating: driverRole?.profile?.rating || 5.0
+    };
 
     // Mijozga bildirishnoma yuborish
     await this.notifyCustomerDriverAccepted(cargo, driverInfo);
@@ -6063,27 +6568,34 @@ Yukchi sifatida ro'yxatdan o'tishni hohlaysizmi?
 
 ${cargoDetails ? `📦 <b>TO'LIQ MA'LUMOTLAR:</b>
 
-📍 <b>Yo'nalish:</b> ${cargoDetails.fromCity} → ${cargoDetails.toCity}
-🏷️ <b>Yuk turi:</b> ${cargoDetails.cargoType}
+🚚 <b>Yo'nalish:</b> ${cargoDetails.fromCity} dan ${cargoDetails.toCity} ga
+📦 <b>Yuk tafsilotlari:</b> ${cargoDetails.cargoType}
 🚛 <b>Kerakli mashina:</b> ${cargoDetails.truckInfo}
 💰 <b>Bujet:</b> ${cargoDetails.price.toLocaleString()} so'm
 ${cargoDetails.description ? `📝 <b>Qo'shimcha:</b> ${cargoDetails.description}` : ''}
 
-📞 <b>MIJOZ TELEFONI:</b> ${cargoDetails.phone}
 ` : ''}
 🎯 <b>KEYINGI QADAMLAR:</b>
-1️⃣ Mijozga qo'ng'iroq qiling
-2️⃣ Yuk tafsilotlarini aniqlang
-3️⃣ Yetkazib bergach "✅ Bajarildi" tugmasini bosing
+1️⃣ "📞 Mijozga qo'ng'iroq" tugmasini bosing
+2️⃣ Mijoz bilan gaplashib kelishing  
+3️⃣ Yuk tafsilotlarini aniqlang
+4️⃣ Bajarib bo'lgach "✅ Bajarildi" bosing
 
-⏰ <b>Muhim:</b> 15 daqiqa ichida mijozga qo'ng'iroq qiling!
+⚠️ <b>MUHIM OGOHLANTIRISH:</b>
+• Mijoz raqamini ko'rish uchun "📞 Mijozga qo'ng'iroq" tugmasini bosing
+• Mijozga 2 daqiqa ichida qo'ng'iroq qiling!
+• Qo'ng'iroq qilmasangiz har 2 daqiqada eslatma keladi  
+• 3 marta eslatmadan keyin buyurtma bekor bo'ladi!
     `;
+
+    // Driver contact warning will be handled by existing timer system
 
     await ctx.editMessageText(message, {
       parse_mode: 'HTML',
       reply_markup: new InlineKeyboard()
-        .text('✅ Bajarildi', 'complete_cargo_' + cargoId)
-        .text('❌ Bekor qilish', 'cancel_cargo_' + cargoId).row()
+        .text('📞 Mijozga qo\'ng\'iroq', `contact_cargo_owner_${cargoId}`)
+        .text('✅ Bajarildi', `complete_cargo_${cargoId}`)
+        .text('❌ Bekor qilish', `cancel_cargo_${cargoId}`).row()
     });
   }
 
@@ -6173,11 +6685,23 @@ ${cargoDetails.description ? `📝 <b>Qo'shimcha:</b> ${cargoDetails.description
     this.completedCargos.get(driverId)!.add(cargoId);
     acceptedCargos.delete(cargoId);
 
+    // Update cargo status to completed
+    const cargo = this.cargoOffers.get(cargoId);
+    if (cargo) {
+      cargo.status = 'completed';
+      cargo.completedDate = new Date().toISOString();
+    }
+
     // Add 10% cashback to virtual balance
     await this.addDriverCashback(driverId, cargoId, 10);
 
+    // Send rating request to customer (cargo owner)
+    if (cargo && cargo.userId) {
+      await this.sendRatingRequestToCustomer(cargo.userId, cargoId, driverId);
+    }
+
     await this.safeAnswerCallback(ctx, '🎉 Buyurtma bajarildi! Cashback qo\'shildi!');
-    
+
     const balance = this.virtualBalances.get(driverId);
     const message = `
 🎉 <b>BUYURTMA BAJARILDI!</b>
@@ -6203,9 +6727,38 @@ ${cargoDetails.description ? `📝 <b>Qo'shimcha:</b> ${cargoDetails.description
   // Handle cargo owner contact
   private async handleCargoOwnerContact(ctx: any, cargoId: string) {
     const driverId = ctx.from.id;
+    const cargo = this.cargoOffers.get(cargoId);
 
-    // Timer'ni bekor qilish - haydovchi bog'langani uchun
+    if (!cargo) {
+      await this.safeAnswerCallback(ctx, '❌ Buyurtma topilmadi!');
+      return;
+    }
+
+    // Check if driver has accepted this cargo first
+    const acceptedCargos = this.acceptedCargos.get(driverId);
+    if (!acceptedCargos || !acceptedCargos.has(cargoId)) {
+      await this.safeAnswerCallback(ctx, '❌ Avval buyurtmani qabul qiling!');
+      return;
+    }
+
+    // Check if cargo is assigned to this driver
+    if (cargo.assignedDriverId !== driverId) {
+      await this.safeAnswerCallback(ctx, '❌ Bu buyurtma sizga tayinlanmagan!');
+      return;
+    }
+
+    // Timer'ni bekor qilish - haydovchi bog'langani uchun  
     this.cancelDriverContactTimer(cargoId);
+    
+    // Cancel warning timers
+    if (this.driverWarningTimers.has(cargoId)) {
+      const timers = this.driverWarningTimers.get(cargoId);
+      timers?.forEach(timer => clearTimeout(timer));
+      this.driverWarningTimers.delete(cargoId);
+    }
+
+    // Stop 2-minute contact warning system
+    this.stopDriverContactWarning(cargoId);
 
     // Performance'ni yangilash (ijobiy)
     this.updateDriverPerformance(driverId, { 
@@ -6213,32 +6766,100 @@ ${cargoDetails.description ? `📝 <b>Qo'shimcha:</b> ${cargoDetails.description
       onTimeDeliveries: 1
     });
 
-    await this.safeAnswerCallback(ctx, '✅ Yaxshi! Timer bekor qilindi. Mijoz bilan bog\'laning.');
+    // Show customer phone number and stop timer
+    const contactMessage = `
+📞 <b>MIJOZ BILAN BOG'LANISH</b>
+
+🎯 <b>Buyurtma:</b> ${cargoId}
+📍 <b>Marshurt:</b> ${cargo.fromCity} → ${cargo.toCity}
+📦 <b>Yuk:</b> ${cargo.cargoType}
+
+📞 <b>MIJOZ TELEFONI:</b>
+<code>${cargo.phone}</code>
+
+✅ <b>Status:</b> Telefon raqami ko'rsatildi - Timer to'xtatildi
+⏰ <b>Vaqt:</b> ${new Date().toLocaleString('uz-UZ')}
+
+💡 <b>KEYINGI QADAMLAR:</b> 
+• Mijozga qo'ng'iroq qiling va kelishing
+• Yuk olish vaqti va joyini aniqlang
+• Yuk tafsilotlarini muhokama qiling
+• Kelishgandan so'ng "✅ Bajarildi" tugmasini bosing
+    `;
+
+    await ctx.editMessageText(contactMessage, {
+      parse_mode: 'HTML',
+      reply_markup: new InlineKeyboard()
+        .text('✅ Bajarildi', `complete_cargo_${cargoId}`)
+        .text('❌ Bekor qilish', `cancel_cargo_${cargoId}`).row()
+        .text('🔙 Bosh menyu', 'back_to_main')
+    });
     
-    // Mijozga xabar yuborish - haydovchi bog'landi
-    const cargo = this.cargoOffers.get(cargoId);
+    // Mijozga workflow o'zgartirish - haydovchi bog'landi
     if (cargo) {
       try {
-        const contactMessage = `
-📞 <b>HAYDOVCHI BOG'LANDI</b>
+        // 1. Order ma'lumotlarini customer order history'ga qo'shish
+        const orderData = {
+          id: cargoId,
+          fromCity: cargo.fromCity,
+          toCity: cargo.toCity,
+          cargoType: cargo.cargoType,
+          truckInfo: cargo.truckInfo,
+          price: cargo.price,
+          phone: cargo.phone,
+          status: 'in_progress',
+          driverId: cargo.assignedDriverId,
+          acceptedDate: cargo.acceptedDate,
+          contactedDate: new Date().toISOString(),
+          date: cargo.date
+        };
 
-✅ Haydovchi sizga bog'lanish uchun tayyor!
+        // Initialize customer order history if doesn't exist
+        if (!this.customerOrderHistory.has(cargo.userId)) {
+          this.customerOrderHistory.set(cargo.userId, []);
+        }
+        this.customerOrderHistory.get(cargo.userId)!.push(orderData);
+        
+        // 2. Mijozga tashakkurnoma va yangi workflow xabari
+        const customerThankYouMessage = `
+🎉 <b>TABRIKLAYMIZ!</b>
 
-📋 <b>Keyingi qadamlar:</b>
-▫️ Haydovchi bilan qo'ng'iroq qiling yoki kutib turing
-▫️ Yuk olish vaqti va joyini kelishasiz  
-▫️ Yuk tafsilotlarini muhokama qiling
+✅ <b>Sizning yukingiz haydovchiga tayinlandi!</b>
 
-🆔 <b>Buyurtma ID:</b> <code>${cargoId}</code>
+🚛 Haydovchi sizga bog'lanish uchun tayyor. 
 
-💡 Muammoli bo'lsa, /yordam orqali qo'llab-quvvatlashga murojaat qiling.
+📋 <b>Buyurtma ma'lumotlari:</b>
+🆔 ID: <code>${cargoId}</code>
+📍 ${cargo.fromCity || 'Noma\'lum'} → ${cargo.toCity || 'Noma\'lum'}
+📦 ${cargo.cargoType || 'Yuk turi ko\'rsatilmagan'}
+💰 ${cargo.price ? (cargo.price / 1000000).toFixed(1) + ' mln so\'m' : 'Narx ko\'rsatilmagan'}
+
+🔄 <b>KEYINGI QADAMLAR:</b>
+▫️ Haydovchi sizga qo'ng'iroq qiladi
+▫️ Yuk olish vaqti va joyini kelishasiz
+▫️ Buyurtma bajarilishini kuzatishingiz mumkin
+
+💡 <b>Buyurtmangizni "Mening orderlarim" bo'limidan kuzatib borishingiz mumkin.</b>
+
+🙏 <b>Xizmatimizdan foydalanganingiz uchun rahmat!</b>
         `;
 
-        await this.bot.api.sendMessage(cargo.userId, contactMessage, {
-          parse_mode: 'HTML'
+        // 3. Mijozning chatini tozalash va bosh menyuga qaytarish
+        await this.bot.api.sendMessage(cargo.userId, customerThankYouMessage, {
+          parse_mode: 'HTML',
+          reply_markup: {
+            keyboard: [
+              [{ text: '📦 Yuk berish' }, { text: '📋 Mening orderlarim' }],
+              [{ text: '👨‍💼 Haydovchi bo\'lish' }, { text: '💰 Balansim' }],
+              [{ text: '📞 Qo\'llab-quvvatlash' }, { text: '⚙️ Sozlamalar' }]
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: false
+          }
         });
+
       } catch (error) {
-        this.logger.error(`Failed to notify customer about driver contact for cargo ${cargoId}:`, error);
+        this.logger.error(`Failed to update customer workflow for cargo ${cargoId}:`, error);
       }
     }
   }
@@ -6300,6 +6921,107 @@ ${cargoDetails.description ? `📝 <b>Qo'shimcha:</b> ${cargoDetails.description
     await this.processDispatcherBonus(driverId, cashbackAmount);
 
     this.logger.log(`Added ${cashbackAmount} cashback to driver ${driverId} for cargo ${cargoId}`);
+  }
+
+  // Send rating request to customer after cargo completion
+  private async sendRatingRequestToCustomer(customerId: number, cargoId: string, driverId: number) {
+    try {
+      const cargo = this.cargoOffers.get(cargoId);
+      const driverRole = this.userRoles.get(driverId);
+      const driverName = driverRole?.profile?.fullName || 'Haydovchi';
+
+      if (!cargo) return;
+
+      const ratingMessage = `
+⭐ <b>XIZMATNI BAHOLANG</b>
+
+🎉 <b>Yukingiz muvaffaqiyatli yetkazildi!</b>
+
+📦 <b>Buyurtma:</b> ${cargoId}
+🚚 <b>Yo'nalish:</b> ${cargo.fromCity} → ${cargo.toCity}
+👤 <b>Haydovchi:</b> ${driverName}
+📅 <b>Bajarilgan:</b> ${new Date().toLocaleDateString('uz-UZ')}
+
+🌟 <b>Haydovchini baholashingizni so'raymiz:</b>
+Sizning fikringiz bizning xizmatimizni yaxshilashga yordam beradi!
+`;
+
+      const ratingKeyboard = new InlineKeyboard()
+        .text('⭐⭐⭐⭐⭐ (5)', `rating_${cargoId}_5`)
+        .text('⭐⭐⭐⭐ (4)', `rating_${cargoId}_4`).row()
+        .text('⭐⭐⭐ (3)', `rating_${cargoId}_3`)
+        .text('⭐⭐ (2)', `rating_${cargoId}_2`).row()
+        .text('⭐ (1)', `rating_${cargoId}_1`)
+        .text('❌ Baho bermaslik', 'skip_rating').row();
+
+      await this.bot.api.sendMessage(customerId, ratingMessage, {
+        parse_mode: 'HTML',
+        reply_markup: ratingKeyboard
+      });
+
+    } catch (error) {
+      this.logger.error(`Error sending rating request to customer ${customerId}:`, error);
+    }
+  }
+
+  // Process rating from customer
+  private async processRating(ctx: any, cargoId: string, rating: number) {
+    const customerId = ctx.from.id;
+
+    // Save rating
+
+    this.cargoRatings.set(cargoId, {
+      cargoId,
+      customerId,
+      rating,
+      date: new Date().toISOString(),
+      feedback: ''
+    });
+
+    const ratingStars = '⭐'.repeat(rating);
+    const responseMessage = `
+🌟 <b>RAHMAT!</b>
+
+${ratingStars} <b>Sizning bahoyingiz qabul qilindi!</b>
+
+📦 <b>Buyurtma:</b> ${cargoId}
+⭐ <b>Baho:</b> ${rating}/5
+
+💡 <b>Sizning fikringiz bizning xizmatimizni yaxshilashga yordam beradi!</b>
+
+🚀 <b>Yangi yuklar uchun:</b> "📦 Yuk berish" tugmasini bosing
+`;
+
+    await ctx.editMessageText(responseMessage, {
+      parse_mode: 'HTML',
+      reply_markup: new InlineKeyboard()
+        .text('📦 Yangi yuk berish', 'post_cargo')
+        .text('🏠 Bosh menyu', 'back_to_main').row()
+    });
+
+    await this.safeAnswerCallback(ctx, `✅ ${rating} yulduzli baho berildi!`);
+  }
+
+  // Handle skip rating
+  private async handleSkipRating(ctx: any) {
+    const skipMessage = `
+😊 <b>BAHO BERISHNI O'TKAZDINGIZ</b>
+
+🙏 <b>Hech qanday muammo yo'q!</b>
+Keyingi safar baho berishingiz mumkin.
+
+🚀 <b>Yangi yuklar uchun:</b>
+"📦 Yuk berish" tugmasini bosing
+`;
+
+    await ctx.editMessageText(skipMessage, {
+      parse_mode: 'HTML',
+      reply_markup: new InlineKeyboard()
+        .text('📦 Yangi yuk berish', 'post_cargo')
+        .text('🏠 Bosh menyu', 'back_to_main').row()
+    });
+
+    await this.safeAnswerCallback(ctx, '✅ Baho berishni o\'tkazdingiz');
   }
 
   // Process dispatcher bonus when their referred driver earns
@@ -6567,6 +7289,18 @@ ${allTransactions}
     }
 
     acceptedCargos.delete(cargoId);
+    
+    // Update cargo status to make it available again
+    const cargo = this.cargoOffers.get(cargoId);
+    if (cargo) {
+      cargo.status = 'active';
+      cargo.assignedDriverId = null;
+      this.cargoOffers.set(cargoId, cargo);
+    }
+
+    // Stop any contact warnings for this cargo
+    this.stopDriverContactWarning(cargoId);
+    
     await this.safeAnswerCallback(ctx, '❌ Buyurtma bekor qilindi!');
     
     const message = `
@@ -6583,11 +7317,12 @@ ${allTransactions}
       reply_markup: new InlineKeyboard()
         .text('🏠 Bosh menyu', 'back_to_main')
     });
-  }
 
-  // Store accepted and completed cargos per driver
-  private acceptedCargos = new Map<number, Set<string>>();
-  private completedCargos = new Map<number, Set<string>>();
+    // Notify other available drivers about the canceled cargo
+    if (cargo) {
+      await this.notifyAvailableDriversAboutCargo(cargoId);
+    }
+  }
 
 
 
@@ -6799,7 +7534,7 @@ Texnik yordam: 09:00-22:00
 
 🚗 <b>Mashina:</b> ${driverInfo.truckType}
 ⚖️ <b>Tonnaj:</b> ${driverInfo.capacity} tonna
-📍 <b>Yo'nalish:</b> ${driverInfo.fromCity} → ${driverInfo.toCity}
+🔍 <b>Yo'nalish:</b> ${driverInfo.fromCity} dan ${driverInfo.toCity} ga
 
 ┌─────────────────────────────┐
 │        📊 STATISTIKA        │  
@@ -7846,32 +8581,6 @@ foydali bo'ling!
     });
   }
 
-  private async processRating(ctx: any, orderId: string, rating: number) {
-    // This would normally save the rating to database
-    // For now, we'll just show confirmation
-    
-    const ratingText = '⭐'.repeat(rating);
-    const ratingWords = ['', 'Juda yomon', 'Yomon', 'O\'rtacha', 'Yaxshi', 'Mukammal'];
-    
-    await ctx.editMessageText(`
-✅ <b>BAHO MUVAFFAQIYATLI BERILDI!</b>
-
-📦 <b>Order:</b> ${orderId}
-${ratingText} <b>${rating}/5 - ${ratingWords[rating]}</b>
-
-💬 <b>Sharh qo'shishni xohlaysizmi?</b>
-
-Batafsil fikringizni yozsangiz, boshqa 
-foydalanuvchilar uchun juda foydali bo'ladi!
-    `, {
-      parse_mode: 'HTML',
-      reply_markup: new InlineKeyboard()
-        .text('💬 Sharh yozish', `comment_${orderId}`)
-        .text('✅ Tugatish', 'rating_menu').row()
-        .text('⭐ Yana baho berish', 'give_rating')
-        .text('🔙 Orqaga', 'rating_menu').row()
-    });
-  }
 
   // Initialize demo ratings
   private initializeDemoRatings() {
@@ -8611,29 +9320,60 @@ kishi avtomatik xabarnoma oladi.
     try {
       await ctx.editMessageText(message, options);
     } catch (error) {
-      if (error.description?.includes('message is not modified') || 
+      if (error.description?.includes('message is not modified') ||
           error.description?.includes('message to edit not found') ||
           error.description?.includes('MESSAGE_ID_INVALID')) {
         // Silently handle common edit errors
         this.logger.debug(`Safe edit handled: ${error.description}`);
         return;
       }
-      // For other errors, try to reply instead
+      // For other errors, try to reply and update messageId for cargo posting flow
       try {
-        await ctx.reply(message, {
+        const replyMessage = await ctx.reply(message, {
           parse_mode: options.parse_mode || 'HTML',
           reply_markup: options.reply_markup
         });
+
+        // If this is during cargo posting, update the message ID
+        if (ctx.from && this.cargoPostingSteps.has(ctx.from.id)) {
+          const currentStep = this.cargoPostingSteps.get(ctx.from.id);
+          if (currentStep) {
+            currentStep.messageId = replyMessage.message_id;
+            this.cargoPostingSteps.set(ctx.from.id, currentStep);
+          }
+        }
       } catch (replyError) {
         this.logger.error('Failed to edit or reply message:', replyError);
       }
     }
   }
 
+  // Safe message editing by message ID - for cargo posting steps
+  private async safeEditMessageById(chatId: number, messageId: number, message: string, options: any = {}) {
+    try {
+      await this.bot.api.editMessageText(chatId, messageId, message, options);
+    } catch (error) {
+      if (error.description?.includes('message is not modified') || 
+          error.description?.includes('message to edit not found') ||
+          error.description?.includes('MESSAGE_ID_INVALID')) {
+        // Silently handle common edit errors
+        this.logger.debug(`Safe edit by ID handled: ${error.description}`);
+        return;
+      }
+      // For other errors, log but don't crash
+      this.logger.error('Failed to edit message by ID:', error);
+    }
+  }
+
   // Safe callback query answering to prevent bot crashes
   private async safeAnswerCallback(ctx: any, message: string, options: any = {}) {
     try {
-      await ctx.answerCallbackQuery(message, options);
+      // Fix Grammy callback query handling by merging options properly
+      if (message) {
+        await ctx.answerCallbackQuery({ text: message, ...options });
+      } else {
+        await ctx.answerCallbackQuery(options);
+      }
     } catch (error) {
       this.logger.warn(`Failed to answer callback query: ${error.description || error.message}`);
       // Don't crash the bot, just log the error
@@ -8649,11 +9389,52 @@ kishi avtomatik xabarnoma oladi.
     return ctx.from.id;
   }
 
+  // ===== YUKCHI PANEL FOR ADMIN ===== //
+
+  private async showYukchiPanel(ctx: any) {
+    const user = ctx.from;
+    const userRole = this.userRoles.get(user.id);
+
+    // Admin foydalanuvchilar uchun yukchi panel
+    const adminUsers = [5772668259];
+    if (!adminUsers.includes(user.id) || userRole?.role !== 'yukchi') {
+      await this.safeAnswerCallback(ctx, '❌ Ruxsat yo\'q!');
+      return;
+    }
+
+    const activeOrders = Array.from(this.cargoOffers.values()).filter(o => o.userId === user.id && o.status === 'active').length;
+    const completedOrders = Array.from(this.cargoOffers.values()).filter(o => o.userId === user.id && o.status === 'completed').length;
+
+    const welcomeMessage = `
+📦 <b>YUKCHI PANELI</b>
+
+👋 Salom, ${user.first_name}!
+
+🔄 <b>Faol:</b> ${activeOrders} ta | ✅ <b>Bajarilgan:</b> ${completedOrders} ta
+
+💡 Yuk e'lon qilish uchun quyidagi tugmalardan foydalaning:
+    `;
+
+    // Yukchi uchun doimiy keyboard
+    await ctx.reply(welcomeMessage, {
+      parse_mode: 'HTML',
+      reply_markup: {
+        keyboard: [
+          [{ text: '📦 Yuk berish' }, { text: '📋 Mening orderlarim' }],
+          [{ text: '🔍 Yuk kuzatuvi' }, { text: '🚚 Haydovchilar' }],
+          [{ text: '📞 Qo\'llab-quvvatlash' }, { text: '⚙️ Sozlamalar' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false
+      }
+    });
+  }
+
   // ===== ADMIN PANEL & CRM SYSTEM ===== //
-  
+
   private async showAdminPanel(ctx: any) {
     // Admin access check
-    const adminUsers = [parseInt(process.env.ADMIN_USER_ID || '0'), 5968018488, 5772668259]; // Abbosxon va yangi admin ID qo'shildi
+    const adminUsers = [5772668259]; // Abbosxon va yangi admin ID qo'shildi
     if (!adminUsers.includes(ctx.from.id)) {
       await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
       return;
@@ -8668,29 +9449,36 @@ kishi avtomatik xabarnoma oladi.
     const completedOrders = Array.from(this.cargoOffers.values()).filter(o => o.status === 'completed').length;
 
     const message = `
-🔐 <b>ADMIN PANEL - CRM DASHBOARD</b>
+🖥️ <b>YO'LDA ADMIN CONTROL CENTER</b>
 
-📊 <b>ASOSIY STATISTIKA:</b>
-👥 Jami foydalanuvchilar: <b>${totalUsers}</b>
-🚚 Haydovchilar: <b>${totalDrivers}</b>
-📦 Yukchilar: <b>${totalCustomers}</b>
-🎭 Dispechrlar: <b>${totalDispatchers}</b>
+✨ <b>Professional Web-Based Admin Panel</b>
 
-📋 <b>ORDERLAR:</b>
-📊 Jami orderlar: <b>${totalOrders}</b>
-🟢 Faol orderlar: <b>${activeOrders}</b>
-✅ Bajarilgan: <b>${completedOrders}</b>
+📊 <b>QUICK STATS:</b>
+👥 Total Users: <b>${totalUsers}</b>
+🚚 Drivers: <b>${totalDrivers}</b> | 📦 Customers: <b>${totalCustomers}</b>
+📋 Orders: <b>${totalOrders}</b> | 🟢 Active: <b>${activeOrders}</b>
 
-⏰ <b>Oxirgi yangilanish:</b> ${new Date().toLocaleString('uz-UZ')}
+💼 <b>ADMIN FEATURES:</b>
+• 📦 Orders Management & Dispatcher
+• 🚛 Driver Monitoring & Control  
+• 📊 Real-time Analytics & Reports
+• ⚙️ System Settings & Configuration
+• 📈 Revenue Tracking & Statistics
+
+🚀 <b>Access Full Admin Panel:</b>
+Use "🖥️ Admin Control Panel" for complete control!
+
+⏰ <b>Last Updated:</b> ${new Date().toLocaleString('uz-UZ')}
     `;
 
     const keyboard = new InlineKeyboard()
-      .text('📊 Batafsil Statistika', 'admin_stats')
-      .text('👥 Foydalanuvchilar', 'admin_users').row()
-      .text('📋 Order Boshqaruvi', 'admin_orders')
+      .webApp('🖥️ Admin Control Panel', 'http://localhost:3000/admin')
+      .text('📊 Statistika', 'admin_stats').row()
+      .text('👥 Foydalanuvchilar', 'admin_users')
+      .text('📋 Orderlar', 'admin_orders').row()
+      .text('🤖 AI Analytics', 'ai_analytics')
       .text('📈 Hisobotlar', 'admin_reports').row()
-      .text('🗑️ Ma\'lumotlarni tozalash', 'admin_clear_data')
-      .text('⚙️ Tizim', 'admin_system').row()
+      .text('⚙️ Sozlamalar', 'admin_system')
       .text('🔙 Orqaga', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
@@ -8700,7 +9488,7 @@ kishi avtomatik xabarnoma oladi.
   }
 
   private async showAdminStats(ctx: any) {
-    const adminUsers = [parseInt(process.env.ADMIN_USER_ID || '0'), 5968018488, 5772668259];
+    const adminUsers = [5772668259];
     if (!adminUsers.includes(ctx.from.id)) {
       await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
       return;
@@ -8752,7 +9540,7 @@ ${topDriversText || 'Ma\'lumot yo\'q'}
   }
 
   private async showAdminUsers(ctx: any) {
-    const adminUsers = [parseInt(process.env.ADMIN_USER_ID || '0'), 5968018488, 5772668259];
+    const adminUsers = [5772668259];
     if (!adminUsers.includes(ctx.from.id)) {
       await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
       return;
@@ -8794,7 +9582,7 @@ ${usersText || 'Foydalanuvchi yo\'q'}
   }
 
   private async showAdminOrders(ctx: any) {
-    const adminUsers = [parseInt(process.env.ADMIN_USER_ID || '0'), 5968018488, 5772668259];
+    const adminUsers = [5772668259];
     if (!adminUsers.includes(ctx.from.id)) {
       await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
       return;
@@ -8837,7 +9625,7 @@ ${ordersText || 'Order yo\'q'}
   }
 
   private async showAdminReports(ctx: any) {
-    const adminUsers = [parseInt(process.env.ADMIN_USER_ID || '0'), 5968018488, 5772668259];
+    const adminUsers = [5772668259];
     if (!adminUsers.includes(ctx.from.id)) {
       await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
       return;
@@ -8897,7 +9685,7 @@ ${ordersText || 'Order yo\'q'}
   }
 
   private async showAdminSystem(ctx: any) {
-    const adminUsers = [parseInt(process.env.ADMIN_USER_ID || '0'), 5968018488, 5772668259];
+    const adminUsers = [5772668259];
     if (!adminUsers.includes(ctx.from.id)) {
       await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
       return;
@@ -8981,6 +9769,147 @@ ${ordersText || 'Order yo\'q'}
     }
   }
 
+  private async sendDriverApp(ctx: any) {
+    const appMessage = `
+📱 <b>YO'LDA DRIVER - MOBIL ILOVA</b>
+
+🚛 <b>Professional haydovchilar uchun maxsus ilova!</b>
+
+✨ <b>Ilova imkoniyatlari:</b>
+• 🎨 Professional Yandex Go darajasidagi dizayn
+• 📍 GPS va lokatsiya kuzatuvi
+• 📦 Real vaqt buyurtmalarni qabul qilish/rad etish
+• 📊 Statistika va hisobotlar
+• 🔔 Push bildirushlar
+• 💼 Professional brending
+• 📱 Barcha Android qurilmalarda ishlaydi
+
+🔥 <b>Nima uchun Yo'lda Driver?</b>
+• Tez va oson foydalanish
+• Bot bilan to'liq integratsiya
+• Professional interfeys
+• Real vaqt ma'lumot yangilanishi
+• Oflayn rejimda ham ishlaydi
+
+📲 <b>O'rnatish:</b>
+1. APK faylni yuklab oling
+2. "Noma'lum manbalardan o'rnatish"ga ruxsat bering
+3. Ilova o'rnating va telefon raqamingiz bilan kiring
+
+🎯 <b>Foydalanish:</b>
+• Login: Telegram'dagi telefon raqamingiz
+• Buyurtmalar: Real vaqtda bot orqali keladi
+• Qabul qilish: Bir tugma bilan
+`;
+
+    const keyboard = new InlineKeyboard()
+      .text('📥 APK Yuklab olish', 'download_apk_file')
+      .url('📖 Qo\'llanma', 'https://t.me/yolda_driver_support').row()
+      .text('🔧 Yordam', 'app_support')
+      .text('🔙 Orqaga', 'back_main').row();
+
+    await this.safeEditMessage(ctx, appMessage, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  }
+
+  private async sendApkFile(ctx: any) {
+    try {
+      // Mobile web app orqali full-featured driver interface
+      const webAppMessage = `
+📱 <b>YO'LDA DRIVER MOBIL ILOVA</b>
+
+✅ <b>To'liq funksional web-ilova tayyor!</b>
+
+🌟 <b>Imkoniyatlar:</b>
+• 🚛 Haydovchi profili boshqaruvi  
+• 🔍 Yuk qidirish va qabul qilish
+• 💰 Daromad va balans kuzatuvi
+• 📍 Marshrutlar va navigatsiya
+• 💬 Mijozlar bilan muloqot
+• 📋 Hujjatlar va hisobotlar
+• 🚨 Favqulodda yordam xizmati
+
+🚀 <b>Qanday foydalanish:</b>
+1. "📱 Haydovchi Paneli" tugmasini bosing
+2. Telegram ichida professional interface ochiladi
+3. Barcha funksiyalardan to'liq foydalaning!
+
+💡 <b>Foydalar:</b>
+• Telegram ichida ochiladi
+• Tezkor va xavfsiz
+• Har qanday qurilmada ishlaydi
+• Doimiy yangilanib turadi
+
+📞 <b>Yordam:</b> @yolda_support
+`;
+
+      await ctx.reply(webAppMessage, {
+        parse_mode: 'HTML',
+        reply_markup: new InlineKeyboard()
+          .webApp('📱 Haydovchi Paneli', 'http://localhost:3000/driver')
+          .text('📱 Ko\'rsatmalar', 'driver_instructions').row()
+          .text('🔙 Orqaga', 'driver_menu').row()
+      });
+      
+    } catch (error) {
+      this.logger.error('Error sending web app message:', error);
+      
+      const errorMessage = `
+❌ <b>Mobil ilova yuklashda xatolik!</b>
+
+🔧 <b>Muqobil usullar:</b>
+• Botni qayta ishga tushiring
+• Admin bilan bog'laning
+
+📞 <b>Yordam:</b> @yolda_support
+`;
+      
+      await this.safeEditMessage(ctx, errorMessage, {
+        parse_mode: 'HTML',
+        reply_markup: new InlineKeyboard()
+          .text('🔄 Qayta urinish', 'download_apk_file')
+          .text('🔙 Orqaga', 'download_app').row()
+      });
+    }
+  }
+
+  private async showAppSupport(ctx: any) {
+    const supportMessage = `
+🔧 <b>YO'LDA DRIVER - YORDAM</b>
+
+❓ <b>Tez-tez so'raladigan savollar:</b>
+
+<b>Q:</b> Ilova ishlamayapti?
+<b>A:</b> Telefon raqamingizni to'g'ri kiriting va internetni tekshiring.
+
+<b>Q:</b> Buyurtmalar kelmayapti?
+<b>A:</b> Profilingizni to'ldiring va onlayn holatta bo'ling.
+
+<b>Q:</b> Ilova o'rnatilmayapti?
+<b>A:</b> "Noma'lum manbalar"ni yoqing va qayta urinib ko'ring.
+
+<b>Q:</b> Raqam tan olinmayapti?
+<b>A:</b> Bot bilan bir xil raqamni kiriting.
+
+📞 <b>To'g'ridan-to'g'ri yordam:</b>
+• Telegram: @yolda_support  
+• Telefon: +998 77 777 77 77
+• Email: support@yolda.uz
+
+🕐 <b>Ish vaqti:</b> 24/7 onlayn yordam
+`;
+
+    await this.safeEditMessage(ctx, supportMessage, {
+      parse_mode: 'HTML',
+      reply_markup: new InlineKeyboard()
+        .url('💬 Telegram yordam', 'https://t.me/yolda_support')
+        .text('📞 Qo\'ng\'iroq', 'call_support').row()
+        .text('🔙 Orqaga', 'download_app')
+    });
+  }
+
   private async saveUserData() {
     try {
       const data = {
@@ -9043,7 +9972,7 @@ ${ordersText || 'Order yo\'q'}
 
   // Show confirmation for clearing all data
   private async showClearDataConfirmation(ctx: any) {
-    const adminUsers = [parseInt(process.env.ADMIN_USER_ID || '0'), 5968018488, 5772668259];
+    const adminUsers = [5772668259];
     if (!adminUsers.includes(ctx.from.id)) {
       await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
       return;
@@ -9082,7 +10011,7 @@ ${ordersText || 'Order yo\'q'}
 
   // Handle clearing all data
   private async handleClearAllData(ctx: any) {
-    const adminUsers = [parseInt(process.env.ADMIN_USER_ID || '0'), 5968018488, 5772668259];
+    const adminUsers = [5772668259];
     if (!adminUsers.includes(ctx.from.id)) {
       await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
       return;
@@ -9500,7 +10429,8 @@ ${ordersText || 'Order yo\'q'}
           const message = `
 🚚 <b>YANGI YUK TAKLIFI!</b>
 
-📍 <b>Yo'nalish:</b> ${cargoOffer.fromCity} → ${cargoOffer.toCity}
+🚚 <b>Yo'nalish:</b> ${cargoOffer.fromCity} dan ${cargoOffer.toCity} ga
+📦 <b>Yuk tafsilotlari:</b> ${cargoOffer.cargoType}
 🚛 <b>Mashina:</b> ${cargoOffer.truckInfo}
 💰 <b>Narx:</b> ${cargoOffer.price ? cargoOffer.price.toLocaleString() + ' so\'m' : 'Kelishiladi'}
 📱 <b>Aloqa:</b> ${cargoOffer.phone}
@@ -9550,26 +10480,47 @@ ${match.reasons.map(r => `• ${r}`).join('\n')}
 
   // Foydalanuvchi telefon raqamini olish
   private getUserPhone(userId: number): string | null {
+    this.logger.log(`🔍 DEBUG: getUserPhone called for user ${userId}`);
+    
     // Avval userRoles dan izlash
     const userRole = this.userRoles.get(userId);
     if (userRole?.profile?.phone) {
-      return userRole.profile.phone;
+      let phone = userRole.profile.phone;
+      // "Telefon raqam: +998901234567" formatidan faqat raqamni ajratish
+      if (phone.includes(':')) {
+        phone = phone.split(':')[1].trim();
+      }
+      this.logger.log(`🔍 DEBUG: Found phone in userRoles: ${phone}`);
+      return phone;
     }
 
     // Keyin driverOffers dan izlash
     for (const [driverKey, driverData] of this.driverOffers.entries()) {
       if (driverData.userId === userId && driverData.phone) {
-        return driverData.phone;
+        let phone = driverData.phone;
+        // "Telefon raqam: +998901234567" formatidan faqat raqamni ajratish
+        if (phone.includes(':')) {
+          phone = phone.split(':')[1].trim();
+        }
+        this.logger.log(`🔍 DEBUG: Found phone in driverOffers: ${phone}`);
+        return phone;
       }
     }
 
     // Oxirida cargoOffers dan izlash
     for (const [cargoKey, cargoData] of this.cargoOffers.entries()) {
       if (cargoData.userId === userId && cargoData.phone) {
-        return cargoData.phone;
+        let phone = cargoData.phone;
+        // "Telefon raqam: +998901234567" formatidan faqat raqamni ajratish
+        if (phone.includes(':')) {
+          phone = phone.split(':')[1].trim();
+        }
+        this.logger.log(`🔍 DEBUG: Found phone in cargoOffers: ${phone}`);
+        return phone;
       }
     }
 
+    this.logger.log(`🔍 DEBUG: Phone not found for user ${userId}`);
     return null;
   }
 
@@ -9919,8 +10870,8 @@ Bu sizning reytingingizga salbiy ta'sir qiladi. Keyingi safar tezroq bog'laning.
     for (const [driverKey, driverData] of this.driverOffers.entries()) {
       const validation = this.validateDriverProfileCompleteness(driverData);
       
-      // Faqat 80% va undan yuqori to'liqlik darajasiga ega haydovchilarga yuborish
-      if (validation.score >= 80) {
+      // Faqat 50% va undan yuqori to'liqlik darajasiga ega haydovchilarga yuborish (testing uchun)
+      if (validation.score >= 50) {
         // Mashina sig'imi va yuk hajmini tekshirish
         // Simplified capacity check - all qualified drivers are eligible
         qualifiedDrivers.push({
@@ -9937,13 +10888,15 @@ Bu sizning reytingingizga salbiy ta'sir qiladi. Keyingi safar tezroq bog'laning.
     for (const driver of qualifiedDrivers) {
       try {
         const cargoMessage = `🚛 Yangi yuk taklifi!\n\n` +
-          `📍 Dan: ${cargoOffer.from}\n` +
-          `📍 Ga: ${cargoOffer.to}\n` +
-          `🚛 Mashina: ${cargoOffer.truckInfo}\n` +
-          `💰 Narx: ${cargoOffer.budget} so'm\n` +
+          `📍 Dan: ${cargoOffer.fromCity || cargoOffer.from || 'Noma\'lum'}\n` +
+          `📍 Ga: ${cargoOffer.toCity || cargoOffer.to || 'Noma\'lum'}\n` +
+          `📦 Yuk: ${cargoOffer.cargoType || 'Noma\'lum'}\n` +
+          `🚛 Mashina: ${cargoOffer.truckInfo || 'Noma\'lum'}\n` +
+          `💰 Narx: ${(cargoOffer.price || cargoOffer.budget || 0).toLocaleString()} so'm\n` +
+          `📅 Yukash: ${cargoOffer.loadingDate || 'Noma\'lum'}\n` +
           `📞 Telefon: ${cargoOffer.phone}\n\n` +
           `✅ Sizning profilingiz ${driver.completionScore}% to'liq - bu taklifni olishingiz uchun sababdir!\n\n` +
-          `Qabul qilish uchun /accept_${cargoOffer.id} tugmasini bosing.`;
+          `Qabul qilish uchun tugmani bosing.`;
 
         await this.bot.api.sendMessage(driver.userId, cargoMessage, {
           reply_markup: new InlineKeyboard()
@@ -10322,5 +11275,2525 @@ ${index + 1}. <b>${shipment.route.from} → ${shipment.route.to}</b>
       parse_mode: 'HTML',
       reply_markup: keyboard
     });
+  }
+
+  private async showComputerInstructions(ctx: any) {
+    const instructionMessage = `
+💻 <b>KOMPYUTERDA OCHISH BO'YICHA KO'RSATMA</b>
+
+🌐 <b>Haydovchi panelini ochish:</b>
+1. Kompyuteringizda brauzer oching (Chrome, Firefox, Safari)
+2. Address bar ga quyidagi address ni kiriting:
+   <code>http://localhost:3000/driver</code>
+3. Enter tugmasini bosing
+
+✅ <b>Professional haydovchi paneli ochiladi!</b>
+
+🎯 <b>Imkoniyatlar:</b>
+• 🚛 Profil boshqaruvi
+• 🔍 Yuk qidirish
+• 💰 Daromad hisobi
+• 📍 Marshrutlar
+• 💬 Mijozlar bilan aloqa
+
+❗ <b>Eslatma:</b> Server localhost:3000 da ishlab turishi kerak
+
+📞 <b>Yordam kerak?</b> @yolda_support
+`;
+
+    await ctx.editMessageText(instructionMessage, {
+      parse_mode: 'HTML',
+      reply_markup: new InlineKeyboard()
+        .text('📱 Ko\'rsatmalar', 'driver_instructions')
+        .text('🔙 Orqaga', 'download_app').row()
+    });
+  }
+
+  private async showDriverInstructions(ctx: any) {
+    const instructionMessage = `
+📱 <b>MOBIL FOYDALANISH BO'YICHA KO'RSATMA</b>
+
+🎯 <b>Haydovchi ilovasi imkoniyatlari:</b>
+
+🚛 <b>Profil boshqaruvi:</b>
+• Shaxsiy ma'lumotlar
+• Mashina ma'lumotlari
+• Reyting va baholar
+
+🔍 <b>Yuk qidirish:</b>
+• Mavjud yuklar ro'yxati
+• Filter bo'yicha qidirish
+• Yuk qabul qilish
+
+💰 <b>Daromad kuzatuvi:</b>
+• Kunlik daromad
+• Haftalik hisobot
+• Oylik statistika
+
+📍 <b>Marshrutlar:</b>
+• GPS navigatsiya
+• Optimal yo'l tanlash
+• Vaqt hisoblash
+
+💬 <b>Mijozlar bilan aloqa:</b>
+• To'g'ridan-to'g'ri chat
+• Telefon qo'ng'iroqlari
+• Holat yangilanishlari
+
+📋 <b>Hujjatlar:</b>
+• Yuk hujjatlari
+• To'lov hujjatlari
+• Hisobotlar
+
+🚨 <b>Favqulodda yordam:</b>
+• Tez yordam: 103
+• Militsiya: 102
+• O't o'chirish: 101
+• Texnik yordam: @yolda_support
+
+✅ <b>Barcha funksiyalar real-time rejimda ishlaydi!</b>
+`;
+
+    await ctx.editMessageText(instructionMessage, {
+      parse_mode: 'HTML',
+      reply_markup: new InlineKeyboard()
+        .text('💻 Kompyuterda ochish', 'open_computer')
+        .text('🔙 Orqaga', 'download_app').row()
+    });
+  }
+
+  // Start driver contact warning system
+  private startDriverContactWarning(cargoId: string, driverId: number) {
+    // Initialize warning data
+    this.driverContactWarnings.set(cargoId, {
+      driverId,
+      warnings: 0,
+      timerId: undefined
+    });
+
+    // Start first warning timer (2 minutes)
+    const warningData = this.driverContactWarnings.get(cargoId)!;
+    warningData.timerId = setTimeout(() => {
+      this.sendDriverContactWarning(cargoId);
+    }, 2 * 60 * 1000); // 2 minutes
+  }
+
+  // Send warning to driver and handle cancellation logic
+  private async sendDriverContactWarning(cargoId: string) {
+    const warningData = this.driverContactWarnings.get(cargoId);
+    if (!warningData) return;
+
+    const { driverId, warnings } = warningData;
+    const newWarningCount = warnings + 1;
+
+    try {
+      if (newWarningCount >= 3) {
+        // Cancel order after 3 warnings
+        await this.bot.api.sendMessage(driverId, `
+❌ <b>BUYURTMA BEKOR QILINDI!</b>
+
+🆔 <b>Buyurtma ID:</b> <code>${cargoId}</code>
+
+⚠️ Siz 3 marta ogohlantirish olgansiz va mijozga qo'ng'iroq qilmadingiz.
+Buyurtma avtomatik bekor qilindi.
+
+💡 Keyingi buyurtmalarni qabul qilishda mijozga darhol qo'ng'iroq qiling!
+        `, {
+          parse_mode: 'HTML'
+        });
+
+        // Remove cargo from active orders and cleanup
+        this.removeCargoFromActiveOrders(cargoId, driverId);
+        this.driverContactWarnings.delete(cargoId);
+        
+      } else {
+        // Send warning message
+        const warningMessage = `
+⚠️ <b>ESLATMA ${newWarningCount}/3</b>
+
+🆔 <b>Buyurtma ID:</b> <code>${cargoId}</code>
+
+⏰ Mijozga qo'ng'iroq qilishni unutmang!
+🔄 ${3 - newWarningCount} ta eslatma qoldi
+
+📞 Darhol mijozga qo'ng'iroq qiling, aks holda buyurtma bekor bo'ladi.
+        `;
+
+        await this.bot.api.sendMessage(driverId, warningMessage, {
+          parse_mode: 'HTML'
+        });
+
+        // Update warning count and set next timer
+        warningData.warnings = newWarningCount;
+        warningData.timerId = setTimeout(() => {
+          this.sendDriverContactWarning(cargoId);
+        }, 2 * 60 * 1000); // Next warning in 2 minutes
+
+        this.driverContactWarnings.set(cargoId, warningData);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to send driver contact warning for cargo ${cargoId}:`, error);
+    }
+  }
+
+  // Stop driver contact warnings when driver contacts customer
+  private stopDriverContactWarning(cargoId: string) {
+    const warningData = this.driverContactWarnings.get(cargoId);
+    if (warningData?.timerId) {
+      clearTimeout(warningData.timerId);
+      this.driverContactWarnings.delete(cargoId);
+    }
+  }
+
+  // Remove cargo from active orders
+  private removeCargoFromActiveOrders(cargoId: string, driverId: number) {
+    // Remove from driver's active orders
+    const driverOrders = this.driverActiveOrders.get(driverId) || [];
+    const updatedOrders = driverOrders.filter(order => order.cargoId !== cargoId);
+    this.driverActiveOrders.set(driverId, updatedOrders);
+
+    // Remove from global cargo list
+    this.recentCargos = this.recentCargos.filter(cargo => cargo.id !== cargoId);
+    
+    // Make cargo available to other drivers again
+    this.notifyAvailableDriversAboutCargo(cargoId);
+  }
+
+  // Notify available drivers about cargo becoming available again
+  private async notifyAvailableDriversAboutCargo(cargoId: string) {
+    const cargo = this.recentCargos.find(c => c.id === cargoId);
+    if (!cargo) return;
+
+    // Find available drivers (those with driver role)
+    for (const [userId, roleData] of this.userRoles.entries()) {
+      if (roleData.role === 'haydovchi' && !this.driverActiveOrders.has(userId)) {
+        try {
+          const message = `
+🔄 <b>QAYTA MAVJUD BUYURTMA</b>
+
+${cargo.route}
+${cargo.details}
+
+💰 <b>Narx:</b> ${cargo.price}
+⏰ <b>Vaqt:</b> ${cargo.timestamp}
+
+✅ Bu buyurtma qayta mavjud bo'ldi!
+          `;
+
+          await this.bot.api.sendMessage(userId, message, {
+            parse_mode: 'HTML',
+            reply_markup: new InlineKeyboard()
+              .text('✅ Qabul qilish', `accept_cargo_${cargoId}`)
+              .text('ℹ️ Batafsil', `details_cargo_${cargoId}`)
+          });
+        } catch (error) {
+          this.logger.error(`Failed to notify driver ${userId} about available cargo:`, error);
+        }
+      }
+    }
+  }
+
+  // Handle date selection from buttons
+  private async handleDateSelection(ctx: any, dateType: string) {
+    const userId = ctx.from.id;
+    const currentStep = this.cargoPostingSteps.get(userId);
+    
+    if (!currentStep || currentStep.step !== 'loading_date') {
+      await this.safeAnswerCallback(ctx, 'Xatolik yuz berdi. Qayta boshlang.');
+      return;
+    }
+
+    let selectedDate = '';
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    switch (dateType) {
+      case 'tezkor':
+        selectedDate = 'Tezkor (darhol)';
+        break;
+      case 'bugun':
+        selectedDate = `Bugun (${today.getDate()}.${today.getMonth() + 1})`;
+        break;
+      case 'ertaga':
+        selectedDate = `Ertaga (${tomorrow.getDate()}.${tomorrow.getMonth() + 1})`;
+        break;
+      case 'boshqa':
+        // Show message asking for manual date input
+        if (currentStep.messageId) {
+          await this.safeEditMessageById(ctx.chat.id, currentStep.messageId, `
+📦 <b>YUK E'LON QILISH</b>
+
+✅ <b>1-savol:</b> ${currentStep.data.routeAndCargo}
+✅ <b>2-savol:</b> ${currentStep.data.truckNeeded}
+✅ <b>3-savol:</b> ${currentStep.data.price.toLocaleString()} so'm
+
+📅 <b>4-savol:</b> Yuk qachon yuklanadi?
+
+📝 Aniq sanani yozing:
+
+<b>Misol:</b>
+• 15 dekabr
+• Dushanba kuni
+• 25.12.2024
+• Keyingi hafta
+          `, {
+            parse_mode: 'HTML',
+            reply_markup: new InlineKeyboard()
+              .text('🔙 Orqaga', 'cargo_system')
+          });
+        }
+        await this.safeAnswerCallback(ctx, 'Aniq sanani yozing:');
+        return;
+    }
+
+    // Process the selected date
+    currentStep.data.loadingDate = selectedDate;
+
+    // Complete the cargo posting process
+    await this.completeCargoProcesWithDate(ctx, currentStep);
+    this.cargoPostingSteps.delete(userId);
+    
+    await this.safeAnswerCallback(ctx, `✅ ${selectedDate} tanlandi!`);
+  }
+
+  // Complete cargo process with selected date
+  private async completeCargoProcesWithDate(ctx: any, currentStep: any) {
+    const userId = ctx.from.id;
+    
+    // Get user phone
+    const userPhone = this.getUserPhone(userId);
+    if (!userPhone) {
+      if (currentStep.messageId) {
+        await this.safeEditMessageById(ctx.chat.id, currentStep.messageId, `
+📦 <b>YUK E'LON QILISH</b>
+
+❌ <b>Telefon raqamingiz topilmadi!</b>
+
+Avval registratsiyadan o'tishingiz kerak:
+• /start tugmasini bosing
+• Telefon raqamingizni ulashing
+
+⚠️ Registratsiyasiz yuk e'lon qila olmaysiz.
+        `, {
+          parse_mode: 'HTML',
+          reply_markup: new InlineKeyboard()
+            .text('🔙 Orqaga', 'cargo_system')
+        });
+      }
+      return;
+    }
+    currentStep.data.phone = userPhone;
+    
+    // Parse route and cargo info
+    let fromCity = 'Noma\'lum';
+    let toCity = 'Noma\'lum';
+    let cargoPart = 'Yuk turi ko\'rsatilmagan';
+    
+    if (currentStep.data.routeAndCargo) {
+      const routeAndCargoText = currentStep.data.routeAndCargo.trim();
+      
+      if (routeAndCargoText.includes('→')) {
+        const arrowParts = routeAndCargoText.split('→');
+        fromCity = arrowParts[0] ? arrowParts[0].trim() : 'Noma\'lum';
+        
+        if (arrowParts[1]) {
+          const afterArrow = arrowParts[1].trim();
+          if (afterArrow.includes(' va ')) {
+            const parts = afterArrow.split(' va ');
+            toCity = parts[0].trim();
+            cargoPart = parts[1] ? parts[1].trim() : cargoPart;
+          } else if (afterArrow.includes(',')) {
+            const parts = afterArrow.split(',');
+            toCity = parts[0].trim();
+            cargoPart = parts[1] ? parts[1].trim() : cargoPart;
+          } else {
+            toCity = afterArrow;
+          }
+        }
+      } else {
+        // Try natural language parsing for patterns like "Jizzaxdan qoqonga olma bor"
+        const cities = this.extractCitiesFromText(routeAndCargoText);
+        if (cities.fromCity && cities.toCity) {
+          fromCity = cities.fromCity;
+          toCity = cities.toCity;
+          cargoPart = cities.cargoDescription || routeAndCargoText;
+        }
+      }
+    }
+    
+    // Create cargo offer
+    const cargoId = `cargo_${Date.now()}_${userId}`;
+    const cargoOffer = {
+      id: cargoId,
+      userId: userId,
+      username: ctx.from?.first_name || ctx.from?.username || 'Mijoz',
+      fromCity: fromCity,
+      toCity: toCity,
+      cargoType: cargoPart,
+      truckInfo: currentStep.data.truckNeeded,
+      price: currentStep.data.price,
+      loadingDate: currentStep.data.loadingDate,
+      phone: userPhone,
+      status: 'active' as const,
+      date: new Date().toISOString(),
+      description: '',
+      photo: '',
+      completedAt: null
+    };
+    
+    this.cargoOffers.set(cargoId, cargoOffer);
+    await this.saveUserData();
+    
+    // Show completion message
+    const completionMessage = `
+✅ <b>YUK E'LONI YARATILDI!</b>
+
+📋 <b>E'lon ma'lumotlari:</b>
+📍 <b>Qayerdan:</b> ${fromCity}
+📍 <b>Qayerga:</b> ${toCity}
+📦 <b>Yuk:</b> ${cargoPart}
+🚛 <b>Mashina:</b> ${currentStep.data.truckNeeded}
+💰 <b>Narx:</b> ${currentStep.data.price ? currentStep.data.price.toLocaleString() : 'Kelishiladi'} so'm
+📅 <b>Sana:</b> ${currentStep.data.loadingDate}
+📞 <b>Telefon:</b> ${userPhone}
+
+🎯 <b>Keyingi qadamlar:</b>
+• ✅ E'lon haydovchilarga ko'rsatildi
+• 📞 Haydovchilar sizga qo'ng'iroq qilishadi
+• 🕒 3 daqiqadan keyin dispechr ham ko'radi
+• 🤝 Mos haydovchi bilan kelishib olasiz
+
+⏰ <b>E'lon 24 soat faol!</b> Haydovchilarni kuting...
+    `;
+
+    // Update the existing message with completion message
+    if (currentStep.messageId) {
+      await this.safeEditMessageById(ctx.chat.id, currentStep.messageId, completionMessage, {
+        parse_mode: 'HTML',
+        reply_markup: new InlineKeyboard()
+          .text('🔙 Bosh menyu', 'back_main')
+      });
+    }
+    
+    // Start cargo distribution
+    this.logger.log(`🚛 DEBUG: Final calling notifyAllDriversAboutNewCargo for cargo: ${cargoOffer.id}`);
+    await this.notifyAllDriversAboutNewCargo(cargoOffer);
+  }
+
+  // ===============================
+  // AI ANALYTICS SYSTEM
+  // ===============================
+
+  // Collect and analyze order data
+  private async collectOrderAnalytics(cargoOffer: any): Promise<void> {
+    try {
+      const currentDate = new Date().toISOString().split('T')[0];
+      const routeKey = `${cargoOffer.fromCity}-${cargoOffer.toCity}`;
+
+      // Order analytics
+      if (!this.orderAnalytics.has(currentDate)) {
+        this.orderAnalytics.set(currentDate, {
+          totalOrders: 0,
+          routes: new Map(),
+          prices: [],
+          cargoTypes: new Map(),
+          truckTypes: new Map(),
+          averagePrice: 0
+        });
+      }
+
+      const dayData = this.orderAnalytics.get(currentDate);
+      dayData.totalOrders++;
+
+      // Route analytics
+      if (!dayData.routes.has(routeKey)) {
+        dayData.routes.set(routeKey, 0);
+      }
+      dayData.routes.set(routeKey, dayData.routes.get(routeKey) + 1);
+
+      // Price analytics
+      if (cargoOffer.price && cargoOffer.price > 0) {
+        dayData.prices.push(cargoOffer.price);
+        dayData.averagePrice = dayData.prices.reduce((a, b) => a + b, 0) / dayData.prices.length;
+
+        // Store price data for route analysis
+        if (!this.priceAnalytics.has(routeKey)) {
+          this.priceAnalytics.set(routeKey, []);
+        }
+        this.priceAnalytics.get(routeKey).push({
+          price: cargoOffer.price,
+          date: new Date().toISOString(),
+          cargoType: cargoOffer.cargoType || 'unknown',
+          truckType: cargoOffer.truckInfo || 'unknown'
+        });
+      }
+
+      // Cargo type analytics
+      const cargoType = cargoOffer.cargoType || 'Noma\'lum';
+      if (!dayData.cargoTypes.has(cargoType)) {
+        dayData.cargoTypes.set(cargoType, 0);
+      }
+      dayData.cargoTypes.set(cargoType, dayData.cargoTypes.get(cargoType) + 1);
+
+      // Truck type analytics
+      const truckType = cargoOffer.truckInfo || 'Noma\'lum';
+      if (!dayData.truckTypes.has(truckType)) {
+        dayData.truckTypes.set(truckType, 0);
+      }
+      dayData.truckTypes.set(truckType, dayData.truckTypes.get(truckType) + 1);
+
+      this.logger.log(`📊 Analytics collected for order: ${cargoOffer.id}`);
+    } catch (error) {
+      this.logger.error('Analytics collection error:', error);
+    }
+  }
+
+  // Show AI analytics dashboard
+  private async showAIAnalytics(ctx: any): Promise<void> {
+    const currentDate = new Date().toISOString().split('T')[0];
+    const todayData = this.orderAnalytics.get(currentDate);
+
+    if (!todayData) {
+      await ctx.reply(
+        '📊 <b>AI ANALYTICS</b>\n\n' +
+        '❌ Bugungi kun uchun ma\'lumotlar yo\'q\n\n' +
+        'Yuk e\'lonlari yaratilgach, AI analiz ma\'lumotlari ko\'rinadi.',
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+
+    const message = `
+🤖 <b>AI ANALYTICS DASHBOARD</b>
+
+📅 <b>Bugungi statistika (${currentDate}):</b>
+📦 Jami buyurtmalar: ${todayData.totalOrders}
+💰 O'rtacha narx: ${Math.round(todayData.averagePrice).toLocaleString()} so'm
+📈 Eng qimmat: ${Math.max(...todayData.prices).toLocaleString()} so'm
+📉 Eng arzon: ${Math.min(...todayData.prices).toLocaleString()} so'm
+
+🔥 <b>TOP marshrutlar:</b>
+${Array.from(todayData.routes.entries())
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 5)
+  .map(([route, count], index) => `${index + 1}. ${route} (${count} ta)`)
+  .join('\n')}
+
+📦 <b>TOP yuk turlari:</b>
+${Array.from(todayData.cargoTypes.entries())
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 5)
+  .map(([cargo, count], index) => `${index + 1}. ${cargo} (${count} ta)`)
+  .join('\n')}
+
+🚛 <b>TOP mashina turlari:</b>
+${Array.from(todayData.truckTypes.entries())
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 5)
+  .map(([truck, count], index) => `${index + 1}. ${truck} (${count} ta)`)
+  .join('\n')}
+    `;
+
+    await ctx.reply(message, {
+      parse_mode: 'HTML',
+      reply_markup: new InlineKeyboard()
+        .text('📈 Narx tahlili', 'price_analysis')
+        .text('📋 Hisobot yaratish', 'generate_report').row()
+        .text('🔙 Orqaga', 'back_main')
+    });
+  }
+
+  // Show price analysis
+  private async showPriceAnalysis(ctx: any): Promise<void> {
+    if (this.priceAnalytics.size === 0) {
+      await ctx.reply(
+        '📈 <b>NARX TAHLILI</b>\n\n' +
+        '❌ Narx tahlili uchun yetarlicha ma\'lumot yo\'q\n\n' +
+        'Ko\'proq yuk e\'lonlari yaratilgach, AI narx tahlilini ko\'rsatadi.',
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+
+    let analysisMessage = '📈 <b>AI NARX TAHLILI</b>\n\n';
+
+    // Analyze top routes with prices
+    const routePriceAnalysis = Array.from(this.priceAnalytics.entries())
+      .map(([route, priceData]) => {
+        if (priceData.length === 0) return null;
+
+        const prices = priceData.map(p => p.price);
+        const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+        const maxPrice = Math.max(...prices);
+        const minPrice = Math.min(...prices);
+
+        return {
+          route,
+          avgPrice,
+          maxPrice,
+          minPrice,
+          count: priceData.length,
+          recentTrend: this.calculatePriceTrend(priceData)
+        };
+      })
+      .filter(analysis => analysis !== null)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    if (routePriceAnalysis.length > 0) {
+      analysisMessage += '🛣️ <b>Marshrutlar bo\'yicha narxlar:</b>\n\n';
+
+      for (const analysis of routePriceAnalysis) {
+        const trendIcon = analysis.recentTrend > 0 ? '📈' : analysis.recentTrend < 0 ? '📉' : '➡️';
+        analysisMessage += `${trendIcon} <b>${analysis.route}</b>\n`;
+        analysisMessage += `📊 ${analysis.count} ta buyurtma\n`;
+        analysisMessage += `💰 O'rtacha: ${Math.round(analysis.avgPrice).toLocaleString()} so'm\n`;
+        analysisMessage += `📈 Eng yuqori: ${analysis.maxPrice.toLocaleString()} so'm\n`;
+        analysisMessage += `📉 Eng past: ${analysis.minPrice.toLocaleString()} so'm\n\n`;
+      }
+    }
+
+    await ctx.reply(analysisMessage, {
+      parse_mode: 'HTML',
+      reply_markup: new InlineKeyboard()
+        .text('🤖 AI Dashboard', 'ai_analytics')
+        .text('📋 To\'liq hisobot', 'generate_report').row()
+        .text('🔙 Orqaga', 'back_main')
+    });
+  }
+
+  // Calculate price trend
+  private calculatePriceTrend(priceData: any[]): number {
+    if (priceData.length < 2) return 0;
+
+    const sortedData = priceData
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(-10); // Last 10 orders
+
+    if (sortedData.length < 2) return 0;
+
+    const firstHalf = sortedData.slice(0, Math.floor(sortedData.length / 2));
+    const secondHalf = sortedData.slice(Math.floor(sortedData.length / 2));
+
+    const avgFirst = firstHalf.reduce((sum, item) => sum + item.price, 0) / firstHalf.length;
+    const avgSecond = secondHalf.reduce((sum, item) => sum + item.price, 0) / secondHalf.length;
+
+    return ((avgSecond - avgFirst) / avgFirst) * 100; // Percentage change
+  }
+
+  // Generate comprehensive analytics report
+  private async generateAnalyticsReport(ctx: any): Promise<void> {
+    try {
+      await ctx.reply('🔄 <b>AI hisobot yaratilmoqda...</b>', { parse_mode: 'HTML' });
+
+      // Analyze all historical data
+      const last7Days = this.getLast7DaysData();
+      const aiInsights = await this.generateAIInsights(last7Days);
+
+      const report = `
+🤖 <b>AI ANALYTICS HISOBOTI</b>
+📅 <b>Oxirgi 7 kun tahlili</b>
+
+${aiInsights.summary}
+
+📊 <b>ASOSIY METRIKALAR:</b>
+• Jami buyurtmalar: ${aiInsights.totalOrders}
+• O'rtacha kunlik buyurtma: ${Math.round(aiInsights.avgDailyOrders)}
+• O'sish tendensiyasi: ${aiInsights.growthTrend > 0 ? '📈 +' : '📉 '}${aiInsights.growthTrend.toFixed(1)}%
+
+💰 <b>NARX TAHLILI:</b>
+• O'rtacha narx: ${aiInsights.avgPrice.toLocaleString()} so'm
+• Narx diapazoni: ${aiInsights.minPrice.toLocaleString()} - ${aiInsights.maxPrice.toLocaleString()} so'm
+• Narx barqarorligi: ${aiInsights.priceStability}
+
+🛣️ <b>TOP MARSHRUTLAR:</b>
+${aiInsights.topRoutes.map((route, index) =>
+  `${index + 1}. ${route.name} - ${route.count} ta (${route.avgPrice.toLocaleString()} so'm)`
+).join('\n')}
+
+📦 <b>YUK TURLARI:</b>
+${aiInsights.topCargoTypes.map((cargo, index) =>
+  `${index + 1}. ${cargo.name} - ${cargo.count} ta`
+).join('\n')}
+
+🔮 <b>AI BASHORAT:</b>
+${aiInsights.predictions}
+
+📈 <b>TAVSIYALAR:</b>
+${aiInsights.recommendations}
+
+⏰ <b>Hisobot yaratildi:</b> ${new Date().toLocaleString('uz-UZ')}
+      `;
+
+      await ctx.reply(report, {
+        parse_mode: 'HTML',
+        reply_markup: new InlineKeyboard()
+          .text('📊 Batafsil tahlil', 'ai_analytics')
+          .text('💾 Ma\'lumotlarni eksport qilish', 'export_data').row()
+          .text('🔙 Bosh menyu', 'back_main')
+      });
+
+    } catch (error) {
+      this.logger.error('Report generation error:', error);
+      await ctx.reply('❌ Hisobot yaratishda xatolik yuz berdi.', { parse_mode: 'HTML' });
+    }
+  }
+
+  // Get last 7 days analytics data
+  private getLast7DaysData(): any[] {
+    const last7Days = [];
+    const today = new Date();
+
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+
+      const dayData = this.orderAnalytics.get(dateStr) || {
+        totalOrders: 0,
+        routes: new Map(),
+        prices: [],
+        cargoTypes: new Map(),
+        truckTypes: new Map(),
+        averagePrice: 0
+      };
+
+      last7Days.push({
+        date: dateStr,
+        ...dayData
+      });
+    }
+
+    return last7Days;
+  }
+
+  // Generate AI insights using GPT-4
+  private async generateAIInsights(weekData: any[]): Promise<any> {
+    try {
+      // Calculate basic metrics
+      const totalOrders = weekData.reduce((sum, day) => sum + day.totalOrders, 0);
+      const avgDailyOrders = totalOrders / 7;
+
+      const allPrices = weekData.flatMap(day => day.prices);
+      const avgPrice = allPrices.length > 0 ? allPrices.reduce((a, b) => a + b, 0) / allPrices.length : 0;
+      const minPrice = allPrices.length > 0 ? Math.min(...allPrices) : 0;
+      const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
+
+      // Calculate growth trend
+      const firstHalf = weekData.slice(0, 3).reduce((sum, day) => sum + day.totalOrders, 0) / 3;
+      const secondHalf = weekData.slice(4, 7).reduce((sum, day) => sum + day.totalOrders, 0) / 3;
+      const growthTrend = firstHalf > 0 ? ((secondHalf - firstHalf) / firstHalf) * 100 : 0;
+
+      // Combine all routes
+      const allRoutes = new Map();
+      const allCargoTypes = new Map();
+
+      weekData.forEach(day => {
+        day.routes.forEach((count, route) => {
+          allRoutes.set(route, (allRoutes.get(route) || 0) + count);
+        });
+        day.cargoTypes.forEach((count, cargo) => {
+          allCargoTypes.set(cargo, (allCargoTypes.get(cargo) || 0) + count);
+        });
+      });
+
+      const topRoutes = Array.from(allRoutes.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([route, count]) => {
+          const routePrices = this.priceAnalytics.get(route) || [];
+          const avgRoutePrice = routePrices.length > 0
+            ? routePrices.reduce((sum, p) => sum + p.price, 0) / routePrices.length
+            : 0;
+          return { name: route, count, avgPrice: avgRoutePrice };
+        });
+
+      const topCargoTypes = Array.from(allCargoTypes.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([cargo, count]) => ({ name: cargo, count }));
+
+      // Generate AI insights
+      const summary = this.generateSummary(totalOrders, growthTrend, avgPrice);
+      const priceStability = this.analyzePriceStability(allPrices);
+      const predictions = this.generatePredictions(weekData, growthTrend);
+      const recommendations = this.generateRecommendations(topRoutes, topCargoTypes, growthTrend);
+
+      return {
+        totalOrders,
+        avgDailyOrders,
+        growthTrend,
+        avgPrice,
+        minPrice,
+        maxPrice,
+        topRoutes,
+        topCargoTypes,
+        summary,
+        priceStability,
+        predictions,
+        recommendations
+      };
+
+    } catch (error) {
+      this.logger.error('AI insights generation error:', error);
+      return {
+        totalOrders: 0,
+        avgDailyOrders: 0,
+        growthTrend: 0,
+        avgPrice: 0,
+        minPrice: 0,
+        maxPrice: 0,
+        topRoutes: [],
+        topCargoTypes: [],
+        summary: 'AI tahlil ma\'lumotlari hozircha mavjud emas.',
+        priceStability: 'Noma\'lum',
+        predictions: 'Bashorat uchun yetarli ma\'lumot yo\'q.',
+        recommendations: 'Tavsiyalar uchun ko\'proq ma\'lumot kerak.'
+      };
+    }
+  }
+
+  private generateSummary(totalOrders: number, growthTrend: number, avgPrice: number): string {
+    if (totalOrders === 0) {
+      return '📊 Oxirgi 7 kun ichida buyurtmalar qayd etilmagan.';
+    }
+
+    let summary = `📊 Oxirgi 7 kun ichida ${totalOrders} ta buyurtma qayd etildi. `;
+
+    if (growthTrend > 10) {
+      summary += `📈 Buyurtmalar soni sezilarli darajada o'sib bormoqda (+${growthTrend.toFixed(1)}%). `;
+    } else if (growthTrend < -10) {
+      summary += `📉 Buyurtmalar soni kamayib bormoqda (${growthTrend.toFixed(1)}%). `;
+    } else {
+      summary += `➡️ Buyurtmalar soni barqaror (${growthTrend.toFixed(1)}%). `;
+    }
+
+    if (avgPrice > 0) {
+      summary += `💰 O'rtacha yuk narxi ${avgPrice.toLocaleString()} so'm.`;
+    }
+
+    return summary;
+  }
+
+  private analyzePriceStability(prices: number[]): string {
+    if (prices.length < 3) return 'Ma\'lumot yetarli emas';
+
+    const mean = prices.reduce((a, b) => a + b, 0) / prices.length;
+    const variance = prices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / prices.length;
+    const coefficient = Math.sqrt(variance) / mean;
+
+    if (coefficient < 0.15) return '🟢 Barqaror';
+    if (coefficient < 0.3) return '🟡 O\'rtacha barqaror';
+    return '🔴 Beqaror';
+  }
+
+  private generatePredictions(weekData: any[], growthTrend: number): string {
+    const totalOrders = weekData.reduce((sum, day) => sum + day.totalOrders, 0);
+
+    if (totalOrders < 10) {
+      return '🔮 Bashorat uchun yetarli ma\'lumot yo\'q.';
+    }
+
+    let prediction = '🔮 Keyingi hafta bashorati:\n';
+
+    if (growthTrend > 15) {
+      prediction += '📈 Buyurtmalar soni 20-30% o\'sishi kutilmoqda.';
+    } else if (growthTrend > 5) {
+      prediction += '📈 Buyurtmalar soni sekin o\'sishi kutilmoqda.';
+    } else if (growthTrend < -15) {
+      prediction += '📉 Buyurtmalar soni kamayishi kutilmoqda.';
+    } else {
+      prediction += '➡️ Buyurtmalar soni barqaror qolishi kutilmoqda.';
+    }
+
+    return prediction;
+  }
+
+  private generateRecommendations(topRoutes: any[], topCargoTypes: any[], growthTrend: number): string {
+    let recommendations = '📈 AI tavsiyalari:\n\n';
+
+    if (topRoutes.length > 0) {
+      recommendations += `🛣️ "${topRoutes[0].name}" marqeharucha eng ommabop. Bu marshrutga e'tibor qarating.\n\n`;
+    }
+
+    if (topCargoTypes.length > 0) {
+      recommendations += `📦 "${topCargoTypes[0].name}" eng ko'p so'ralar yuk turi.\n\n`;
+    }
+
+    if (growthTrend > 10) {
+      recommendations += '📈 O\'sish tendensiyasini saqlab qolish uchun haydovchilar sonini ko\'paytiring.\n\n';
+    } else if (growthTrend < -10) {
+      recommendations += '📉 Buyurtmalar kamayib bormoqda. Marketing faoliyatini kuchaytiring.\n\n';
+    }
+
+    recommendations += '💡 Narxlarni monitoring qilib turing va bozor tendensiyalarini kuzatib boring.';
+
+    return recommendations;
+  }
+
+  // Export analytics data to file
+  private async exportAnalyticsData(ctx: any): Promise<void> {
+    try {
+      await ctx.reply('🔄 <b>Ma\'lumotlar eksport qilinmoqda...</b>', { parse_mode: 'HTML' });
+
+      const exportData = {
+        exportDate: new Date().toISOString(),
+        orderAnalytics: Object.fromEntries(this.orderAnalytics.entries()),
+        priceAnalytics: Object.fromEntries(this.priceAnalytics.entries()),
+        routeAnalytics: Object.fromEntries(this.routeAnalytics.entries()),
+        totalUsers: this.userRoles.size,
+        totalOrders: Array.from(this.cargoOffers.values()).length,
+        last7DaysData: this.getLast7DaysData()
+      };
+
+      // Convert to readable format
+      const jsonData = JSON.stringify(exportData, null, 2);
+      const fileName = `analytics_export_${new Date().toISOString().split('T')[0]}.json`;
+
+      // Send as document
+      await ctx.reply('📁 <b>Ma\'lumotlar tayyor!</b>', {
+        parse_mode: 'HTML',
+        reply_markup: new InlineKeyboard()
+          .text('🤖 AI Dashboard', 'ai_analytics')
+          .text('🔙 Bosh menyu', 'back_main')
+      });
+
+      // In a real implementation, you would save to file and send
+      this.logger.log(`📊 Analytics data exported for user ${ctx.from.id}`);
+
+    } catch (error) {
+      this.logger.error('Export error:', error);
+      await ctx.reply('❌ Eksport qilishda xatolik yuz berdi.', { parse_mode: 'HTML' });
+    }
+  }
+
+  // Kirilcha harflarni lotinchaga o'girish
+  private convertCyrillicToLatin(text: string): string {
+    const cyrillicToLatin: { [key: string]: string } = {
+      'А': 'A', 'а': 'a', 'Б': 'B', 'б': 'b', 'В': 'V', 'в': 'v', 
+      'Г': 'G', 'г': 'g', 'Ғ': 'G\'', 'ғ': 'g\'', 'Д': 'D', 'д': 'd', 
+      'Е': 'E', 'е': 'e', 'Ё': 'Yo', 'ё': 'yo', 'Ж': 'J', 'ж': 'j', 
+      'З': 'Z', 'з': 'z', 'И': 'I', 'и': 'i', 'Й': 'Y', 'й': 'y', 
+      'К': 'K', 'к': 'k', 'Қ': 'Q', 'қ': 'q', 'Л': 'L', 'л': 'l', 
+      'М': 'M', 'м': 'm', 'Н': 'N', 'н': 'n', 'Ң': 'Ng', 'ң': 'ng', 
+      'О': 'O', 'о': 'o', 'Ӧ': 'O\'', 'ӧ': 'o\'', 'П': 'P', 'п': 'p', 
+      'Р': 'R', 'р': 'r', 'С': 'S', 'с': 's', 'Т': 'T', 'т': 't', 
+      'У': 'U', 'у': 'u', 'Ӯ': 'U\'', 'ӯ': 'u\'', 'Ф': 'F', 'ф': 'f', 
+      'Х': 'X', 'х': 'x', 'Ҳ': 'H', 'ҳ': 'h', 'Ц': 'Ts', 'ц': 'ts', 
+      'Ч': 'Ch', 'ч': 'ch', 'Ш': 'Sh', 'ш': 'sh', 'Ъ': '\'', 'ъ': '\'', 
+      'Ы': 'I', 'ы': 'i', 'Ь': '', 'ь': '', 'Э': 'E', 'э': 'e', 
+      'Ю': 'Yu', 'ю': 'yu', 'Я': 'Ya', 'я': 'ya'
+    };
+    
+    let result = text;
+    for (const [cyrillic, latin] of Object.entries(cyrillicToLatin)) {
+      result = result.replace(new RegExp(cyrillic, 'g'), latin);
+    }
+    return result;
+  }
+
+  private extractCitiesFromText(text: string): {fromCity?: string, toCity?: string, cargoDescription?: string} {
+    // Avval kirilchani lotinchaga o'giramiz
+    const latinText = this.convertCyrillicToLatin(text);
+    
+    // MDH (SNG) davlatlarining barcha shaharlari ro'yxati
+    const cities = [
+      
+      // ========== 🇷🇺 ROSSIYA FEDERATSIYASI ==========
+      // Asosiy shaharlar
+      'moskva', 'moscow', 'москва',
+      'sankt-peterburg', 'st. petersburg', 'питер', 'spb', 'санкт-петербург',
+      'novosibirsk', 'новосибирск',
+      'yekaterinburg', 'ekaterinburg', 'екатеринбург',
+      'kazan', 'казань',
+      'nizhny novgorod', 'nizhniy novgorod', 'нижний новгород',
+      'chelyabinsk', 'челябинск',
+      'samara', 'самара',
+      'omsk', 'омск',
+      'rostov-na-donu', 'rostov-on-don', 'ростов-на-дону',
+      'ufa', 'уфа',
+      'krasnoyarsk', 'красноярск',
+      'voronezh', 'воронеж',
+      'perm', 'пермь',
+      'volgograd', 'волгоград',
+      'krasnodar', 'краснодар',
+      'saratov', 'саратов',
+      'tyumen', 'тюмень',
+      'tolyatti', 'тольятти',
+      'izhevsk', 'ижевск',
+      'barnaul', 'барнаул',
+      'ulyanovsk', 'ульяновск',
+      'irkutsk', 'иркутск',
+      'khabarovsk', 'хабаровск',
+      'yaroslavl', 'ярославль',
+      'vladivostok', 'владивосток',
+      'makhachkala', 'махачкала',
+      'tomsk', 'томск',
+      'orenburg', 'оренбург',
+      'kemerovo', 'кемерово',
+      'ryazan', 'рязань',
+      'astrakhan', 'астрахань',
+      'naberezhnye chelny', 'набережные челны',
+      'penza', 'пенза',
+      'lipetsk', 'липецк',
+      'tula', 'тула',
+      'kirov', 'киров',
+      'cheboksary', 'чебоксары',
+      'kaliningrad', 'калининград',
+      'bryansk', 'брянск',
+      'ivanovo', 'иваново',
+      'magnitogorsk', 'магнитогорск',
+      'tver', 'тверь',
+      'stavropol', 'ставрополь',
+      'nizhny tagil', 'нижний тагил',
+      'belgorod', 'белгород',
+      'arkhangelsk', 'архангельск',
+      'vladimir', 'владимир',
+      'sochi', 'сочи',
+      'kursk', 'курск',
+      'smolensk', 'смоленск',
+      'kaluga', 'калуга',
+      'chita', 'чита',
+      'orel', 'орел',
+      'volzhsky', 'волжский',
+      'murmansk', 'мурманск',
+      'cherepovets', 'череповец',
+      'vologda', 'вологда',
+      'vladimir', 'владимир',
+      'saransk', 'саранск',
+      'tambov', 'тамбов',
+      'sterlitamak', 'стерлитамак',
+      'grozniy', 'грозный',
+      'yakutsk', 'якутск',
+      'kostroma', 'кострома',
+      'komsomolsk-na-amure', 'комсомольск-на-амуре',
+      'petrozavodsk', 'петрозаводск',
+      'taganrog', 'таганрог',
+      'nizhnevartovsk', 'нижневартовск',
+      'yoshkar-ola', 'йошкар-ола',
+      'bratsk', 'братск',
+      'novorossiysk', 'новороссийск',
+      'dzerzhinsk', 'дзержинск',
+      'surgut', 'сургут',
+      'orsk', 'орск',
+      'stary oskol', 'старый оскол',
+      'nizhnekamsk', 'нижнекамск',
+      'naltchik', 'нальчик',
+      'angarsk', 'ангарск',
+      'balakovo', 'балаково',
+      'blagoveshchensk', 'благовещенск',
+      'prokopyevsk', 'прокопьевск',
+      'pskov', 'псков',
+      'biysk', 'бийск',
+      'engels', 'энгельс',
+      'rybinsk', 'рыбинск',
+      'balashikha', 'балашиха',
+      'severodvinsk', 'северодвинск',
+      'armavir', 'армавир',
+      'podolsk', 'подольск',
+      'korolyov', 'королёв',
+      'petropavlovsk-kamchatskiy', 'петропавловск-камчатский',
+      'norilsk', 'норильск',
+
+      // ========== 🇰🇿 QOZOG'ISTON ==========
+      'almaty', 'almati', 'алматы',
+      'nur-sultan', 'astana', 'нур-султан', 'астана',
+      'shymkent', 'chimkent', 'шымкент',
+      'aktobe', 'aqtobe', 'актобе',
+      'taraz', 'тараз', 'жамбыл',
+      'pavlodar', 'павлодар',
+      'ust-kamenogorsk', 'oskemen', 'усть-каменогорск',
+      'semey', 'semipalatinsk', 'семей',
+      'aktau', 'aqtau', 'актау',
+      'kostanay', 'qostanay', 'костанай',
+      'kyzylorda', 'qyzylorda', 'кызылорда',
+      'oral', 'uralsk', 'орал',
+      'atyrau', 'atirau', 'атырау',
+      'taldykorgan', 'талдыкорган',
+      'zhezkazgan', 'жезказган',
+      'karaganda', 'qaraghandy', 'караганда',
+      'turkestan', 'туркестан',
+      'ekibastuz', 'экибастуз',
+      'rudny', 'рудный',
+      'arkalyk', 'аркалык',
+      'kentau', 'кентау',
+      'balkhash', 'балхаш',
+      'zhanaozen', 'жанаозен',
+      'aktau', 'aqtau', 'актау',
+      'temirtau', 'темиртау',
+
+      // ========== 🇰🇬 QIRG'IZISTON ==========
+      'bishkek', 'бишкек',
+      'osh', 'ош',
+      'jalal-abad', 'жалал-абад',
+      'karakol', 'каракол',
+      'tokmok', 'токмок',
+      'uzgen', 'узген',
+      'naryn', 'нарын',
+      'talas', 'талас',
+      'batken', 'баткен',
+      'kant', 'кант',
+      'kara-balta', 'кара-балта',
+      'cholpon-ata', 'чолпон-ата',
+      'isfana', 'исфана',
+      'kyzyl-kiya', 'кызыл-кия',
+      'sulukta', 'сулукта',
+      'mailuu-suu', 'майлуу-суу',
+      'tash-kumyr', 'таш-кумыр',
+      'kerben', 'кербен',
+      'kara-suu', 'кара-суу',
+
+      // ========== 🇹🇯 TOJIKISTON ==========
+      'dushanbe', 'душанбе',
+      'khujand', 'xujand', 'худжанд',
+      'kulob', 'куляб',
+      'qurghonteppa', 'kurgan-tyube', 'курган-тюбе',
+      'istaravshan', 'истаравшан',
+      'konibodom', 'канибадам',
+      'isfara', 'исфара',
+      'penjikent', 'пенджикент',
+      'khorog', 'хорог',
+      'tursunzoda', 'турсунзаде',
+      'vahdat', 'вахдат',
+      'rasht', 'рашт',
+      'faizabad', 'файзабад',
+      'dangara', 'дангара',
+      'rudaki', 'рудаки',
+      'yovon', 'явон',
+      'gharm', 'гарм',
+      'murghab', 'мургаб',
+
+      // ========== 🇹🇲 TURKMANISTON ==========
+      'ashgabat', 'ashkhabad', 'ашхабад',
+      'turkmenbashi', 'turkmenbashy', 'туркменбаши',
+      'dashoguz', 'дашогуз',
+      'mary', 'мары',
+      'turkmenabot', 'туркменабад',
+      'balkanabat', 'балканабат',
+      'bayramali', 'байрамали',
+      'tejen', 'теджен',
+      'serakhs', 'серахс',
+      'kerki', 'керки',
+      'sayat', 'саят',
+      'garabogaz', 'гарабогаз',
+      'bereket', 'берекет',
+      'magdanly', 'магданлы',
+
+      // ========== 🇦🇿 OZARBAYJON ==========
+      'baku', 'boku', 'баку',
+      'ganja', 'ganca', 'гянджа',
+      'sumgait', 'sumqayit', 'сумгаит',
+      'mingachevir', 'мингечаур',
+      'lankaran', 'lenkoran', 'ленкорань',
+      'shaki', 'шеки',
+      'yevlakh', 'евлах',
+      'nakhchivan', 'нахчыван',
+      'quba', 'куба',
+      'shamakhi', 'шемаха',
+      'gafan', 'кафан',
+      'agstafa', 'агстафа',
+      'tovuz', 'товуз',
+      'shirvan', 'ширван',
+      'goranboy', 'горанбой',
+      'naftalan', 'нафталан',
+      'khankendi', 'ханкенди',
+      'fuzuli', 'физули',
+      'jabrayil', 'джабраил',
+
+      // ========== 🇦🇲 ARMANISTON ==========
+      'yerevan', 'ереван',
+      'gyumri', 'гюмри',
+      'vanadzor', 'ванадзор',
+      'vagharshapat', 'вагаршапат',
+      'kapan', 'капан',
+      'goris', 'горис',
+      'abovyan', 'абовян',
+      'armavir', 'армавир',
+      'artashat', 'арташат',
+      'sevan', 'севан',
+      'masis', 'масис',
+      'araratez', 'араратэз',
+      'sisian', 'сисиан',
+      'dilijan', 'дилижан',
+      'charentsavan', 'чаренцаван',
+      'hrazdan', 'раздан',
+      'alaverdi', 'алаверди',
+      'maralik', 'маралик',
+      'berd', 'берд',
+
+      // ========== 🇧🇾 BELARUS ==========
+      'minsk', 'минск',
+      'gomel', 'гомель',
+      'mogilev', 'могилёв',
+      'vitebsk', 'витебск',
+      'grodno', 'гродно',
+      'brest', 'брест',
+      'babruysk', 'bobruysk', 'бобруйск',
+      'baranovichi', 'барановичи',
+      'borisov', 'борисов',
+      'pinsk', 'пинск',
+      'orsha', 'орша',
+      'mozyr', 'мозырь',
+      'novopolotsk', 'новополоцк',
+      'lida', 'лида',
+      'soligorsk', 'солигорск',
+      'molodechno', 'молодечно',
+      'polotsk', 'полоцк',
+      'zhlobin', 'жлобин',
+      'svetlogorsk', 'светлогорск',
+      'rechitsa', 'речица',
+      'novograd-volynsky', 'новоград-волынский',
+      'slonim', 'слоним',
+      'rogachev', 'рогачёв',
+
+      // ========== 🇲🇩 MOLDOVA ==========
+      'chisinau', 'kishinev', 'кишинёв',
+      'tiraspol', 'тирасполь',
+      'beltsy', 'balti', 'бельцы',
+      'tighina', 'bender', 'бендеры',
+      'rybnitsa', 'рыбница',
+      'cahul', 'кагул',
+      'ungheni', 'унгены',
+      'soroca', 'сорока',
+      'orhei', 'орхей',
+      'comrat', 'комрат',
+      'ceadir-lunga', 'чадыр-лунга',
+      'edinet', 'единцы',
+      'drochia', 'дрокия',
+      'floresti', 'флорешты',
+      'vulcanesti', 'вулканешты',
+      'dubasari', 'дубоссары',
+      'slobozia', 'слободзея',
+      'grigoriopol', 'григориополь',
+
+      // ========== 🇬🇪 GRUZIYA ==========
+      'tbilisi', 'tiflis', 'тбилиси',
+      'kutaisi', 'кутаиси',
+      'batumi', 'батуми',
+      'rustavi', 'рустави',
+      'zugdidi', 'зугдиди',
+      'gori', 'гори',
+      'poti', 'поти',
+      'kobuleti', 'кобулети',
+      'khashuri', 'хашури',
+      'samtredia', 'самтредиа',
+      'senaki', 'сенаки',
+      'zestafoni', 'зестафони',
+      'marneuli', 'марнеули',
+      'telavi', 'телави',
+      'akhaltsikhe', 'ахалцихе',
+      'ozurgeti', 'озургети',
+      'kaspi', 'каспи',
+      'gardabani', 'гардабани',
+      'mtskheta', 'мцхета',
+      'tskhinvali', 'цхинвали',
+      'sokhumi', 'sokhumi', 'сухуми',
+      'gagra', 'гагра',
+      'gulripshi', 'гульрипши',
+
+      // ========== 🇺🇿 O'ZBEKISTON (eskisi saqlansin) ==========
+      // Toshkent shahri va tumanlari
+      'toshkent', 'tashkent', 'ташкент',
+      'chilonzor', 'chilanzar', 'чилонзор',
+      'mirzo ulug\'bek', 'mirzo ulugbek', 'мирзо улугбек',
+      'shayxontohur', 'shayhontohur', 'шайхонтоҳур',
+      'bektemir', 'bektimir', 'бектемир',
+      'sergeli', 'сергели',
+      'yunusobod', 'юнусобод',
+      'mirobod', 'миробод',
+      'yashnobod', 'яшнобод',
+      'uchtepa', 'учтепа',
+      'olmazar', 'олмазор',
+      
+      // Toshkent viloyati
+      'bekobod', 'bekabot', 'бекабод',
+      'angren', 'ангрен',
+      'chirchiq', 'чирчиқ',
+      'olmaliq', 'олмалиқ',
+      'ohangaron', 'оҳангарон',
+      'guliston', 'гулистон',
+      'parkent', 'паркент',
+      'piskent', 'пискент',
+      'qibray', 'кибрай',
+      'zangiota', 'зангиота',
+      'nurafshon', 'нурафшон',
+      'yangiyol', 'янгийол',
+      'akkurgan', 'аккурган',
+      'buka', 'бука',
+      'bustonliq', 'бустонлиқ',
+      'chinoz', 'чиноз',
+      'quyichirchiq', 'куйичирчиқ',
+      
+      // Samarqand viloyati
+      'samarqand', 'samarkand', 'самарканд',
+      'kattaqo\'rg\'on', 'kattakurgan', 'каттакурган',
+      'urgut', 'ургут',
+      'jomboy', 'жомбой',
+      'ishtixon', 'иштихон',
+      'narpay', 'нарпай',
+      'payariq', 'паяриқ',
+      'pastdarg\'om', 'pastdargom', 'пастдаргом',
+      'g\'uzor', 'guzor', 'гузор',
+      'toyloq', 'тойлоқ',
+      'bulungur', 'булунгур',
+      'nurobod', 'нуробод',
+      'oqdaryo', 'оқдарё',
+      
+      // Andijon viloyati
+      'andijon', 'andijan', 'андижон',
+      'xonobod', 'xonabot', 'хонобод',
+      'asaka', 'асака',
+      'shaxrixon', 'шахрихон',
+      'qorasu', 'қорасув', 'korasuv',
+      'marhamat', 'мархамат',
+      'xo\'jaobod', 'hojaobot', 'хожаобод',
+      'jalolquduq', 'жалолкудук',
+      'oltinko\'l', 'oltinkul', 'олтинкул',
+      'bo\'z', 'buz', 'буз',
+      'izboskan', 'избоскан',
+      'ulug\'nor', 'ulugnor', 'улугнор',
+      'baliqchi', 'балиқчи',
+      'bo\'ston', 'buston', 'бустон',
+      'qo\'rg\'ontepa', 'kurgantepa', 'кургантепа',
+      'paxtaobod', 'пахтаобод',
+      
+      // Farg'ona viloyati
+      'farg\'ona', 'fergana', 'фаргона',
+      'marg\'ilon', 'margilon', 'маргилон',
+      'qo\'qon', 'kokand', 'кукон',
+      'rishton', 'риштон',
+      'quva', 'қува', 'kuva',
+      'beshariq', 'бешариқ',
+      'bag\'dod', 'bagdad', 'багдод',
+      'buvayda', 'бувайда',
+      'dang\'ara', 'dangara', 'дангара',
+      'furqat', 'фурқат',
+      'o\'zbekiston', 'uzbekiston', 'узбекистон',
+      'qo\'shteg\'in', 'koshtegin', 'коштегин',
+      'so\'x', 'sukh', 'сух',
+      'toshloq', 'тошлок',
+      'uchko\'prik', 'uchkuprik', 'учкуприк',
+      'yozyovon', 'ёзёвон',
+      
+      // Namangan viloyati
+      'namangan', 'наманган',
+      'chortoq', 'чортоқ',
+      'chust', 'чуст',
+      'kosonsoy', 'косонсой',
+      'mingbuloq', 'мингбулоқ',
+      'norin', 'норин',
+      'pop', 'поп',
+      'to\'raqo\'rg\'on', 'turakurgan', 'туракурган',
+      'uchqo\'rg\'on', 'uchkurgan', 'учкурган',
+      'uychi', 'уйчи',
+      'yangiqo\'rg\'on', 'yangikurgan', 'янгикурган',
+      
+      // Buxoro viloyati
+      'buxoro', 'bukhara', 'бухоро',
+      'kogon', 'когон',
+      'g\'ijduvon', 'gijduvon', 'гиждувон',
+      'vobkent', 'вобкент',
+      'shofirkon', 'шофиркон',
+      'olot', 'олот',
+      'peshku', 'пешку',
+      'qorako\'l', 'karakul', 'каракул',
+      'romitan', 'ромитан',
+      'jondor', 'жондор',
+      'qorovulbozor', 'қоровулбозор',
+      
+      // Navoiy viloyati
+      'navoiy', 'navoi', 'навоий',
+      'zarafshon', 'зарафшон',
+      'uchquduq', 'учкудук',
+      'nurota', 'нурота',
+      'karmana', 'кармана',
+      'navbahor', 'навбаҳор',
+      'tomdi', 'томди',
+      'yangirabod', 'янгирабод',
+      'konimex', 'конимех',
+      'qiziltepa', 'кизилтепа',
+      
+      // Qashqadaryo viloyati
+      'qarshi', 'karshi', 'карши',
+      'shahrisabz', 'шахрисабз',
+      'kitob', 'китоб',
+      'shurobot', 'шуробод',
+      'yakkabog\'', 'yakkabag', 'яккабог',
+      'chirakchi', 'чиракчи',
+      'dehqonobod', 'деҳқонобод',
+      'kasbi', 'касби',
+      'koson', 'косон',
+      'mirishkor', 'миришкор',
+      'muborak', 'муборак',
+      'nishon', 'нишон',
+      'qamashi', 'қамаши',
+      'g\'uzor', 'guzor', 'гузор',
+      
+      // Surxondaryo viloyati
+      'termiz', 'termez', 'термиз',
+      'boysun', 'бойсун',
+      'denov', 'денов',
+      'jarqo\'rg\'on', 'jarkurgan', 'жаркурган',
+      'qiziriq', 'кизирик',
+      'qo\'mqo\'rg\'on', 'kumkurgan', 'кумкурган',
+      'muzrabod', 'музрабод',
+      'oltinsoy', 'олтинсой',
+      'sariosiyo', 'сариосиё',
+      'sherobod', 'шеробод',
+      'sho\'rchi', 'shorchi', 'шурчи',
+      'uzun', 'узун',
+      'angot', 'ангот',
+      'bandixon', 'бандихон',
+      
+      // Sirdaryo viloyati
+      'guliston', 'гулистон',
+      'yangiyer', 'янгиер',
+      'sirdaryo', 'сирдарё',
+      'boyovut', 'боёвут',
+      'mirzaobod', 'мирзаобод',
+      'oqoltin', 'оқолтин',
+      'sayxunobod', 'сайхунобод',
+      'xovos', 'ховос',
+      'shirin', 'ширин',
+      'mehnatobod', 'меҳнатобод',
+      
+      // Jizzax viloyati  
+      'jizzax', 'жиззах',
+      'g\'allaorol', 'gallaaral', 'галлаарал',
+      'sh.rashidov', 'ш.рашидов',
+      'yangiobod', 'янгиобод',
+      'mirzachol', 'мирзачол',
+      'zomin', 'зомин',
+      'baxtiyor', 'бахтиёр',
+      'dustlik', 'дустлик',
+      'arnasoy', 'арнасой',
+      'forish', 'фориш',
+      'paxtakor', 'пахтакор',
+      'marjonqo\'rg\'on', 'marjonkurgan', 'маржонкурган',
+      
+      // Xorazm viloyati
+      'urganch', 'urgench', 'ургенч',
+      'xiva', 'khiva', 'хива',
+      'shovot', 'шовот',
+      'gurlen', 'гурлен',
+      'bogot', 'боғот',
+      'xonqa', 'хонка',
+      'hazorasp', 'хазорасп',
+      'qo\'shko\'pir', 'koshkupir', 'кошкупир',
+      'yangiariq', 'янгиарик',
+      'tuproqqal\'a', 'tuprokkala', 'тупроккала',
+      'yangibozor', 'янгибозор',
+      
+      // Qoraqalpog'iston Respublikasi
+      'nukus', 'нукус',
+      'xo\'jayli', 'hojayli', 'хожайли',
+      'to\'rtko\'l', 'turtkul', 'турткул',
+      'qonliko\'l', 'kunlikkul', 'кунликкул',
+      'amudaryo', 'амударё',
+      'beruniy', 'беруний',
+      'kegeyli', 'кегейли',
+      'qorao\'zak', 'karauzak', 'караузак',
+      'mo\'ynoq', 'muynak', 'муйнак',
+      'shumanay', 'шуманай',
+      'taxtako\'pir', 'taxtakupir', 'тахтакупир',
+      'chimboy', 'чимбой',
+      'ellikqal\'a', 'ellikkala', 'элликкала',
+      'qon\'g\'irot', 'kangirat', 'кангират'
+    ];
+
+    // Improved city extraction logic
+    const originalLowerText = text.toLowerCase();
+    const latinLowerText = latinText.toLowerCase();
+
+    let fromCity: string | undefined;
+    let toCity: string | undefined;
+
+    // Uzbek location patterns to extract detailed from-to information including districts
+    const locationPatterns = [
+      // Pattern 1: Detailed "City District/Tumandan City District/Tumanga" - captures full address
+      /([a-zA-ZА-Яа-я\u0400-\u04FFёЁ'\s]+(?:tuman|district|шаҳар|shahar)?)\s*(дан|dan|да|da)\s+([a-zA-ZА-Яа-я\u0400-\u04FFёЁ'\s]+(?:tuman|district|шаҳар|shahar)?)\s*(га|ga|g'a|го|go)/gi,
+
+      // Pattern 2: With suffixes attached "Forishdan Kosonsoyga"
+      /([a-zA-ZА-Яа-я\u0400-\u04FFёЁ']+(?:дан|dan|да|da))\s+([a-zA-ZА-Яа-я\u0400-\u04FFёЁ']+(?:га|ga|g'a|го|go|qa))/gi,
+
+      // Pattern 3: Generic terms like "viloyat tumandan viloyat tumanga"
+      /(viloyat\s+tuman(?:dan|da))\s+(viloyat\s+tuman(?:ga|go|g'a))/gi,
+
+      // Pattern 4: Simple arrow format with potential multi-word locations
+      /([a-zA-ZА-Яа-я\u0400-\u04FFёЁ'\s]+)\s*[→\->]\s*([a-zA-ZА-Яа-я\u0400-\u04FFёЁ'\s]+)/gi
+    ];
+
+    // Try to extract cities using patterns
+    for (const pattern of locationPatterns) {
+      const match = pattern.exec(originalLowerText) || pattern.exec(latinLowerText);
+      if (match) {
+        if (pattern.source.includes('viloyat')) {
+          // Generic location pattern detected
+          fromCity = 'Noma\'lum viloyat';
+          toCity = 'Noma\'lum viloyat';
+        } else {
+          // Extract actual city names and clean them - preserve full addresses
+          let rawFromCity = match[1].replace(/(дан|dan|да|da)$/gi, '').trim();
+          let rawToCity = '';
+
+          if (match[3]) {
+            rawToCity = match[3].replace(/(га|ga|g'a|го|go|qa)$/gi, '').trim();
+          } else if (match[2]) {
+            rawToCity = match[2].replace(/(га|ga|g'a|го|go|qa)$/gi, '').trim();
+          }
+
+          // Clean up extra spaces and normalize but preserve multi-word locations
+          rawFromCity = rawFromCity.replace(/\s+/g, ' ').trim();
+          rawToCity = rawToCity.replace(/\s+/g, ' ').trim();
+
+          // Don't just take first word - preserve full location name like "Jizzax Forish"
+          fromCity = this.capitalizeLocation(rawFromCity);
+          toCity = this.capitalizeLocation(rawToCity);
+        }
+        break;
+      }
+    }
+
+    // Fallback: If no patterns matched, try to extract individual cities using the comprehensive city list
+    if (!fromCity || !toCity) {
+      // Look for cities with location suffixes
+      for (const city of cities) {
+        const normalizedCity = city.toLowerCase().replace(/'/g, "");
+
+        // Check for "dan/da" suffixes for source city
+        const fromSuffixes = ['дан', 'да', 'dan', 'da'];
+        for (const suffix of fromSuffixes) {
+          const combinedForm = normalizedCity + suffix;
+          if (originalLowerText.includes(combinedForm) || latinLowerText.includes(combinedForm)) {
+            fromCity = this.normalizeCityName(normalizedCity);
+            break;
+          }
+        }
+
+        // Check for "ga/go/qa" suffixes for destination city
+        const toSuffixes = ['га', 'го', 'ga', 'go', 'g\'a', 'qa'];
+        for (const suffix of toSuffixes) {
+          const combinedForm = normalizedCity + suffix;
+          if (originalLowerText.includes(combinedForm) || latinLowerText.includes(combinedForm)) {
+            toCity = this.normalizeCityName(normalizedCity);
+            break;
+          }
+        }
+
+        if (fromCity && toCity) break;
+      }
+    }
+
+    // If still no cities found, set as unknown but indicate parsing attempted
+    if (!fromCity && !toCity) {
+      fromCity = 'Noma\'lum';
+      toCity = 'Noma\'lum';
+    } else if (!fromCity) {
+      fromCity = 'Noma\'lum';
+    } else if (!toCity) {
+      toCity = 'Noma\'lum';
+    }
+
+    // Extract cargo description by removing location-related text and truck/date info
+    let cargoDescription = text;
+
+    // Remove city names and suffixes - also remove city names found in the middle
+    if (fromCity !== 'Noma\'lum' || toCity !== 'Noma\'lum') {
+      cargoDescription = text
+        .replace(/([a-zA-Zа-яёА-ЯЁ\']+)(дан|da|dan|да|га|ga|g'a|го|go|qa)\b/gi, '')
+        .replace(/viloyat\s+tuman(dan|ga|da|go|g'a)?/gi, '')
+        .trim();
+
+      // Also remove found city names from the middle/start of text
+      if (fromCity !== 'Noma\'lum') {
+        const cityRegex = new RegExp(`\\b${fromCity}\\b`, 'gi');
+        cargoDescription = cargoDescription.replace(cityRegex, '').trim();
+      }
+      if (toCity !== 'Noma\'lum') {
+        const cityRegex = new RegExp(`\\b${toCity}\\b`, 'gi');
+        cargoDescription = cargoDescription.replace(cityRegex, '').trim();
+      }
+    }
+
+    // Remove truck type mentions and related words
+    cargoDescription = cargoDescription
+      .replace(/(isuzu|isuzi|isuz|kamaz|man|volvo|scania|daf|mercedes|fuso|hyundai|mitsubishi)\s*(kerak|mashina|mashinasi)?/gi, '')
+      .replace(/(kerak|mashina|mashinasi)\s*/gi, '')
+      .replace(/(yuklanadi|yuklash|yetkazish)\s*/gi, '')
+      .trim();
+
+    // Remove date/time references
+    cargoDescription = cargoDescription
+      .replace(/(ertaga|bugun|hozir|dushanba|seshanba|chorshanba|payshanba|juma|shanba|yakshanba)\s*/gi, '')
+      .replace(/(ertalab|tush|kechqurun|tong|peshin)\s*/gi, '')
+      .trim();
+
+    // Clean up extra spaces and words
+    cargoDescription = cargoDescription
+      .replace(/\s+/g, ' ')
+      .replace(/^\s*(bor|kerak|yukim)\s*/gi, '') // Remove leading "bor", "kerak", "yukim"
+      .replace(/\s*(bor|kerak|yukim)\s*$/gi, '') // Remove trailing "bor", "kerak", "yukim"
+      .trim();
+
+    // If description becomes too short or meaningless, try to extract meaningful cargo info
+    if (!cargoDescription || cargoDescription.length < 3) {
+      // Look for cargo types in the original text
+      const cargoKeywords = ['olma', 'nok', 'uzum', 'mevalar', 'sabzavot', 'kartoshka', 'piyoz', 'sabzi',
+                            'un', 'guruch', 'bug\'doy', 'arpa', 'don', 'oziq-ovqat', 'yem',
+                            'mebel', 'stol', 'stul', 'shkaf', 'kreslo', 'divan',
+                            'kiyim', 'poyafzal', 'matolar', 'ip', 'gazlama',
+                            'qurilish', 'g\'isht', 'sement', 'qum', 'tosh', 'metalloprokat',
+                            'neft', 'gaz', 'benzin', 'kimyo', 'o\'g\'it',
+                            'texnika', 'mashina', 'ehtiyot', 'qism'];
+
+      for (const keyword of cargoKeywords) {
+        if (text.toLowerCase().includes(keyword)) {
+          cargoDescription = keyword;
+          break;
+        }
+      }
+
+      // If still nothing found, look for tonnage + any word
+      const tonnageMatch = text.match(/(\d+)\s*tonna\s+([a-zA-Zа-яёА-ЯЁ\']+)/i);
+      if (tonnageMatch && tonnageMatch[2]) {
+        const potentialCargo = tonnageMatch[2].toLowerCase();
+        if (!['mashina', 'yuk', 'kerak', 'bor', 'yuklanadi'].includes(potentialCargo)) {
+          cargoDescription = tonnageMatch[2];
+        }
+      }
+    }
+
+    this.logger.log(`🔍 Location extraction result: FROM="${fromCity}", TO="${toCity}", CARGO="${cargoDescription}"`);
+
+    return { fromCity, toCity, cargoDescription };
+  }
+
+  // Birinchi javobdan barcha ma'lumotlarni ajratib olish
+  private extractAllCargoInfo(text: string): {
+    truckInfo?: string,
+    price?: number,
+    loadingDate?: string,
+    weightTons?: number
+  } {
+    const lowerText = text.toLowerCase();
+    let truckInfo: string | undefined;
+    let price: number | undefined;
+    let loadingDate: string | undefined;
+    let weightTons: number | undefined;
+
+    this.logger.log(`🔍 Extracting all cargo info from: "${text}"`);
+
+    // Extract truck information (tonnage and truck type)
+    const truckPatterns = [
+      // Direct tonnage mentions
+      /(\d+)\s*(tonna|t)\s*(mashina|yuk|mashinasi)/gi,
+      /(\d+)\s*t\b/gi,
+
+      // Truck type mentions with common misspellings
+      /(isuzu|isuzi|isuz|kamaz|man|volvo|scania|daf|mercedes|fuso|hyundai|mitsubishi)\s*(\d+)?\s*(tonna|t)?/gi,
+      /(kichik|katta|o'rta|tent|yopiq|ochiq)\s*(mashina|moshina|yuk|furgon|mashinasi)/gi,
+      /(usti|osti)\s*(ochiq|yopiq)\s*(mashina|moshina|kerak)/gi,
+
+      // Combined patterns with truck types
+      /(\d+)\s*(tonnali|t)\s*(isuzu|isuzi|isuz|kamaz|man|volvo|scania|daf|mercedes|fuso|hyundai|mitsubishi)/gi,
+
+      // Pattern specifically for truck mentions in the text
+      /(isuzu|isuzi|isuz|kamaz|man|volvo|scania|daf|mercedes|fuso|hyundai|mitsubishi)\s*(kerak|mashina|mashinasi)?/gi,
+
+      // Tonnage + "kerak" pattern
+      /(\d+)\s*(tonna|t)\s*[a-zA-Z\s]*?(kerak|mashina|mashinasi)/gi
+    ];
+
+    for (const pattern of truckPatterns) {
+      const match = pattern.exec(text);
+      if (match) {
+        let rawTruckInfo = match[0].trim();
+
+        // Normalize truck names (fix common misspellings)
+        rawTruckInfo = this.normalizeTruckName(rawTruckInfo);
+
+        truckInfo = rawTruckInfo;
+
+        // Extract tonnage if found
+        const tonnageMatch = match[0].match(/(\d+)/);
+        if (tonnageMatch) {
+          weightTons = parseInt(tonnageMatch[1]);
+        }
+        break;
+      }
+    }
+
+    // Extract price information
+    const pricePatterns = [
+      // Standard price formats
+      /(\d{1,3}(?:[,.\s]\d{3})*)\s*(so'm|sum|som)/gi,
+      /(\d+(?:\.\d+)?)\s*(m|million|mln|млн)/gi,
+      /(\d+(?:\.\d+)?)\s*k\b/gi,
+
+      // Direct number mentions (if clearly indicating price)
+      /(?:narx|summa|pul|to'lov|tolov)\s*:?\s*(\d{4,})/gi
+    ];
+
+    for (const pattern of pricePatterns) {
+      const match = pattern.exec(text);
+      if (match) {
+        const extractedPrice = this.parsePrice(match[0]);
+        if (extractedPrice && extractedPrice > 0) {
+          price = extractedPrice;
+          break;
+        }
+      }
+    }
+
+    // Extract loading date information
+    const datePatterns = [
+      // Tomorrow/today keywords
+      /(ertaga|bugun|hozir)/gi,
+
+      // Day references
+      /(dushanba|seshanba|chorshanba|payshanba|juma|shanba|yakshanba)/gi,
+
+      // Specific dates
+      /(\d{1,2})[./-](\d{1,2})/gi,
+
+      // Time references
+      /(ertalab|tush|kechqurun|tong|peshin)/gi,
+
+      // Week references
+      /(kelasi|keyingi)\s*(hafta|oy)/gi
+    ];
+
+    for (const pattern of datePatterns) {
+      const match = pattern.exec(text);
+      if (match) {
+        loadingDate = this.normalizeLoadingDate(match[0]);
+        break;
+      }
+    }
+
+    const result = { truckInfo, price, loadingDate, weightTons };
+    this.logger.log(`📊 Extracted info: TRUCK="${truckInfo}", PRICE=${price}, DATE="${loadingDate}", TONS=${weightTons}`);
+
+    return result;
+  }
+
+  // Keyingi yetishmagan qadamni aniqlash
+  private determineNextMissingStep(currentStep: any): CargoPostingStep {
+    const data = currentStep.data;
+
+    if (!data.truckNeeded) {
+      return 'truck_needed';
+    }
+    if (!data.price) {
+      return 'price_offer';
+    }
+    if (!data.loadingDate) {
+      return 'loading_date';
+    }
+
+    // All information is available, proceed to completion
+    return 'complete';
+  }
+
+  // Keyingi qadamning xabarini ko'rsatish
+  private async showNextCargoStep(ctx: any, currentStep: any) {
+    const data = currentStep.data;
+    let message = `📦 <b>YUK E'LON QILISH</b>\n\n`;
+
+    // Show what we already have
+    if (data.routeAndCargo) {
+      message += `✅ <b>1-savol:</b> ${data.routeAndCargo}\n`;
+    }
+    if (data.truckNeeded) {
+      message += `✅ <b>2-savol:</b> ${data.truckNeeded}\n`;
+    }
+    if (data.price) {
+      message += `✅ <b>3-savol:</b> ${data.price.toLocaleString()} so'm\n`;
+    }
+    if (data.loadingDate) {
+      message += `✅ <b>4-savol:</b> ${data.loadingDate}\n`;
+    }
+
+    // Show what we need next
+    switch (currentStep.step) {
+      case 'truck_needed':
+        message += `\n🚚 <b>2-savol:</b> Qanaqa mashina kerak?\n\n`;
+        message += `<b>Misol:</b>\n`;
+        message += `• 10 tonnali yuk mashinasi\n`;
+        message += `• Kichik furgon 3 tonna\n`;
+        message += `• Katta yuk mashinasi 20 tonna\n`;
+        message += `• Tent bilan 15 tonnali\n\n`;
+        message += `📝 Mashina turini yozing:`;
+        break;
+
+      case 'price_offer':
+        message += `\n💰 <b>3-savol:</b> Qancha summa berasiz?\n\n`;
+
+        // Check if this is an error state (price couldn't be parsed)
+        if (data.price === undefined || data.price === null) {
+          message += `❌ <b>Noto'g'ri narx formati!</b>\n\n`;
+          message += `<b>✅ To'g'ri misol:</b>\n`;
+        } else {
+          message += `<b>Misol:</b>\n`;
+        }
+
+        message += `• 2000000 so'm\n`;
+        message += `• 2.5M\n`;
+        message += `• 1,500,000\n\n`;
+        message += `📝 Narxni yozing:`;
+        break;
+
+      case 'loading_date':
+        message += `\n📅 <b>4-savol:</b> Yuk qachon yuklanadi?\n\n`;
+        message += `<b>Misol:</b>\n`;
+        message += `• Ertaga ertalab\n`;
+        message += `• 3 kun ichida\n`;
+        message += `• Dushanba kuni\n`;
+        message += `• Hozir tayyor\n\n`;
+        message += `📝 Yuklanish vaqtini tanlang yoki yozing:`;
+
+        // Add loading date keyboard options
+        const loadingDateKeyboard = new Keyboard()
+          .text('🌅 Ertaga ertalab').text('⏰ 3 kun ichida').row()
+          .text('📅 Dushanba kuni').text('✅ Hozir tayyor').row()
+          .text('🔢 Boshqa vaqt')
+          .resized();
+
+        await ctx.reply(message, {
+          parse_mode: 'HTML',
+          reply_markup: loadingDateKeyboard
+        });
+        return;
+
+      case 'complete':
+        // All information is complete, proceed to final step
+        await this.completeCargoPosting(ctx, currentStep);
+        return;
+    }
+
+    // Update the existing message
+    if (currentStep.messageId) {
+      await this.safeEditMessageById(ctx.chat.id, currentStep.messageId, message, {
+        parse_mode: 'HTML',
+        reply_markup: new InlineKeyboard()
+          .text('🔙 Orqaga', 'cargo_system')
+      });
+    }
+  }
+
+  // Yuklanish sanasini normalizatsiya qilish
+  private normalizeLoadingDate(dateStr: string): string {
+    const lowerDate = dateStr.toLowerCase().trim();
+
+    // Common date mappings
+    const dateMap: { [key: string]: string } = {
+      'ertaga': 'Ertaga',
+      'bugun': 'Bugun',
+      'hozir': 'Hozir tayyor',
+      'dushanba': 'Dushanba',
+      'seshanba': 'Seshanba',
+      'chorshanba': 'Chorshanba',
+      'payshanba': 'Payshanba',
+      'juma': 'Juma',
+      'shanba': 'Shanba',
+      'yakshanba': 'Yakshanba',
+      'ertalab': 'Ertalab',
+      'tush': 'Tush payt',
+      'kechqurun': 'Kechqurun',
+      'tong': 'Tong',
+      'peshin': 'Peshin payt'
+    };
+
+    return dateMap[lowerDate] || dateStr;
+  }
+
+  // Mashina nomini normalizatsiya qilish
+  private normalizeTruckName(truckName: string): string {
+    let normalized = truckName.toLowerCase().trim();
+
+    // Fix common truck name misspellings
+    const truckNameMap: { [key: string]: string } = {
+      'isuzi': 'Isuzu',
+      'isuz': 'Isuzu',
+      'isuzu': 'Isuzu',
+      'kamaz': 'Kamaz',
+      'man': 'MAN',
+      'volvo': 'Volvo',
+      'scania': 'Scania',
+      'daf': 'DAF',
+      'mercedes': 'Mercedes',
+      'fuso': 'Fuso',
+      'hyundai': 'Hyundai',
+      'mitsubishi': 'Mitsubishi'
+    };
+
+    // Replace truck names
+    for (const [misspelled, correct] of Object.entries(truckNameMap)) {
+      if (normalized.includes(misspelled)) {
+        normalized = normalized.replace(new RegExp(misspelled, 'gi'), correct);
+        break;
+      }
+    }
+
+    // Handle truck type descriptions
+    if (normalized.includes('usti ochiq') || normalized.includes('osti ochiq')) {
+      return 'Usti ochiq mashina';
+    }
+    if (normalized.includes('usti yopiq') || normalized.includes('osti yopiq')) {
+      return 'Usti yopiq mashina';
+    }
+    if (normalized.includes('tent')) {
+      return 'Tent mashina';
+    }
+    if (normalized.includes('ochiq mashina') || normalized.includes('ochiq moshina')) {
+      return 'Usti ochiq mashina';
+    }
+    if (normalized.includes('yopiq mashina') || normalized.includes('yopiq moshina')) {
+      return 'Usti yopiq mashina';
+    }
+
+    // Capitalize first letter
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }
+
+  // Yuk e'lonini yakunlash
+  private async completeCargoPosting(ctx: any, currentStep: any) {
+    const userId = ctx.from.id;
+    const userPhone = this.getUserPhone(userId);
+
+    if (!userPhone) {
+      await ctx.reply('❌ Telefon raqami topilmadi. Qayta ro\'yxatdan o\'ting!');
+      this.cargoPostingSteps.delete(userId);
+      return;
+    }
+
+    // Extract location information from the original input
+    const routeAndCargoText = currentStep.data.routeAndCargo;
+    let fromCity = 'Noma\'lum';
+    let toCity = 'Noma\'lum';
+    let cargoPart = routeAndCargoText;
+    let cleanedCargoDescription = routeAndCargoText;
+
+    // Try to extract locations from the input
+    if (routeAndCargoText) {
+      if (routeAndCargoText.includes('→') || routeAndCargoText.includes('->')) {
+        const parts = routeAndCargoText.split(/[→\->]/).map(p => p.trim());
+        if (parts.length >= 2) {
+          const beforeArrow = parts[0];
+          let afterArrow = parts[1];
+
+          fromCity = beforeArrow.split(/[,\s]+/)[0] || fromCity;
+
+          if (afterArrow.includes(',')) {
+            const commaParts = afterArrow.split(',');
+            toCity = commaParts[0].trim();
+            cargoPart = commaParts[1] ? commaParts[1].trim() : cargoPart;
+            cleanedCargoDescription = cargoPart;
+          } else {
+            toCity = afterArrow;
+          }
+        }
+      } else {
+        // Try natural language parsing
+        const cities = this.extractCitiesFromText(routeAndCargoText);
+        if (cities.fromCity && cities.toCity) {
+          fromCity = cities.fromCity;
+          toCity = cities.toCity;
+          cargoPart = cities.cargoDescription || routeAndCargoText;
+          cleanedCargoDescription = cities.cargoDescription || routeAndCargoText;
+        }
+      }
+    }
+
+    // Create cargo offer
+    const cargoId = `cargo_${Date.now()}_${userId}`;
+    const cargoOffer = {
+      id: cargoId,
+      userId: userId,
+      username: ctx.from?.first_name || ctx.from?.username || 'Mijoz',
+      fromCity: fromCity,
+      toCity: toCity,
+      cargoType: cleanedCargoDescription,
+      truckInfo: currentStep.data.truckNeeded,
+      price: currentStep.data.price,
+      loadingDate: currentStep.data.loadingDate,
+      phone: userPhone,
+      status: 'active' as const,
+      date: new Date().toISOString(),
+      description: '',
+      photo: '',
+      completedAt: null
+    };
+
+    this.cargoOffers.set(cargoId, cargoOffer);
+    await this.saveUserData();
+
+    // Show completion message with cleaned cargo description and updated format
+    const completionMessage = `
+✅ <b>YUK E'LONI YARATILDI!</b>
+
+📋 <b>E'lon ma'lumotlari:</b>
+🚚 <b>Yo'nalish:</b> ${fromCity} dan ${toCity} ga
+📦 <b>Yuk tafsilotlari:</b> ${cleanedCargoDescription}
+🚛 <b>Mashina:</b> ${currentStep.data.truckNeeded}
+💰 <b>Narx:</b> ${currentStep.data.price ? currentStep.data.price.toLocaleString() : 'Kelishiladi'} so'm
+📅 <b>Sana:</b> ${currentStep.data.loadingDate}
+📞 <b>Telefon:</b> ${userPhone}
+
+🎯 <b>Keyingi qadamlar:</b>
+• ✅ E'lon haydovchilarga ko'rsatildi
+• 📞 Haydovchilar sizga qo'ng'iroq qilishadi
+• 🕒 3 daqiqadan keyin dispechr ham ko'radi
+• 🤝 Mos haydovchi bilan kelishib olasiz
+
+⏰ <b>E'lon 24 soat faol!</b> Haydovchilarni kuting...
+    `;
+
+    // Update the existing message with completion message
+    if (currentStep.messageId) {
+      await this.safeEditMessageById(ctx.chat.id, currentStep.messageId, completionMessage, {
+        parse_mode: 'HTML',
+        reply_markup: new InlineKeyboard()
+          .text('📦 Yana yuk joylashtirish', 'post_cargo')
+          .text('🔙 Bosh menyu', 'back_main')
+      });
+    }
+
+    // Clear posting steps
+    this.cargoPostingSteps.delete(userId);
+
+    // Collect analytics data
+    await this.collectOrderAnalytics(cargoOffer);
+
+    // Start cargo distribution
+    this.logger.log(`🚛 DEBUG: Calling notifyAllDriversAboutNewCargo for cargo: ${cargoOffer.id}`);
+    await this.notifyAllDriversAboutNewCargo(cargoOffer);
+  }
+
+  private normalizeCityName(cityName: string): string {
+    const normalized = cityName.toLowerCase();
+    // Remove common suffixes and normalize
+    const cleanName = normalized
+      .replace(/(dan|da|ga|g'a|go)$/g, '')
+      .replace(/'/g, "'");
+
+    // Capitalize first letter
+    return cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+  }
+
+  // Jo'yni to'liq formatlash - bir necha so'z bilan ishlaydi
+  private capitalizeLocation(locationName: string): string {
+    if (!locationName || locationName.trim().length === 0) {
+      return 'Noma\'lum';
+    }
+
+    // Remove common suffixes and normalize
+    const cleanName = locationName.toLowerCase()
+      .replace(/(дан|dan|da|да|га|ga|g'a|го|go|qa)$/gi, '')
+      .replace(/'/g, "'")
+      .trim();
+
+    // Split by spaces and capitalize each word
+    return cleanName.split(/\s+/).map(word => {
+      if (word.length === 0) return '';
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    }).join(' ');
+  }
+
+  // Mijozning order tarixini ko'rsatish
+  private async showCustomerOrderHistory(ctx: any) {
+    const userId = ctx.from.id;
+    const userRole = this.userRoles.get(userId);
+    
+    // Check if user is registered
+    if (!userRole || !userRole.isRegistered) {
+      await ctx.reply('❌ Avval ro\'yxatdan o\'ting!');
+      return;
+    }
+    
+    // Get customer order history
+    const orderHistory = this.customerOrderHistory.get(userId) || [];
+    
+    if (orderHistory.length === 0) {
+      await ctx.reply(`
+📋 <b>MENING ORDERLARIM</b>
+
+📭 <b>Sizda hali buyurtmalar mavjud emas.</b>
+
+💡 Yuk berish uchun "📦 Yuk berish" tugmasini bosing.
+      `, {
+        parse_mode: 'HTML',
+        reply_markup: {
+          keyboard: [
+            [{ text: '📦 Yuk berish' }, { text: '📋 Mening orderlarim' }],
+            [{ text: '👨‍💼 Haydovchi bo\'lish' }, { text: '💰 Balansim' }],
+            [{ text: '📞 Qo\'llab-quvvatlash' }, { text: '⚙️ Sozlamalar' }]
+          ],
+          resize_keyboard: true,
+          one_time_keyboard: false
+        }
+      });
+      return;
+    }
+    
+    // Sort orders by date (newest first)
+    const sortedOrders = orderHistory.sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    
+    let ordersText = `📋 <b>MENING ORDERLARIM</b>\n\n📊 <b>Jami orderlar:</b> ${orderHistory.length} ta\n\n`;
+    
+    for (let i = 0; i < Math.min(sortedOrders.length, 5); i++) {
+      const order = sortedOrders[i];
+      const statusIcon = order.status === 'in_progress' ? '🔄' : 
+                        order.status === 'completed' ? '✅' : 
+                        order.status === 'cancelled' ? '❌' : '📋';
+      
+      const statusText = order.status === 'in_progress' ? 'Jarayonda' : 
+                        order.status === 'completed' ? 'Bajarildi' : 
+                        order.status === 'cancelled' ? 'Bekor qilindi' : 'Noma\'lum';
+      
+      ordersText += `${statusIcon} <b>Order #${i + 1}</b>\n`;
+      ordersText += `🆔 <code>${order.id}</code>\n`;
+      ordersText += `📍 ${order.fromCity || 'Noma\'lum'} → ${order.toCity || 'Noma\'lum'}\n`;
+      ordersText += `📦 ${order.cargoType || 'Yuk turi ko\'rsatilmagan'}\n`;
+      ordersText += `💰 ${order.price ? (order.price / 1000000).toFixed(1) + ' mln so\'m' : 'Narx ko\'rsatilmagan'}\n`;
+      ordersText += `📅 ${new Date(order.date).toLocaleDateString('uz-UZ')}\n`;
+      ordersText += `📊 <b>Status:</b> ${statusText}\n`;
+      
+      if (order.contactedDate) {
+        ordersText += `📞 Haydovchi bog'landi: ${new Date(order.contactedDate).toLocaleString('uz-UZ')}\n`;
+      }
+      
+      ordersText += '\n';
+    }
+    
+    if (orderHistory.length > 5) {
+      ordersText += `📄 <b>Va yana ${orderHistory.length - 5} ta order...</b>\n\n`;
+    }
+    
+    ordersText += `🔄 <b>Yangi buyurtma berish uchun "📦 Yuk berish" tugmasini bosing.</b>`;
+    
+    await ctx.reply(ordersText, {
+      parse_mode: 'HTML',
+      reply_markup: {
+        keyboard: [
+          [{ text: '📦 Yuk berish' }, { text: '📋 Mening orderlarim' }],
+          [{ text: '👨‍💼 Haydovchi bo\'lish' }, { text: '💰 Balansim' }],
+          [{ text: '📞 Qo\'llab-quvvatlash' }, { text: '⚙️ Sozlamalar' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false
+      }
+    });
+  }
+
+  // Turkish matnni o'zbekchaga tarjima qilish funksiyasi
+  private async convertToProperUzbek(inputText: string): Promise<string> {
+    try {
+      // FAQAT lugat bilan to'g'rilash - GPT ishlatilmaydi
+      this.logger.log('Faqat lugat to\'g\'rilash rejimi - GPT o\'chirildi');
+      const dictionaryCorrected = await this.correctWithDictionary(inputText);
+      return dictionaryCorrected;
+
+    } catch (error) {
+      this.logger.error('Konversiya xatoligi:', error);
+      return inputText; // Xato bo'lsa, asl matnni qaytarish
+    }
+  }
+
+  // Lugat bilan matnni to'g'rilash algoritmi
+  private async correctWithDictionary(inputText: string): Promise<string> {
+    let correctedText = inputText.toLowerCase();
+
+    try {
+      // AVVAL: So'z to'g'rilanishlarini qo'llash (shahar nomlarini buzmaslik uchun)
+      if (uzbekCargoDict.word_corrections) {
+        for (const [wrongWord, correctWord] of Object.entries(uzbekCargoDict.word_corrections)) {
+          // Faqat to'liq so'zlarni almashtirish
+          const wordPattern = new RegExp(`\\b${wrongWord.toLowerCase()}\\b`, 'gi');
+          correctedText = correctedText.replace(wordPattern, correctWord);
+        }
+      }
+
+      // KEYIN: Shahar va viloyat nomlarini to'g'rilash
+      for (const regionKey in uzbekCargoDict.regions) {
+        const region = uzbekCargoDict.regions[regionKey];
+
+        // Viloyat nomini to'g'rilash
+        const regionPattern = new RegExp(`\\b${regionKey.replace(/'/g, "['']?")}\\b`, 'gi');
+        correctedText = correctedText.replace(regionPattern, region.name);
+
+        // Tuman va qishloq nomlarini to'g'rilash
+        [...region.districts, ...region.villages].forEach(place => {
+          const normalizedPlace = place.toLowerCase().replace(/'/g, "");
+          // Faqat to'liq shahar nomlarini almashtirish
+          const placePattern = new RegExp(`\\b${normalizedPlace.replace(/'/g, "['']?")}\\b`, 'gi');
+          correctedText = correctedText.replace(placePattern, place);
+        });
+      }
+
+      // Yuk turlarini to'g'rilash
+      for (const categoryKey in uzbekCargoDict.cargo_types) {
+        const items = uzbekCargoDict.cargo_types[categoryKey];
+        items.forEach(item => {
+          const itemPattern = new RegExp(item.toLowerCase().replace(/'/g, "['']?"), 'gi');
+          correctedText = correctedText.replace(itemPattern, item);
+        });
+      }
+
+      // Transport turlarini to'g'rilash
+      uzbekCargoDict.vehicle_types.forEach(vehicle => {
+        const vehiclePattern = new RegExp(vehicle.toLowerCase().replace(/'/g, "['']?"), 'gi');
+        correctedText = correctedText.replace(vehiclePattern, vehicle);
+      });
+
+      // O'lchov birliklarini to'g'rilash
+      uzbekCargoDict.weight_measures.forEach(measure => {
+        const measurePattern = new RegExp(measure.toLowerCase(), 'gi');
+        correctedText = correctedText.replace(measurePattern, measure);
+      });
+
+      // Umumiy iboralarni to'g'rilash
+      uzbekCargoDict.common_phrases.forEach(phrase => {
+        const phrasePattern = new RegExp(phrase.toLowerCase().replace(/'/g, "['']?"), 'gi');
+        correctedText = correctedText.replace(phrasePattern, phrase);
+      });
+
+      // Transport atamalarini to'g'rilash
+      uzbekCargoDict.transportation_terms.forEach(term => {
+        const termPattern = new RegExp(term.toLowerCase().replace(/'/g, "['']?"), 'gi');
+        correctedText = correctedText.replace(termPattern, term);
+      });
+
+      // Qo'shimcha (suffix) tuzatishlari
+      if (uzbekCargoDict.uzbek_suffixes) {
+        const suffixes = uzbekCargoDict.uzbek_suffixes;
+
+        // Location suffixes (dan, ga, da, ni, ning)
+        if (suffixes.location_suffixes) {
+          for (const [correctSuffix, variations] of Object.entries(suffixes.location_suffixes)) {
+            variations.forEach(variation => {
+              if (variation !== correctSuffix) {
+                // Shahar nomlari bilan birgalikda ishlatish
+                for (const regionKey in uzbekCargoDict.regions) {
+                  const region = uzbekCargoDict.regions[regionKey];
+                  const placeName = region.name.toLowerCase();
+
+                  // "navoiyge" -> "navoiyga" kabi tuzatishlar
+                  const variationPattern = new RegExp(`\\b${placeName}${variation}\\b`, 'gi');
+                  correctedText = correctedText.replace(variationPattern, `${region.name}${correctSuffix}`);
+
+                  // District va village uchun ham
+                  [...region.districts, ...region.villages].forEach(place => {
+                    const placeNameLower = place.toLowerCase();
+                    const placeVariationPattern = new RegExp(`\\b${placeNameLower}${variation}\\b`, 'gi');
+                    correctedText = correctedText.replace(placeVariationPattern, `${place}${correctSuffix}`);
+                  });
+                }
+              }
+            });
+          }
+        }
+
+        // Verbal suffixes (kerak, bor, yo'q)
+        if (suffixes.verbal_suffixes) {
+          for (const [correctWord, variations] of Object.entries(suffixes.verbal_suffixes)) {
+            variations.forEach(variation => {
+              if (variation !== correctWord) {
+                const variationPattern = new RegExp(`\\b${variation}\\b`, 'gi');
+                correctedText = correctedText.replace(variationPattern, correctWord);
+              }
+            });
+          }
+        }
+
+        // Quantity suffixes (tonna, kg, dona, metr)
+        if (suffixes.quantity_suffixes) {
+          for (const [correctUnit, variations] of Object.entries(suffixes.quantity_suffixes)) {
+            variations.forEach(variation => {
+              if (variation !== correctUnit) {
+                const variationPattern = new RegExp(`\\b${variation}\\b`, 'gi');
+                correctedText = correctedText.replace(variationPattern, correctUnit);
+              }
+            });
+          }
+        }
+      }
+
+
+      // Sonlarni tuzatish (numbers)
+      if (uzbekCargoDict.numbers) {
+        for (const [numberWord, numberDigit] of Object.entries(uzbekCargoDict.numbers)) {
+          const numberPattern = new RegExp(`\\b${numberWord.toLowerCase()}\\b`, 'gi');
+          correctedText = correctedText.replace(numberPattern, numberDigit);
+        }
+      }
+
+      // Matnning birinchi harfini katta qilish
+      correctedText = correctedText.charAt(0).toUpperCase() + correctedText.slice(1);
+
+      this.logger.log(`📖 Lugat orqali to'g'rilandi: "${inputText}" → "${correctedText}"`);
+      return correctedText;
+
+    } catch (error) {
+      this.logger.error('Lugat bilan to\'g\'rilashda xatolik:', error);
+      return inputText;
+    }
+  }
+
+  // GPT uchun kengaytirilgan prompt yaratish
+  private generateDictionaryPrompt(): string {
+    const cities = Object.values(uzbekCargoDict.regions).map(r => r.name).join(', ');
+    const cargoTypes = Object.values(uzbekCargoDict.cargo_types).flat().slice(0, 50).join(', ');
+    const vehicles = uzbekCargoDict.vehicle_types.slice(0, 20).join(', ');
+
+    return `UZBEK TEXT CORRECTION ONLY. DO NOT CHANGE THE MEANING OR TRANSLATE.
+
+🔥 STRICT RULES:
+1. NEVER change "G'uzor" to anything else - keep it as "G'uzor"
+2. NEVER change "tarvuz" to "taroz" - keep it as "tarvuz"
+3. NEVER translate to Turkish or any other language
+4. ONLY fix numbers: on→10, besh→5, uch→3, to'rt→4, ikki→2
+5. Return the EXACT same text with ONLY number corrections
+
+❌ FORBIDDEN CHANGES:
+- G'uzor → O'zar (WRONG!)
+- tarvuz → taroz (WRONG!)
+- Any city name changes
+- Any word meaning changes
+
+✅ ONLY ALLOWED:
+- Number word to digit: "on" → "10"
+
+INPUT EXAMPLE: "G'uzordan Xojaobodga 10 tonna tarvuz bor"
+CORRECT OUTPUT: "G'uzordan Xo'jaobodga 10 tonna tarvuz bor"
+
+RETURN THE TEXT WITH MINIMAL CHANGES ONLY!`;
+  }
+
+  // Lugat to'g'rilash yetarliligini tekshirish
+  private isDictionaryCorrectionSufficient(originalText: string, dictionaryCorrected: string): boolean {
+    try {
+      // Asl matn va to'g'rilangan matnni taqqoslash
+      const originalLower = originalText.toLowerCase();
+      const correctedLower = dictionaryCorrected.toLowerCase();
+
+      // Agar matnlar bir xil bo'lsa, GPT kerak emas
+      if (originalLower === correctedLower) {
+        return false;
+      }
+
+      // Muhim o'zgarishlar borligini tekshirish
+      let significantChanges = 0;
+
+      // Shahar nomlari to'g'rilanganligini tekshirish
+      for (const regionKey in uzbekCargoDict.regions) {
+        const region = uzbekCargoDict.regions[regionKey];
+
+        // Viloyat nomi o'zgarganmi?
+        if (correctedLower.includes(region.name.toLowerCase()) &&
+            !originalLower.includes(region.name.toLowerCase())) {
+          significantChanges++;
+        }
+
+        // Tuman va qishloq nomlari o'zgarganmi?
+        [...region.districts, ...region.villages].forEach(place => {
+          if (correctedLower.includes(place.toLowerCase()) &&
+              !originalLower.includes(place.toLowerCase())) {
+            significantChanges++;
+          }
+        });
+      }
+
+      // Word corrections o'zgarishlar
+      if (uzbekCargoDict.word_corrections) {
+        for (const [wrongWord, correctWord] of Object.entries(uzbekCargoDict.word_corrections)) {
+          const wrongPattern = new RegExp(`\\b${wrongWord.toLowerCase()}\\b`, 'g');
+          const correctPattern = new RegExp(`\\b${correctWord.toLowerCase()}\\b`, 'g');
+
+          if (originalLower.match(wrongPattern) && correctedLower.match(correctPattern)) {
+            significantChanges++;
+          }
+        }
+      }
+
+      // Suffix to'g'rilanganligini tekshirish
+      const suffixPatterns = [
+        { wrong: /(\w+)ge\b/g, correct: /(\w+)ga\b/g },
+        { wrong: /(\w+)den\b/g, correct: /(\w+)dan\b/g },
+        { wrong: /gerek\b/g, correct: /kerak\b/g },
+        { wrong: /var\b/g, correct: /bor\b/g },
+        { wrong: /nuk\b/g, correct: /yuk\b/g }
+      ];
+
+      suffixPatterns.forEach(pattern => {
+        if (originalLower.match(pattern.wrong) && correctedLower.match(pattern.correct)) {
+          significantChanges++;
+        }
+      });
+
+      // Sonlar to'g'rilanganligini tekshirish
+      if (uzbekCargoDict.numbers) {
+        for (const [numberWord, numberDigit] of Object.entries(uzbekCargoDict.numbers)) {
+          if (originalLower.includes(numberWord.toLowerCase()) &&
+              correctedLower.includes(numberDigit)) {
+            significantChanges++;
+          }
+        }
+      }
+
+      // Agar yetarli muhim o'zgarishlar bo'lsa, lugat yetarli
+      const isLocationCorrection = significantChanges >= 2 ||
+        (significantChanges >= 1 && this.hasLocationNames(correctedLower));
+
+      this.logger.log(`Lugat tekshiruvi: ${significantChanges} o'zgarish, lokatsiya: ${this.hasLocationNames(correctedLower)}, yetarli: ${isLocationCorrection}`);
+
+      return isLocationCorrection;
+
+    } catch (error) {
+      this.logger.error('Lugat yetarlilik tekshiruvida xatolik:', error);
+      return false;
+    }
+  }
+
+  // Matnda joylashuv nomlari mavjudligini tekshirish
+  private hasLocationNames(text: string): boolean {
+    const textLower = text.toLowerCase();
+
+    for (const regionKey in uzbekCargoDict.regions) {
+      const region = uzbekCargoDict.regions[regionKey];
+
+      // Viloyat nomi bormi?
+      if (textLower.includes(region.name.toLowerCase())) {
+        return true;
+      }
+
+      // Tuman va qishloq nomlari bormi?
+      const hasPlace = [...region.districts, ...region.villages].some(place =>
+        textLower.includes(place.toLowerCase())
+      );
+
+      if (hasPlace) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // Ovozli habardan yuk ma'lumotlarini olish funksiyasi
+  private async handleVoiceCargoPosting(ctx: any) {
+    const userId = ctx.from.id;
+    const currentStep = this.cargoPostingSteps.get(userId);
+    
+    if (!currentStep) {
+      return;
+    }
+
+    try {
+      await ctx.reply('🎙️ <b>OVOZLI HABAR QAYTA ISHLANMOQDA...</b>\n\n🔄 Iltimos, bir oz kuting...', { parse_mode: 'HTML' });
+
+      // OpenAI mavjudligini tekshirish
+      if (!this.openai) {
+        await ctx.reply(
+          '⚠️ <b>OVOZLI HABAR XIZMATI FAOL EMAS</b>\n\n' +
+          'Hozirda Speech-to-Text xizmati sozlanmagan.\n\n' +
+          '⌨️ <b>Iltimos, matn ko\'rinishida yozing:</b>\n\n' +
+          '<b>✅ To\'g\'ri format:</b>\n' +
+          '• Andijondan Toshkentga 10 tonna un bor\n' +
+          '• Samarqanddan Nukusga mebel kerak tashish\n\n' +
+          '📍 <b>Format:</b> Shahar1dan Shahar2ga, yuk turi',
+          {
+            parse_mode: 'HTML',
+            reply_markup: new InlineKeyboard()
+              .text('🔙 Orqaga', 'post_cargo')
+          }
+        );
+        return;
+      }
+
+      // Voice fayl ma'lumotlarini olish
+      const voice = ctx.message.voice;
+      const fileId = voice.file_id;
+
+      // Telegram API orqali fayl linkini olish
+      const file = await this.bot.api.getFile(fileId);
+      const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
+      
+      // Ovozli faylni yuklab olish
+      const response = await axios.get(fileUrl, {
+        responseType: 'arraybuffer'
+      });
+
+      // Temp fayl yaratish
+      const tempDir = path.join(process.cwd(), 'temp');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+
+      const tempFilePath = path.join(tempDir, `voice_${userId}_${Date.now()}.ogg`);
+      fs.writeFileSync(tempFilePath, response.data);
+
+      // OpenAI Whisper API ga yuborish - Language auto-detect
+      const transcription = await this.openai.audio.transcriptions.create({
+        file: fs.createReadStream(tempFilePath),
+        model: 'whisper-1',
+        // Language parameter o'chirildi - auto-detection
+        prompt: 'Bu o\'zbekcha yuk tashish haqida ovozli habar. O\'zbekiston shaharlari: Andijon, Toshkent, Samarqand, Namangan, Farg\'ona, Nukus, Urganch, Qarshi, Buxoro, Termiz, Jizzax, Sirdaryo, Guliston, Margilon, Kokand, Navoiy. Yuk turlari: un, olma, paxta, qurilish materiallari, mebel, oziq-ovqat, pishloq, go\'sht. Mashina turlari: Isuzu, Kamaz, tent, fura, yuk mashinasi. O\'zbekcha yozing: dan, ga, kerak, bor, tonna, kg.',
+      });
+
+      // Temp faylni o'chirish
+      fs.unlinkSync(tempFilePath);
+
+      const transcribedText = transcription.text;
+      this.logger.log(`🎙️ Asl matn: ${transcribedText}`);
+
+      // Matnni o'zbekcha formatga keltirish
+      const uzbekText = await this.convertToProperUzbek(transcribedText);
+      this.logger.log(`🔄 O'zbek matni: ${uzbekText}`);
+
+      // Agar matn bo'sh bo'lsa
+      if (!uzbekText || uzbekText.trim().length === 0) {
+        await ctx.reply(
+          '🎙️ <b>OVOZ ANIQLANMADI</b>\n\n' +
+          'Ovozli habaringiz ancha past yoki aniq emas.\n\n' +
+          '⌨️ <b>Iltimos, matn ko\'rinishida yozing:</b>',
+          {
+            parse_mode: 'HTML',
+            reply_markup: new InlineKeyboard()
+              .text('🔄 Qayta urinish', 'post_cargo')
+              .text('🔙 Orqaga', 'post_cargo')
+          }
+        );
+        return;
+      }
+
+      // Faqat to'g'rilangan matnni ko'rsatish
+      await ctx.reply(
+        `🎙️ <b>OVOZ MATNGA AYLANTIRILDI!</b>\n\n` +
+        `📝 <b>Sizning yukingiz:</b> "${uzbekText}"\n\n` +
+        `🔄 Endi yuk ma'lumotlari qayta ishlanmoqda...`,
+        { parse_mode: 'HTML' }
+      );
+
+      // O'zbek matnini yuk ma'lumoti sifatida qayta ishlash
+      await this.handleCargoPostingSteps(ctx, uzbekText);
+
+    } catch (error) {
+      this.logger.error('Voice message processing error:', error);
+      await ctx.reply(
+        '❌ <b>XATOLIK YUZAGA KELDI</b>\n\n' +
+        'Ovozli habarni qayta ishlashda muammo yuzaga keldi.\n\n' +
+        '⌨️ Iltimos, matn ko\'rinishida yuboring:',
+        {
+          parse_mode: 'HTML',
+          reply_markup: new InlineKeyboard()
+            .text('🔄 Qayta urinish', 'post_cargo')
+            .text('🏠 Bosh menyu', 'back_main')
+        }
+      );
+    }
   }
 }

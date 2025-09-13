@@ -1,0 +1,297 @@
+{
+  "regions": {
+    "andijon": {
+      "name": "Andijon",
+      "type": "region",
+      "districts": ["Andijon shahri", "Xo'jaobod", "Qo'rg'ontepa", "Marhamat", "Pakhtaobod", "Jalolquduq", "Izboskan", "Ulug'nor", "Buloqboshi", "Oltinko'l", "Baliqchi", "Bo'z", "Qo'shtepa", "Asaka", "Shahrixon"],
+      "villages": ["Xonobod", "Chinobod", "Oltiariq", "Paxtakor", "Do'stlik", "Mehrobod", "Oqtosh", "Bog'ishamol", "Yangiobod", "Dehqonobod", "Navbahor", "Guliston", "Kuyganyor", "Dustlik", "Madaniyat", "Tinchlik", "Mustaqillik", "G'ozgon", "Qo'riqchi", "Yangiyer", "Muynak", "Navro'z", "Chiqin", "O'zgarish", "Kelgusi", "Beshkapa", "Bogi-Kalan", "Toshkapa", "Oybek", "Choliqishloq", "Kichkina", "Kattagli", "Qo'yliq", "Beshterak", "Hindcha", "Kosonsoy", "Jalolquduq"]
+    },
+    "namangan": {
+      "name": "Namangan",
+      "type": "region",
+      "districts": ["Namangan shahri", "Chortoq", "Chust", "Kosonsoy", "Mingbuloq", "Norin", "Pop", "To'raqo'rg'on", "Uchqo'rg'on", "Uychi", "Yangiqo'rg'on"],
+      "villages": ["Vodil", "Pap", "Chartak", "Kosonsoy", "Chust", "Mingbuloq", "Chortoq", "Turakurgan", "Pakhtaobod", "Uchtepa", "Chust shahri", "Davlatobod", "Uychi", "Yangiobad", "Kalajak", "Navbahor", "Tingichlik", "Uzgarish", "Guliston", "Qizilcha", "Oqtepa", "Yuksalish", "Mustaqillik", "Beshkapa", "Yangiariq", "Chortoglik", "Hindcha", "Kasansoy", "Gulbahor", "Navqat", "Kichik-Olmaliq", "Tukimachi", "Uchquduq", "Chinaz", "Tinchlik", "Bog'bon", "Dehqonobod", "Qo'yliq"]
+    },
+    "fargona": {
+      "name": "Farg'ona",
+      "type": "region",
+      "districts": ["Farg'ona shahri", "Oltiariq", "Beshariq", "Bog'dod", "Buvayda", "Dang'ara", "Farg'ona", "Furqat", "Qo'shtepa", "Quva", "Rishton", "So'x", "Toshloq", "Uchko'prik", "O'zbekiston", "Yozyovon"],
+      "villages": ["Margilan", "Quvasoy", "Qo'qon", "Rishton", "Beshariq", "So'x", "Oltiariq", "Kokand", "Quva", "Toshloq", "Furqat", "Bog'dod", "Buvayda", "Dang'ara", "Yozyovon", "Uchko'prik", "Qo'shtepa", "Yaypan", "Vodil", "Chorva", "Dehqonobod", "Navbahor", "Oqtepa", "Guliston", "Madaniyat", "Mustaqillik", "Tinchlik", "Yangiobod", "Beshkapa", "Yangiariq", "Qizilcha", "Navro'z", "Kelgusi", "O'zgarish", "Hindcha", "Bog'ishamol", "Kuyganyor", "Muynak", "Chiqin", "Oybek", "Choliqishloq", "Kichkina", "Kattagli", "Qo'yliq", "Beshterak"]
+    },
+    "toshkent": {
+      "name": "Toshkent",
+      "type": "region",
+      "districts": ["Toshkent shahri", "Bekobod", "Bo'stonliq", "Bo'ka", "Zangiota", "Qibray", "Quyi Chirchiq", "Ohangaron", "Oqqo'rg'on", "Parkent", "Piskent", "Toshkent", "O'rtachirchiq", "Chinoz", "Yuqori Chirchiq", "Yangiyul"],
+      "villages": ["Chirchiq", "Angren", "Olmaliq", "Bekobod", "Yangiyul", "Gazalkent", "Parkent", "Ohangaron", "Zangiota", "Qibray", "Bo'stonliq", "Bo'ka", "Piskent", "O'rtachirchiq", "Chinoz", "Yuqori Chirchiq", "Quyi Chirchiq", "Oqqo'rg'on", "Buka", "Toshkent shahri", "Akkurgan", "Dustlik", "Madaniyat", "Navbahor", "Guliston", "Tinchlik", "Mustaqillik", "Yangiobod", "Dehqonobod", "Beshkapa", "Oqtepa", "Qizilcha", "Yangiariq", "Navro'z", "Kelgusi", "O'zgarish", "Hindcha", "Bog'ishamol", "Kuyganyor", "Muynak", "Chiqin", "Oybek", "Choliqishloq", "Kichkina", "Kattagli"]
+    },
+    "samarqand": {
+      "name": "Samarqand",
+      "type": "region",
+      "districts": ["Samarqand shahri", "Bulung'ur", "Ishtixon", "Jomboy", "Kattaqo'rg'on", "Narpay", "Nurobod", "Oqdaryo", "Payariq", "Pastdarg'om", "Qo'shrabot", "Samarqand", "Toyloq", "Urgut"],
+      "villages": ["Kattaqo'rg'on", "Jomboy", "Urgut", "Ishtixon", "Bulung'ur", "Payariq", "Nurobod", "Oqdaryo", "Pastdarg'om", "Qo'shrabot", "Toyloq", "Narpay", "Samarqand shahri", "Kagan", "Gijduvon", "Qarshi", "Guliston", "Navbahor", "Tinchlik", "Mustaqillik", "Yangiobod", "Dehqonobod", "Beshkapa", "Oqtepa", "Qizilcha", "Yangiariq", "Navro'z", "Kelgusi", "O'zgarish", "Hindcha", "Bog'ishamol", "Kuyganyor", "Muynak", "Chiqin", "Oybek", "Choliqishloq", "Kichkina", "Kattagli", "Madaniyat", "Dustlik", "Pakhtakor"]
+    },
+    "qashqadaryo": {
+      "name": "Qashqadaryo",
+      "type": "region",
+      "districts": ["Qarshi shahri", "Chiroqchi", "Dehqonobod", "G'uzor", "Kasbi", "Kitob", "Koson", "Mirishkor", "Muborak", "Nishon", "Qamashi", "Qarshi", "Shahrisabz", "Yakkabog'"],
+      "villages": ["Qarshi", "Shahrisabz", "G'uzor", "Kitob", "Koson", "Chiroqchi", "Muborak", "Kasbi", "Mirishkor", "Nishon", "Qamashi", "Yakkabog'", "Dehqonobod", "Qarshi shahri", "Kamashi", "Karshi", "Shakhrisabz", "Guzar", "Kitob", "Koson", "Chirakchi", "Mubarek", "Yakkabag", "Navbahor", "Tinchlik", "Mustaqillik", "Yangiobod", "Beshkapa", "Oqtepa", "Qizilcha", "Yangiariq", "Navro'z", "Kelgusi", "O'zgarish", "Hindcha", "Bog'ishamol", "Kuyganyor", "Muynak", "Chiqin", "Oybek", "Choliqishloq", "Kichkina", "Kattagli", "Madaniyat", "Dustlik", "Pakhtakor"]
+    },
+    "surxondaryo": {
+      "name": "Surxondaryo",
+      "type": "region",
+      "districts": ["Termiz shahri", "Angor", "Boysun", "Denov", "Jarqo'rg'on", "Qiziriq", "Qumqo'rg'on", "Muzrabot", "Oltinsoy", "Sariosiyo", "Sherobod", "Sho'rchi", "Termiz", "Uzun"],
+      "villages": ["Termiz", "Denov", "Boysun", "Sherobod", "Jarqo'rg'on", "Sariosiyo", "Angor", "Qiziriq", "Qumqo'rg'on", "Muzrabot", "Oltinsoy", "Sho'rchi", "Uzun", "Termiz shahri", "Termez", "Denau", "Boysun", "Shurabad", "Jarqorgon", "Sariosiyo", "Angor", "Qiziriq", "Qumqorgon", "Muzrabad", "Oltinsoy", "Shorchi", "Uzun", "Navbahor", "Tinchlik", "Mustaqillik", "Yangiobod", "Dehqonobod", "Beshkapa", "Oqtepa", "Qizilcha", "Yangiariq", "Navro'z", "Kelgusi", "O'zgarish", "Hindcha", "Bog'ishamol", "Kuyganyor", "Muynak", "Chiqin", "Oybek", "Choliqishloq", "Kichkina", "Kattagli", "Madaniyat", "Dustlik", "Pakhtakor"]
+    },
+    "buxoro": {
+      "name": "Buxoro",
+      "type": "region",
+      "districts": ["Buxoro shahri", "Buxoro", "Vobkent", "G'ijduvon", "Jondor", "Kogon", "Olot", "Peshku", "Qorako'l", "Qorovulbozor", "Romitan", "Shofirkon"],
+      "villages": ["Kogon", "G'ijduvon", "Vobkent", "Romitan", "Shofirkon", "Qorako'l", "Olot", "Buxoro", "Jondor", "Peshku", "Qorovulbozor", "Bukhoro", "Bukhara", "Kogon", "Gijduvan", "Vabkent", "Romitan", "Shafirkan", "Qorakol", "Alat", "Jondor", "Peshku", "Qorovulbazar", "Navbahor", "Tinchlik", "Mustaqillik", "Yangiobod", "Dehqonobod", "Beshkapa", "Oqtepa", "Qizilcha", "Yangiariq", "Navro'z", "Kelgusi", "O'zgarish", "Hindcha", "Bog'ishamol", "Kuyganyor", "Muynak", "Chiqin", "Oybek", "Choliqishloq", "Kichkina", "Kattagli", "Madaniyat", "Dustlik", "Pakhtakor"]
+    },
+    "navoiy": {
+      "name": "Navoiy",
+      "type": "region",
+      "districts": ["Navoiy shahri", "Konimex", "Karmana", "Navbahor", "Nurota", "Tomdi", "Uchquduq", "Xatirchi", "Zarafshon"],
+      "villages": ["Zarafshon", "Nurota", "Karmana", "Uchquduq", "Konimex", "Navbahor", "Tomdi", "Navoiy", "Xatirchi", "Navoiy shahri", "Navoi", "Zarafshan", "Nurata", "Karmana", "Uchkuduk", "Konimex", "Navbahor", "Tamdi", "Khatirchi", "Tinchlik", "Mustaqillik", "Yangiobod", "Dehqonobod", "Beshkapa", "Oqtepa", "Qizilcha", "Yangiariq", "Navro'z", "Kelgusi", "O'zgarish", "Hindcha", "Bog'ishamol", "Kuyganyor", "Muynak", "Chiqin", "Oybek", "Choliqishloq", "Kichkina", "Kattagli", "Madaniyat", "Dustlik", "Pakhtakor"]
+    },
+    "jizzax": {
+      "name": "Jizzax",
+      "type": "region",
+      "districts": ["Jizzax shahri", "Arnasoy", "Baxtiyor", "Do'stlik", "Forish", "G'allaorol", "Jizzax", "Mirzacho'l", "Paxtakor", "Yangiobod", "Zafarobod", "Zarbdor", "Zomin"],
+      "villages": ["Gallaorol", "Forish", "Zomin", "Paxtakor", "Arnasoy", "Mirzacho'l", "Do'stlik", "Jizzax", "Baxtiyor", "Zafarobod", "Zarbdor", "Yangiobod", "Jizak", "Arnasay", "Bahtiyor", "Dostlik", "Forish", "Gallaaral", "Mirzachul", "Pakhtakor", "Yangiabad", "Zafarabad", "Zarbdar", "Zomin", "Tinchlik", "Mustaqillik", "Dehqonobod", "Beshkapa", "Oqtepa", "Qizilcha", "Yangiariq", "Navro'z", "Kelgusi", "O'zgarish", "Hindcha", "Bog'ishamol", "Kuyganyor", "Muynak", "Chiqin", "Oybek", "Choliqishloq", "Kichkina", "Kattagli", "Madaniyat", "Navbahor"]
+    },
+    "sirdaryo": {
+      "name": "Sirdaryo",
+      "type": "region",
+      "districts": ["Guliston shahri", "Boyovut", "Guliston", "Mirzaobod", "Oqoltin", "Sardoba", "Sayxunobod", "Xovos"],
+      "villages": ["Guliston", "Sardoba", "Sayxunobod", "Mirzaobod", "Boyovut", "Oqoltin", "Xovos", "Sirdaryo", "Guliston shahri", "Sirdaria", "Gulistan", "Sardoba", "Saykhunabad", "Mirzaabad", "Bayaut", "Akoltin", "Khavas", "Tinchlik", "Mustaqillik", "Yangiobod", "Dehqonobod", "Beshkapa", "Oqtepa", "Qizilcha", "Yangiariq", "Navro'z", "Kelgusi", "O'zgarish", "Hindcha", "Bog'ishamol", "Kuyganyor", "Muynak", "Chiqin", "Oybek", "Choliqishloq", "Kichkina", "Kattagli", "Madaniyat", "Navbahor", "Dustlik", "Pakhtakor"]
+    },
+    "xorazm": {
+      "name": "Xorazm",
+      "type": "region",
+      "districts": ["Urganch shahri", "Bog'ot", "Gurlan", "Xiva", "Xonqa", "Qo'shko'pir", "Shovot", "Urganch", "Yangiariq", "Yangibozor"],
+      "villages": ["Xiva", "Gurlan", "Bog'ot", "Shovot", "Qo'shko'pir", "Yangiariq", "Yangibozor", "Urganch", "Xonqa", "Khorezm", "Urgench", "Khiva", "Gurlan", "Bagat", "Shavat", "Kushkupir", "Yangiarik", "Yangibazar", "Kharazm", "Tinchlik", "Mustaqillik", "Yangiobod", "Dehqonobod", "Beshkapa", "Oqtepa", "Qizilcha", "Navro'z", "Kelgusi", "O'zgarish", "Hindcha", "Bog'ishamol", "Kuyganyor", "Muynak", "Chiqin", "Oybek", "Choliqishloq", "Kichkina", "Kattagli", "Madaniyat", "Navbahor", "Dustlik", "Pakhtakor"]
+    },
+    "qoraqalpogiston": {
+      "name": "Qoraqalpog'iston",
+      "type": "region",
+      "districts": ["Nukus shahri", "Amudaryo", "Beruniy", "Chimboy", "Ellikqal'a", "Kegeyli", "Qanliko'l", "Qo'ng'irot", "Mo'ynoq", "Nukus", "Shumanay", "Taxtako'pir", "To'rtko'l", "Xo'jayli"],
+      "villages": ["Nukus", "Mo'ynoq", "Beruniy", "Xo'jayli", "Qo'ng'irot", "Chimboy", "To'rtko'l", "Amudaryo", "Ellikqal'a", "Kegeyli", "Qanliko'l", "Shumanay", "Taxtako'pir", "Karakalpakstan", "Nukus shahri", "Muynak", "Beruniy", "Khojaly", "Kungirat", "Chimbay", "Turtkul", "Amudarya", "Ellikqala", "Kegeyli", "Kanlykul", "Shumanay", "Takhtakupir", "Tinchlik", "Mustaqillik", "Yangiobod", "Dehqonobod", "Beshkapa", "Oqtepa", "Qizilcha", "Yangiariq", "Navro'z", "Kelgusi", "O'zgarish", "Hindcha", "Bog'ishamol", "Kuyganyor", "Chiqin", "Oybek", "Choliqishloq", "Kichkina", "Kattagli", "Madaniyat", "Navbahor", "Dustlik", "Pakhtakor"]
+    }
+  },
+  "cargo_types": {
+    "food_products": [
+      "un", "guruch", "yog'", "shakar", "tuz", "choy", "qahva", "makaron", "non", "pishloq",
+      "sut", "tuxum", "go'sht", "tovuq", "baliq", "kolbasa", "sariyog'", "asal", "jam", "konserva",
+      "olma", "nok", "uzum", "anor", "shaftoli", "o'rik", "gilos", "qulupnay", "anjir", "hurmo",
+      "sabzavot", "piyoz", "sarimsoq", "kartoshka", "pomidor", "bodring", "qizilcha", "karam", "sholg'om", "turp",
+      "loviya", "no'xat", "mosh", "yasmiq", "kungaboqar", "pestryanka", "mayiz", "yong'oq", "bodom", "anjur",
+      "shakar lavlagi", "paxta yog'i", "kungaboqar yog'i", "zaytun yog'i", "margarin", "smetana", "qaymoq", "suzma",
+      "pendir", "brynza", "matsoni", "ayran", "kefir", "yogurt", "sirkali sutli mahsulotlar",
+      "yalpiz", "oshko'k", "devonacha", "kashnich", "rayhon", "ukrop", "jag'-jag'", "shuvoq", "ko'katlar",
+      "qand", "konfet", "shokolad", "pechenye", "pryanik", "vafli", "halva", "chuchvara", "manti", "lag'mon"
+    ],
+    "construction_materials": [
+      "sement", "g'isht", "qum", "shag'al", "beton", "armatura", "sim", "mixlar", "bolt", "gayka",
+      "truba", "quvur", "plastik quvur", "metall quvur", "kanalizatsiya quvurlari", "suv quvurlari",
+      "plitka", "keramika", "granit", "marmor", "parket", "laminat", "linoleum", "kover", "gitarra",
+      "bo'yoq", "lak", "grunt", "shpaklyovka", "kleynka", "oboi", "potolok plitalari", "gipsokarton",
+      "mineralvata", "porolon", "penoplast", "izolyatsiya", "gidroizolyatsiya", "ruberoid", "tolya",
+      "shifer", "profnastil", "cherepitsa", "metall cherepitsa", "oshxona jihozlari", "santexnika",
+      "vanna", "dush kabinasi", "unitaz", "rakovyna", "smesitel", "kran", "nasos", "boylyer",
+      "konditsioner", "ventilyator", "kalorifyer", "radiator", "qozon", "chimney", "darvoza", "derazalar",
+      "plastik derazalar", "metall derazalar", "eshik", "darvoza", "yopiqlik", "qulf", "ruchka",
+      "elektr simlari", "kabel", "rozetka", "vikluchatel", "lyustra", "lampa", "svetilnik", "transformator"
+    ],
+    "vehicles_and_parts": [
+      "avtomobil", "yuk mashinasi", "mikroavtobus", "avtobus", "traktor", "kombayn", "ekskovator", "pogruzchik",
+      "mashina qismlari", "dvigatel", "korobka", "tormoz", "amortizator", "rulevoy", "akkumulyator", "generator",
+      "starter", "gayka", "bolt", "podshipnik", "klapan", "porshyen", "kosha", "filtr", "yog' filtri",
+      "havo filtri", "benzin filtri", "svechi", "katushka", "kondensator", "rezisor", "predoxranitel",
+      "rele", "provod", "lampa", "far", "signal", "steklo", "zerkalo", "bamper", "kapot", "dver",
+      "shugulli", "rezina", "kamera", "diski", "velchi", "tsepi", "tros", "sharnir", "kresttovina",
+      "poluvaly", "differentsiyal", "kardanniy val", "stseplenye", "mahovyk", "korpacha", "kolodki",
+      "disk", "tselindri", "glavniy tselindri", "vakumniy usilitel", "ABS", "ESP", "podveski",
+      "pruzhina", "listoviy resora", "pnevmopodveska", "stabilizator", "vtulka", "saynek", "stupitsa"
+    ],
+    "agricultural_products": [
+      "paxta", "g'alla", "bugdoy", "arpa", "makkajovar", "guruch", "kungaboqar", "pestryanka",
+      "beda", "loviya", "no'xat", "mosh", "yasmiq", "yonca", "baqlajon", "qovun", "tarvuz",
+      "bodring", "pomidor", "karam", "sholg'om", "turp", "sabzavot", "piyoz", "sarimsoq", "kartoshka",
+      "shalgam", "lavlagi", "reps", "gorchitsa", "len", "konopli", "tabak", "selitra", "o'g'it",
+      "mineral o'g'it", "organik o'g'it", "pestitsidlar", "gerbitsia", "fungitsidlar", "insektitsidlar",
+      "urug'", "ko'chat", "mevali daraxt ko'chatlari", "uzum ko'chatlari", "gullar", "dekorativ o'simliklar",
+      "chorva ozuqasi", "pichan", "saman", "kiyak", "silaj", "qurigan o't", "kemak", "somon",
+      "dala mahsulotlari", "poliz ekinlari", "sabzavot", "meva", "rezaki", "qarag'ay", "tut",
+      "olcha", "zardolu", "behi", "anjir", "hurmo", "xurmo", "anor", "uzum turli navlari"
+    ],
+    "textiles_and_clothing": [
+      "mato", "ip", "jun", "paxta matosi", "jun matosi", "ipak", "len matosi", "sintetik mato",
+      "kiyim", "ko'ylak", "shim", "kurtak", "palto", "shapka", "paypoq", "ichki kiyim", "mayka",
+      "futbolka", "sviter", "kardigan", "jilet", "kostyum", "galstuk", "kamar", "qo'lqop",
+      "etik", "tufli", "krosovka", "sandal", "choqqi", "kaloncha", "mahsi", "terlik", "chorik",
+      "sumka", "ryukzak", "portfel", "xalta", "qopcha", "chemodan", "sayt", "narsa",
+      "mebel qoplami", "parda", "ko'rpa", "yostiq", "choyshab", "ko'rpa-to'shak", "matras",
+      "pichoq", "sochiq", "igna", "ip", "tugma", "zamok", "aksesuar", "bezak", "marjon",
+      "tilla", "kumush", "zargarlik buyumlari", "soat", "uzuk", "sirga", "marjon", "til"
+    ],
+    "household_items": [
+      "mebel", "stol", "stul", "krovat", "shkaf", "yostiq", "ko'rpa", "matras", "divan", "kreslo",
+      "polka", "vitrina", "komod", "tumbochka", "garderob", "karyola", "beshtik", "taxta", "javon",
+      "lampochi", "lyustra", "abajur", "shamol", "ruchka", "kalitka", "qulf", "zamok", "zanjir",
+      "soat", "zerkalo", "rasm", "surat", "kitob", "jurnal", "gazeta", "qog'oz", "rucka", "qalamcha",
+      "oshxona anjomi", "choyshabon", "vilka", "qoshiq", "pichoq", "kocha", "tuvak", "kosa", "likopcha",
+      "qozon", "toviq", "skavarada", "duxovka", "mikrovolnova", "blender", "myasorubka", "xolodilnik",
+      "konditsioner", "televizor", "radio", "magnitafon", "kamera", "fotoaparat", "kompyuter", "noutbuk",
+      "telefon", "planshet", "zaryadka", "kabel", "naushnik", "kolonka", "printer", "skaner",
+      "kitoblar", "o'yinchoqlar", "koptok", "velosiped", "mototsikl", "skeyboard", "sichqoncha"
+    ],
+    "industrial_goods": [
+      "metall", "po'lat", "alyuminiy", "mis", "qo'rg'oshin", "sink", "nikel", "titan", "xrom",
+      "metalloprokat", "armatura", "profil", "truba", "list", "polosa", "ugolok", "shveller", "balka",
+      "sim", "kabel", "elektr simlari", "kabel elektrik", "transformator", "generator", "dvigatel",
+      "nasos", "kompressor", "ventilyator", "konveyyer", "kran", "talfer", "podzemnik", "avtokran",
+      "stanok", "tokar stanoki", "frezer stanoki", "sverlilniy stanok", "shlifovalniy stanok",
+      "presoviy stanok", "gibochniy stanok", "rezatniy stanok", "svarki apparati", "plazmorez",
+      "bolgarka", "drel", "perforator", "shurpovert", "lobzik", "rbanok", "frezar", "tsirkulyarka",
+      "kompressor", "pistalet", "kraskopult", "valika", "kisti", "shpatel", "kiyanok", "molatok",
+      "kleshi", "otvertka", "gyek", "urovyen", "ugolnik", "lineyka", "ruleta", "kaliper"
+    ]
+  },
+  "vehicle_types": [
+    "Isuzu", "Kamaz", "Howo", "Volvo", "Scania", "MAN", "Mercedes", "DAF", "Renault", "Iveco",
+    "tent", "fura", "izotermik", "refrigerator", "tanker", "konteyner", "samosvalni", "traktor",
+    "yarim treylier", "to'liq treylier", "lowbed", "jumbo", "standart yuk mashinasi",
+    "kichik yuk mashinasi", "o'rta yuk mashinasi", "katta yuk mashinasi", "og'ir yuk mashinasi",
+    "gazel", "porter", "bortovoy", "furgon", "mikroavtobus", "buss", "minivan"
+  ],
+  "weight_measures": [
+    "kg", "kilogram", "tonna", "gramm", "martta", "pud", "sentner", "quintal",
+    "bir", "ikki", "uch", "to'rt", "besh", "olti", "yetti", "sakkiz", "to'qqiz", "o'n",
+    "yigirma", "o'ttiz", "qirq", "ellik", "oltmish", "yetmish", "sakson", "to'qson", "yuz",
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "20", "30", "40", "50", "100"
+  ],
+  "common_phrases": [
+    "kerak", "bor", "mavjud", "yo'q", "topish", "tashish", "yetkazish", "olib kelish", "olib borish",
+    "yuklash", "tushirish", "jo'natish", "qabul qilish", "berish", "olish", "sotish", "xarid qilish",
+    "dan", "ga", "ni", "da", "lar", "ning", "cha", "li", "siz", "lik", "chi", "dek", "tarz",
+    "uchun", "bilan", "tomonidan", "orqali", "haqida", "ustida", "ichida", "tashqarida", "yonida"
+  ],
+  "word_corrections": {
+    "var": "bor",
+    "yuk": "yuk",
+    "nuk": "yuk",
+    "yuklar": "yuklar",
+    "gerek": "kerak",
+    "lazim": "kerak",
+    "ton": "tonna",
+    "tonlu": "tonna",
+    "tonluk": "tonna",
+    "kilo": "kg",
+    "kilogram": "kg",
+    "mashina": "yuk mashinasi",
+    "avto": "avtomobil",
+    "transport": "transport",
+    "yetkazish": "tashish",
+    "jo'natish": "yuborish",
+    "angirendan": "angrendan",
+    "angiradan": "angrendan",
+    "angirdan": "angrendan",
+    "angira": "angren",
+    "angiran": "angren",
+    "angirani": "angren",
+    "besarqi": "beshariq",
+    "besharqi": "beshariq",
+    "beshariqi": "beshariq",
+    "besariq": "beshariq",
+    "sabzi": "sabzavot",
+    "sabziga": "sabzavotga",
+    "jirma": "yigirma",
+    "yirma": "yigirma",
+    "jirim": "yigirma",
+    "unbez": "sakkiz",
+    "sakkis": "sakkiz",
+    "sekiz": "sakkiz",
+    "guzor": "g'uzor",
+    "guzordan": "g'uzordan",
+    "guzorga": "g'uzorga",
+    "xojaobod": "xo'jaobod",
+    "xojaobodga": "xo'jaobodga",
+    "xojaoboddan": "xo'jaoboddan",
+    "hojaobod": "xo'jaobod",
+    "hojaobodga": "xo'jaobodga",
+    "hojaoboddan": "xo'jaoboddan",
+    "tarvuz": "tarvuz",
+    "taroz": "tarvuz",
+    "taruz": "tarvuz",
+    "tarvoz": "tarvuz"
+  },
+  "uzbek_suffixes": {
+    "location_suffixes": {
+      "dan": ["dan", "den", "don", "dun", "din"],
+      "ga": ["ga", "ge", "go", "gu", "gi", "ka", "ke", "ko", "ku", "ki"],
+      "da": ["da", "de", "do", "du", "di", "ta", "te", "to", "tu", "ti"],
+      "ni": ["ni", "ne", "no", "nu", "ri", "re", "ro", "ru"],
+      "ning": ["ning", "neng", "nong", "nung", "nig", "neg", "nog", "nug"]
+    },
+    "verbal_suffixes": {
+      "kerak": ["kerak", "gerek", "lazim", "zarur", "shart"],
+      "bor": ["bor", "var", "mavjud", "bur", "bur"],
+      "yo'q": ["yo'q", "yoq", "yok", "nai", "emas"]
+    },
+    "quantity_suffixes": {
+      "tonna": ["tonna", "ton", "tonli", "tonlu", "tonlik", "tonluk"],
+      "kg": ["kg", "kilo", "kilogram", "kilo gramm"],
+      "dona": ["dona", "ta", "te", "to", "tu", "ti"],
+      "metr": ["metr", "m", "metre", "metro"]
+    }
+  },
+  "numbers": {
+    "bir": "1",
+    "ikki": "2",
+    "uch": "3",
+    "to'rt": "4",
+    "tort": "4",
+    "besh": "5",
+    "olti": "6",
+    "yetti": "7",
+    "sakkiz": "8",
+    "sekiz": "8",
+    "to'qqiz": "9",
+    "toqqiz": "9",
+    "o'n": "10",
+    "on": "10",
+    "o'n bir": "11",
+    "o'n ikki": "12",
+    "o'n uch": "13",
+    "o'n to'rt": "14",
+    "o'n besh": "15",
+    "o'n olti": "16",
+    "o'n yetti": "17",
+    "o'n sakkiz": "18",
+    "o'n to'qqiz": "19",
+    "yigirma": "20",
+    "jirma": "20",
+    "yirma": "20",
+    "jirim": "20",
+    "yigirma bir": "21",
+    "yigirma ikki": "22",
+    "yigirma besh": "25",
+    "o'ttiz": "30",
+    "ottiz": "30",
+    "qirq": "40",
+    "ellik": "50",
+    "oltmish": "60",
+    "yetmish": "70",
+    "sakson": "80",
+    "to'qson": "90",
+    "yuz": "100"
+  },
+  "transportation_terms": [
+    "yuk tashish", "transport", "logistika", "ombar", "sklad", "terminal", "port", "temir yo'l",
+    "avtomobil yo'li", "havo transporti", "suv transporti", "kema", "samolyot", "poyezd", "mashina",
+    "yetkazib berish", "dostavka", "yuk jo'natish", "kargo", "pochta", "ekspeditsiya", "perevalka",
+    "yuklash", "tushirish", "qayta yuklash", "transshipment", "saqlab qo'yish", "muhofaza qilish",
+    "xavfsizlik", "sug'urta", "kafolat", "shartnoma", "kelishuv", "hujjatlar", "ruxsat", "litsenziya"
+  ]
+}
