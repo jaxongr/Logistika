@@ -46,7 +46,8 @@
       "Read(//c/**)",
       "Bash(set PORT=4000)",
       "Bash(wmic process where:*)",
-      "Bash(tasklist)"
+      "Bash(tasklist)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
