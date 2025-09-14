@@ -47,7 +47,10 @@
       "Bash(set PORT=4000)",
       "Bash(wmic process where:*)",
       "Bash(tasklist)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(dir C:UsersProDesktopavtohabarbot)",
+      "Bash(dir)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []

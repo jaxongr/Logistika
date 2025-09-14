@@ -1,0 +1,31 @@
+{
+  "paymentMethods": {
+    "daily": {
+      "enabled": true,
+      "rate": 50000,
+      "description": "Kunlik to'lov"
+    },
+    "perOrder": {
+      "enabled": true,
+      "rate": 5000,
+      "description": "Har bir order uchun"
+    },
+    "percentage": {
+      "enabled": true,
+      "rate": 15,
+      "description": "Order summasidan foiz"
+    },
+    "kmBased": {
+      "enabled": false,
+      "rate": 1000,
+      "description": "Kilometr uchun"
+    },
+    "weekly": {
+      "enabled": false,
+      "rate": 300000,
+      "description": "Haftalik to'lov"
+    }
+  },
+  "balances": {},
+  "lastUpdated": "2024-01-01T00:00:00.000Z"
+}

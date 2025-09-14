@@ -70,10 +70,21 @@ export class BotService implements OnModuleInit {
   private paymentWaitingUsers = new Map<number, {plan: string, amount: number}>();
   private userPayments = new Map<number, {id: string, plan: string, amount: number, status: 'pending' | 'approved' | 'rejected', date: string, screenshot?: string}[]>();
   private pendingPayments = new Map<string, {userId: number, plan: string, amount: number, status: 'pending' | 'approved' | 'rejected', date: string, screenshot?: string}>();
+  private priceUpdateWaitingUsers = new Map<number, {methodKey: string}>(); // Yangi narx kutayotgan userlar
+  private userBalances = new Map<number, number>(); // User balans
+
+  // Payment methods configuration
+  private paymentMethods = {
+    daily: { enabled: true, rate: 50000, description: 'Kunlik to\'lov' },
+    perOrder: { enabled: true, rate: 5000, description: 'Har bir order uchun' },
+    percentage: { enabled: true, rate: 15, description: 'Order summasidan foiz' },
+    kmBased: { enabled: false, rate: 1000, description: 'Kilometr uchun' },
+    weekly: { enabled: false, rate: 300000, description: 'Haftalik to\'lov' }
+  };
   
   // User Registration System
   private userRoles = new Map<number, {
-    role: 'yukchi' | 'haydovchi' | 'dispechr',
+    role: 'yukchi' | 'haydovchi' | 'dispechr' | 'admin',
     isRegistered: boolean,
     registrationDate: string,
     profile: any
@@ -360,6 +371,9 @@ export class BotService implements OnModuleInit {
     
     // Demo data qo'shish (test uchun)
     await this.initializeDemoData();
+
+    // Payment settings'ni yuklash
+    await this.loadPaymentSettings();
     
     // Global update logger - catches ALL incoming updates
     this.bot.use(async (ctx, next) => {
@@ -407,8 +421,8 @@ export class BotService implements OnModuleInit {
         case 'referral_stats':
           await this.showReferralStats(ctx);
           break;
-        case 'pricing':
-          await this.showPricing(ctx);
+        case 'add_balance':
+          await this.showAddBalance(ctx);
           break;
         case 'help_menu':
           await this.showHelpMenu(ctx);
@@ -474,8 +488,8 @@ export class BotService implements OnModuleInit {
           // Show demo pricing for Toshkent-Samarqand route with 15 ton cargo
           await this.showPricingSuggestion(ctx, 'Toshkent', 'Samarqand', 15);
           break;
-        case 'bot_pricing':
-          await this.showBotPricing(ctx);
+        case 'confirm_add_balance':
+          await this.confirmAddBalance(ctx);
           break;
         case 'pending_payments':
           await this.showPendingPayments(ctx);
@@ -673,6 +687,12 @@ export class BotService implements OnModuleInit {
         case 'admin_system':
           await this.showAdminSystem(ctx);
           break;
+        case 'payment_settings':
+          await this.showPaymentSettings(ctx);
+          break;
+        case 'save_payment_settings':
+          await this.savePaymentSettings(ctx);
+          break;
         case 'admin_clear_data':
           await this.showClearDataConfirmation(ctx);
           break;
@@ -709,11 +729,19 @@ export class BotService implements OnModuleInit {
             await this.toggleGroupSelection(ctx, groupId);
           } else if (data === 'finish_selection') {
             await this.finishGroupSelection(ctx);
-          } else if (data.startsWith('buy_')) {
-            const plan = data.replace('buy_', '');
-            await this.showPayment(ctx, plan);
+          } else if (data.startsWith('balance_')) {
+            const amount = parseInt(data.replace('balance_', ''));
+            await this.showBalancePayment(ctx, amount);
           } else if (data === 'upload_payment') {
             await this.showPaymentUpload(ctx);
+          } else if (data === 'upload_balance_payment') {
+            await this.confirmAddBalance(ctx);
+          } else if (data.startsWith('toggle_method_')) {
+            const method = data.replace('toggle_method_', '');
+            await this.handleTogglePaymentMethod(ctx, method);
+          } else if (data.startsWith('update_rate_')) {
+            const method = data.replace('update_rate_', '');
+            await this.showUpdateRateDialog(ctx, method);
           } else if (data === 'admin_panel') {
             await this.showAdminPanel(ctx);
           } else if (data.startsWith('approve_')) {
@@ -772,6 +800,24 @@ export class BotService implements OnModuleInit {
             const orderId = parts.slice(0, -1).join('_');
             const rating = parseInt(parts[parts.length - 1]);
             await this.processRating(ctx, orderId, rating);
+          } else if (data === 'payment_settings') {
+            await this.showPaymentSettings(ctx);
+          } else if (data.startsWith('toggle_method_')) {
+            const methodKey = data.replace('toggle_method_', '');
+            await this.handleTogglePaymentMethod(ctx, methodKey);
+          } else if (data === 'update_rates') {
+            await this.showUpdateRatesMenu(ctx);
+          } else if (data.startsWith('update_rate_')) {
+            const methodKey = data.replace('update_rate_', '');
+            await this.showUpdateRateDialog(ctx, methodKey);
+          } else if (data === 'save_payment_settings') {
+            await this.savePaymentSettings(ctx);
+          } else if (data.startsWith('approve_')) {
+            const paymentId = data.replace('approve_', '');
+            await this.approvePayment(ctx, paymentId);
+          } else if (data.startsWith('reject_')) {
+            const paymentId = data.replace('reject_', '');
+            await this.rejectPayment(ctx, paymentId);
           } else if (data === 'skip_rating') {
             await this.handleSkipRating(ctx);
           } else if (data === 'cancel_cargo_posting') {
@@ -853,6 +899,12 @@ export class BotService implements OnModuleInit {
         return;
       }
       
+      // Yangi narx kiritish kutilmoqda (payment settings)
+      if (this.priceUpdateWaitingUsers.has(userId)) {
+        await this.handlePriceUpdate(ctx, ctx.message.text);
+        return;
+      }
+
       // Ro'yxatdan o'tish holatida bo'lsa
       if (this.registrationInProgress.has(userId)) {
         await this.handleRegistrationData(ctx, ctx.message.text);
@@ -964,18 +1016,23 @@ export class BotService implements OnModuleInit {
       );
     });
 
-    // To'lov screenshot handler
+    // To'lov va balans screenshot handler
     this.bot.on('message:photo', async (ctx) => {
       const userId = ctx.from.id;
-      
+
       if (this.paymentWaitingUsers.has(userId)) {
-        await this.handlePaymentScreenshot(ctx);
+        const paymentData = this.paymentWaitingUsers.get(userId);
+        if (paymentData?.plan === 'balance') {
+          await this.handleBalanceScreenshot(ctx);
+        } else {
+          await this.handlePaymentScreenshot(ctx);
+        }
         return;
       }
-      
+
       await ctx.reply('Screenshot yuborish uchun avval to\'lov bo\'limiga o\'ting.', {
         reply_markup: new InlineKeyboard()
-          .text('💰 Tariflar', 'pricing')
+          .text('💳 Balans to\'ldirish', 'add_balance')
           .text('🏠 Bosh menyu', 'back_main')
       });
     });
@@ -1097,7 +1154,10 @@ export class BotService implements OnModuleInit {
       this.activeUsers.add(user.id);
       
       const userRole = this.userRoles.get(user.id);
-      
+
+      // DEBUG: User role info
+      this.logger.log(`🔍 DEBUG showMainMenu: User ${user.id} (@${user.username || 'no_username'}) - Role: ${userRole?.role || 'NO_ROLE'}, Registered: ${userRole?.isRegistered || false}`);
+
       if (!userRole || !userRole.isRegistered) {
         // Ro'yxatdan o'tmagan foydalanuvchilar uchun
         const welcomeMessage = `
@@ -1137,19 +1197,49 @@ export class BotService implements OnModuleInit {
 
       // Admin foydalanuvchilar uchun alohida interface
       const adminUsers = [5772668259];
-      if (adminUsers.includes(user.id)) {
+      const isAdminById = adminUsers.includes(user.id);
+      const isAdminByRole = userRole?.role === 'admin';
+
+      this.logger.log(`🔍 DEBUG admin check: ID Check=${isAdminById}, Role Check=${isAdminByRole}, Combined=${isAdminById || isAdminByRole}`);
+
+      if (adminUsers.includes(user.id) || userRole?.role === 'admin') {
+        // Kompanya balansini hisoblash
+        const companyBalance = Array.from(this.virtualBalances.values())
+          .reduce((sum, balance) => sum + (balance.balance || 0), 0);
+
         const welcomeMessage = `
-🔐 <b>ADMIN INTERFACE</b>
+🖥️ <b>YO'LDA ADMIN CONTROL CENTER</b>
 
 👋 Salom Admin, ${user.first_name}!
 
-🎛️ Sizda admin panelga va o'zingizning role interfeysingizga kirish imkoni bor.
+✨ <b>Professional Web-Based Admin Panel</b>
+
+📊 <b>QUICK STATS:</b>
+👥 Total Users: <b>${this.userRoles.size}</b>
+📋 Orders: <b>${this.cargoOffers.size}</b>
+🚚 Active Drivers: <b>${Array.from(this.userRoles.values()).filter(u => u.role === 'haydovchi').length}</b>
+
+💰 <b>MOLIYAVIY:</b>
+🏢 Kompanya balansi: <b>${companyBalance.toLocaleString()} so'm</b>
+
+💼 <b>ADMIN FEATURES:</b>
+• 📊 Real-time Analytics & Reports
+• 👥 User Management & Control
+• 📋 Orders Management & Dispatcher
+• 💳 Payment System Management
+• 🤖 AI Analytics & Smart Insights
+
+⏰ <b>Last Updated:</b> ${new Date().toLocaleString('uz-UZ')}
         `;
 
         const keyboard = new InlineKeyboard()
-          .text('🔐 Admin Panel', 'admin_panel')
-          .text('📦 Yukchi Panel', 'yukchi_panel').row()
-          .text('⚙️ Sozlamalar', 'settings')
+          .text('📊 Statistika', 'admin_stats')
+          .text('👥 Foydalanuvchilar', 'admin_users').row()
+          .text('📋 Orderlar', 'admin_orders')
+          .text('💳 To\'lovlar', 'admin_payments').row()
+          .text('🤖 AI Analytics', 'ai_analytics')
+          .text('📈 Hisobotlar', 'admin_reports').row()
+          .text('⚙️ Sozlamalar', 'admin_system')
           .text('📞 Aloqa', 'contact').row();
 
         return await this.sendMenuMessage(ctx, welcomeMessage, keyboard);
@@ -1159,7 +1249,51 @@ export class BotService implements OnModuleInit {
       let welcomeMessage = '';
       let keyboard = new InlineKeyboard();
 
-      switch (userRole.role) {
+      // Admin users handled separately above - if still here, it's a role-based admin
+      if ((userRole as any)?.role === 'admin') {
+        // Kompanya balansini hisoblash
+        const companyBalance = Array.from(this.virtualBalances.values())
+          .reduce((sum, balance) => sum + (balance.balance || 0), 0);
+
+        welcomeMessage = `
+🖥️ <b>YO'LDA ADMIN CONTROL CENTER</b>
+
+👋 Salom Admin, ${user.first_name}!
+
+✨ <b>Professional Web-Based Admin Panel</b>
+
+📊 <b>QUICK STATS:</b>
+👥 Total Users: <b>${this.userRoles.size}</b>
+📋 Orders: <b>${this.cargoOffers.size}</b>
+🚚 Active Drivers: <b>${Array.from(this.userRoles.values()).filter(u => u.role === 'haydovchi').length}</b>
+
+💰 <b>MOLIYAVIY:</b>
+🏢 Kompanya balansi: <b>${companyBalance.toLocaleString()} so'm</b>
+
+💼 <b>ADMIN FEATURES:</b>
+• 📊 Real-time Analytics & Reports
+• 👥 User Management & Control
+• 📋 Orders Management & Dispatcher
+• 💳 Payment System Management
+• 🤖 AI Analytics & Smart Insights
+
+⏰ <b>Last Updated:</b> ${new Date().toLocaleString('uz-UZ')}
+        `;
+
+        keyboard = new InlineKeyboard()
+          .text('📊 Statistika', 'admin_stats')
+          .text('👥 Foydalanuvchilar', 'admin_users').row()
+          .text('📋 Orderlar', 'admin_orders')
+          .text('💳 To\'lovlar', 'admin_payments').row()
+          .text('🤖 AI Analytics', 'ai_analytics')
+          .text('📈 Hisobotlar', 'admin_reports').row()
+          .text('⚙️ Sozlamalar', 'admin_system')
+          .text('📞 Aloqa', 'contact').row();
+
+        return await this.sendMenuMessage(ctx, welcomeMessage, keyboard);
+      }
+
+      switch ((userRole as any).role) {
         case 'yukchi':
           const activeOrders = Math.floor(Math.random() * 5) + 1; // Fake data
           const completedOrders = Math.floor(Math.random() * 20) + 5;
@@ -1274,8 +1408,9 @@ Assalomu alaykum, ${user.first_name}!
             }
           });
           return; // Return early to avoid inline keyboard
+
       }
-      
+
       return await this.sendMenuMessage(ctx, welcomeMessage, keyboard);
     } catch (error) {
       this.logger.error('showMainMenu error:', error);
@@ -1289,7 +1424,7 @@ Assalomu alaykum, ${user.first_name}!
       // Admin foydalanuvchilari uchun admin panel tugmasi
       const adminUsers = [5772668259];
       if (adminUsers.includes(user.id)) {
-        keyboard.text('🔐 Admin Panel', 'admin_panel').row();
+        keyboard.text('🔙 Bosh menyu', 'back_main').row();
       }
       
       if (ctx.callbackQuery) {
@@ -1725,32 +1860,39 @@ ${stats.recentReferrals.length === 0 ? 'Hozircha taklif yo\'q' :
     });
   }
 
-  // Pricing/Tariflar
-  private async showPricing(ctx: any) {
+  // Balans to'ldirish
+  private async showAddBalance(ctx: any) {
+    const userId = ctx.from.id;
+    const userBalance = this.virtualBalances.get(userId);
+    const currentBalance = userBalance?.balance || 0;
+
     const message = `
-💰 <b>Tariflar va Narxlar</b>
+💳 <b>BALANS TO'LDIRISH</b>
 
-🤖 <b>Bot xabar yuborish tariflari:</b>
-📅 1 Kun - 7,000 so'm
-📅 1 Hafta - 20,000 so'm (🔥 Ommabop!)  
-📅 1 Oy - 60,000 so'm
+💰 <b>Joriy balans:</b> ${currentBalance.toLocaleString()} so'm
 
-🚛 <b>Logistika narx kalkulatori:</b>
-• Yo'nalish va mashina turiga qarab
-• Haydovchilardan olingan real narxlar asosida
-• 3-5 ta namuna ma'lumotlari bilan
+💵 <b>To'ldirish miqdorini tanlang:</b>
 
-🆓 <b>Bepul:</b> 10 ta xabar (har qanday foydalanuvchi)
+💳 <b>To'lov ma'lumotlari:</b>
+🔢 Karta: ${process.env.PAYMENT_CARD_NUMBER || '9860120112345678'}
+👤 Ega: ${process.env.PAYMENT_CARD_HOLDER || 'Yolda Logistics'}
+🏪 Bank: ${process.env.PAYMENT_PROVIDER || 'Uzcard'}
 
-💡 <b>Qo'shimcha:</b>
-• Referral tizimi orqali bepul kunlar
-• Doimiy mijozlar uchun chegirmalar
+📋 <b>To'lov tartibi:</b>
+1️⃣ Miqdorni tanlang
+2️⃣ Kartaga o'tkazma qiling
+3️⃣ Screenshot yuboring
+4️⃣ Admin tasdiqlashini kuting
     `;
 
     const keyboard = new InlineKeyboard()
-      .text('🚛 Logistika narxlari', 'logistics_pricing')
-      .text('🤖 Bot tariflar', 'bot_pricing').row()
-      .text('🔙 Orqaga', 'back_main');
+      .text('💳 50,000', 'balance_50000')
+      .text('💳 100,000', 'balance_100000').row()
+      .text('💳 200,000', 'balance_200000')
+      .text('💳 500,000', 'balance_500000').row()
+      .text('💳 1,000,000', 'balance_1000000')
+      .text('💳 2,000,000', 'balance_2000000').row()
+      .text('🔙 Orqaga', 'my_balance');
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
@@ -2039,98 +2181,7 @@ To'lov holati o'zgarganda sizga xabar beriladi.
 
   // Admin panel (removed duplicate - keeping only the comprehensive CRM version)
 
-  // To'lovni tasdiqlash
-  private async approvePayment(ctx: any, paymentId: string) {
-    const payment = this.pendingPayments.get(paymentId);
-    if (!payment) {
-      await this.safeAnswerCallback(ctx, '❌ To\'lov topilmadi');
-      return;
-    }
-
-    payment.status = 'approved';
-    
-    // Foydalanuvchiga xabar yuborish
-    try {
-      await this.bot.api.sendMessage(payment.userId, `
-✅ <b>To'lovingiz tasdiqlandi!</b>
-
-🎉 <b>Tabriklaymiz!</b> Sizning to'lovingiz admin tomonidan tasdiqlandi.
-
-📋 <b>To'lov ma'lumotlari:</b>
-🆔 ID: <code>${paymentId}</code>
-📅 Tarif: ${payment.plan}
-💰 Summa: ${payment.amount.toLocaleString()} so'm
-⏰ Vaqt: ${payment.date}
-
-🚀 <b>Xizmat faollashtirildi!</b>
-Endi siz limitlarsiz xabar yuborishingiz mumkin.
-
-💡 <b>Boshlash uchun:</b> /start buyrug'ini yuboring
-      `, {
-        parse_mode: 'HTML',
-        reply_markup: new InlineKeyboard().text('🚀 Botni ishlatish', 'back_main')
-      });
-    } catch (error) {
-      this.logger.error('Error sending approval message:', error);
-    }
-
-    await this.safeAnswerCallback(ctx, `✅ To'lov ${paymentId} tasdiqlandi`);
-    
-    this.logger.log(`Payment approved: ${paymentId} for user ${payment.userId}`);
-    
-    // Admin panelni yangilash
-    await this.showPendingPayments(ctx);
-  }
-
-  // To'lovni rad qilish
-  private async rejectPayment(ctx: any, paymentId: string) {
-    const payment = this.pendingPayments.get(paymentId);
-    if (!payment) {
-      await this.safeAnswerCallback(ctx, '❌ To\'lov topilmadi');
-      return;
-    }
-
-    payment.status = 'rejected';
-    
-    // Foydalanuvchiga xabar yuborish
-    try {
-      await this.bot.api.sendMessage(payment.userId, `
-❌ <b>To'lovingiz rad qilindi</b>
-
-😔 <b>Afsuski, sizning to'lovingiz qabul qilinmadi.</b>
-
-📋 <b>To'lov ma'lumotlari:</b>
-🆔 ID: <code>${paymentId}</code>
-💰 Summa: ${payment.amount.toLocaleString()} so'm
-⏰ Vaqt: ${payment.date}
-
-🔍 <b>Mumkin bo'lgan sabablar:</b>
-• To'lov summasi noto'g'ri
-• Screenshot aniq emas
-• Noto'g'ri karta raqamiga o'tkazma
-• Boshqa texnik sabab
-
-🔄 <b>Qayta to'lov:</b>
-To'lovni qaytadan qilishingiz mumkin. Iltimos, to'lov ma'lumotlarini diqqat bilan tekshiring.
-
-📞 <b>Yordam:</b> @support_username
-      `, {
-        parse_mode: 'HTML',
-        reply_markup: new InlineKeyboard()
-          .text('🔄 Qayta to\'lov', 'pricing')
-          .text('🏠 Bosh menyu', 'back_main')
-      });
-    } catch (error) {
-      this.logger.error('Error sending rejection message:', error);
-    }
-
-    await this.safeAnswerCallback(ctx, `❌ To'lov ${paymentId} rad qilindi`);
-    
-    this.logger.log(`Payment rejected: ${paymentId} for user ${payment.userId}`);
-    
-    // Admin panelni yangilash
-    await this.showPendingPayments(ctx);
-  }
+  // Duplicate functions removed - using the comprehensive ones at the end of file
 
   // Kutilayotgan to'lovlarni ko'rsatish
   private async showPendingPayments(ctx: any) {
@@ -2149,7 +2200,7 @@ To'lovni qaytadan qilishingiz mumkin. Iltimos, to'lov ma'lumotlarini diqqat bila
 
       const keyboard = new InlineKeyboard()
         .text('🔄 Yangilash', 'pending_payments')
-        .text('🔙 Admin Panel', 'admin_panel');
+        .text('🔙 Bosh menyu', 'back_main');
 
       await ctx.editMessageText(message, {
         parse_mode: 'HTML',
@@ -2179,7 +2230,7 @@ To'lovni qaytadan qilishingiz mumkin. Iltimos, to'lov ma'lumotlarini diqqat bila
     });
 
     keyboard.text('🔄 Yangilash', 'pending_payments')
-      .text('🔙 Admin Panel', 'admin_panel');
+      .text('🔙 Bosh menyu', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
@@ -2206,7 +2257,229 @@ To'lovni qaytadan qilishingiz mumkin. Iltimos, to'lov ma'lumotlarini diqqat bila
     const keyboard = new InlineKeyboard()
       .text('✅ Tasdiqlash', `approve_${paymentId}`)
       .text('❌ Rad qilish', `reject_${paymentId}`).row()
-      .text('🔐 Admin Panel', 'admin_panel');
+      .text('🔙 Bosh menyu', 'back_main');
+
+    for (const adminId of adminUsers) {
+      if (adminId > 0) {
+        try {
+          // Screenshot bilan birga yuborish
+          if (paymentData.screenshot) {
+            await this.bot.api.sendPhoto(adminId, paymentData.screenshot, {
+              caption: message,
+              parse_mode: 'HTML',
+              reply_markup: keyboard
+            });
+          } else {
+            await this.bot.api.sendMessage(adminId, message, {
+              parse_mode: 'HTML',
+              reply_markup: keyboard
+            });
+          }
+        } catch (error) {
+          this.logger.error(`Error notifying admin ${adminId}:`, error);
+        }
+      }
+    }
+  }
+
+  // Balans to'lov ko'rsatish
+  private async showBalancePayment(ctx: any, amount: number) {
+    const userId = ctx.from.id;
+
+    const paymentCardNumber = process.env.PAYMENT_CARD_NUMBER || '9860120112345678';
+    const paymentCardHolder = process.env.PAYMENT_CARD_HOLDER || 'Yolda Logistics';
+    const paymentProvider = process.env.PAYMENT_PROVIDER || 'Uzcard';
+
+    const message = `
+💳 <b>BALANS TO'LDIRISH</b>
+
+💰 <b>To'ldirish miqdori:</b> ${amount.toLocaleString()} so'm
+
+💳 <b>To'lov uchun karta ma'lumotlari:</b>
+🔢 <b>Karta raqami:</b> <code>${paymentCardNumber}</code>
+👤 <b>Karta egasi:</b> ${paymentCardHolder}
+🏪 <b>Bank:</b> ${paymentProvider}
+
+📋 <b>To'lov qilish tartibi:</b>
+1️⃣ Yuqoridagi karta raqamiga ${amount.toLocaleString()} so'm o'tkazing
+2️⃣ To'lov chekini (screenshot) botga yuboring
+3️⃣ Admin tomonidan tasdiqlashni kuting
+4️⃣ Tasdiqlangandan keyin balans to'ldiriladi
+
+⏰ <b>Tasdiqlash vaqti:</b> 5-30 daqiqa
+
+⚠️ <b>Muhim:</b>
+• Screenshot aniq va o'qiladigan bo'lishi kerak
+• To'lov summasi to'liq mos kelishi kerak
+• Karta raqami to'g'ri bo'lishi kerak
+
+🔒 <b>Xavfsizlik:</b> Barcha to'lovlar admin tomonidan tekshiriladi
+    `;
+
+    const keyboard = new InlineKeyboard()
+      .text('📤 Screenshot yuborish', 'upload_balance_payment')
+      .text('🔙 Orqaga', 'add_balance');
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+
+    // Balans to'ldirish ma'lumotlarini session'ga saqlash
+    this.paymentWaitingUsers.set(userId, { plan: 'balance', amount: amount });
+  }
+
+  // Balans to'ldirish tasdiqlash
+  private async confirmAddBalance(ctx: any) {
+    const userId = ctx.from.id;
+
+    // Avval tanlangan summa ma'lumotini olish
+    const currentPayment = this.paymentWaitingUsers.get(userId);
+    if (!currentPayment) {
+      await this.safeEditMessage(ctx, '❌ Avval to\'ldirish miqdorini tanlang.', {
+        reply_markup: new InlineKeyboard().text('🔙 Balans to\'ldirish', 'add_balance')
+      });
+      return;
+    }
+
+    const message = `
+📤 <b>BALANS TO'LDIRISH CHEKI</b>
+
+💰 <b>To'ldirish miqdori:</b> ${currentPayment.amount.toLocaleString()} so'm
+
+📋 <b>Qadamlar:</b>
+1️⃣ Kartaga ${currentPayment.amount.toLocaleString()} so'm to'lov qiling
+2️⃣ To'lov chekini (screenshot) shu yerga yuboring
+3️⃣ Admin tomonidan tasdiqlashni kuting
+
+📱 <b>Screenshot talablari:</b>
+• Aniq va o'qiladigan bo'lishi kerak
+• To'lov summasi ko'rinishi kerak
+• Vaqt va sana ko'rinishi kerak
+• Qabul qiluvchi karta oxirgi 4 raqami ko'rinishi kerak
+
+⏰ <b>Admin tekshiruvi:</b> 5-30 daqiqa
+
+💡 <b>Eslatma:</b> Screenshot yuborish uchun rasmni shu chatga yuboring.
+    `;
+
+    const keyboard = new InlineKeyboard()
+      .text('🔙 Orqaga', 'add_balance');
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  }
+
+  // Balans screenshot handle qilish
+  private async handleBalanceScreenshot(ctx: any) {
+    const userId = ctx.from.id;
+
+    if (!this.paymentWaitingUsers.has(userId)) {
+      await ctx.reply('❌ Avval balans to\'ldirish bo\'limidan screenshot yuborish rejimini yoqing.');
+      return;
+    }
+
+    try {
+      // Photo file info olish
+      const photo = ctx.message.photo[ctx.message.photo.length - 1]; // Eng katta o'lchamdagisini olish
+      const fileId = photo.file_id;
+
+      // Payment ID generatsiya qilish
+      const paymentId = `balance_${userId}_${Date.now()}`;
+
+      // Plan ma'lumotlarini olish
+      const planInfo = this.paymentWaitingUsers.get(userId);
+      if (!planInfo) {
+        await ctx.reply('❌ To\'ldirish ma\'lumotlari topilmadi. Qaytadan miqdor tanlang.', {
+          parse_mode: 'HTML',
+          reply_markup: new InlineKeyboard().text('🔙 Balans to\'ldirish', 'add_balance')
+        });
+        return;
+      }
+
+      // Payment ma'lumotlarini saqlash
+      const paymentData = {
+        userId: userId,
+        plan: 'balance',
+        amount: planInfo.amount,
+        status: 'pending' as const,
+        date: new Date().toLocaleString('uz-UZ'),
+        screenshot: fileId
+      };
+
+      this.pendingPayments.set(paymentId, paymentData);
+
+      // User payments ro'yxatiga qo'shish
+      if (!this.userPayments.has(userId)) {
+        this.userPayments.set(userId, []);
+      }
+      const userPaymentsList = this.userPayments.get(userId)!;
+      userPaymentsList.push({...paymentData, id: paymentId});
+
+      this.paymentWaitingUsers.delete(userId);
+
+      const message = `
+✅ <b>Screenshot muvaffaqiyatli qabul qilindi!</b>
+
+💳 <b>Balans to'ldirish ma'lumotlari:</b>
+🆔 To'lov ID: <code>${paymentId}</code>
+💰 Summa: ${planInfo.amount.toLocaleString()} so'm
+⏰ Vaqt: ${paymentData.date}
+📊 Status: ⏳ Tekshirilmoqda
+
+🔔 <b>Keyingi qadamlar:</b>
+• Admin sizning to'lovingizni tekshiradi
+• Tekshirish 5-30 daqiqa davom etadi
+• Tasdiqlangandan keyin balans avtomatik to'ldiriladi
+
+💬 <b>Xabarnoma:</b>
+To'lov holati o'zgarganda sizga xabar beriladi.
+
+📞 <b>Muammo bo'lsa:</b> @support_username ga murojaat qiling
+      `;
+
+      const keyboard = new InlineKeyboard()
+        .text('💳 Balansim', 'my_balance')
+        .text('🏠 Bosh menyu', 'back_main');
+
+      await ctx.reply(message, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard
+      });
+
+      // Adminlarga xabar yuborish
+      await this.notifyAdminsBalance(paymentId, paymentData);
+
+      this.logger.log(`New balance payment submitted: ${paymentId} from user ${userId}`);
+
+    } catch (error) {
+      this.logger.error('Balance screenshot handle error:', error);
+      await ctx.reply('❌ Screenshot yuklashda xatolik yuz berdi. Qayta urinib ko\'ring.');
+    }
+  }
+
+  // Adminlarga balans to'ldirish xabar yuborish
+  private async notifyAdminsBalance(paymentId: string, paymentData: any) {
+    const adminUsers = [parseInt(process.env.ADMIN_USER_ID || '5772668259')];
+
+    const message = `
+🔔 <b>Yangi balans to'ldirish!</b>
+
+🆔 ID: <code>${paymentId}</code>
+👤 User: ${paymentData.userId}
+💰 Summa: ${paymentData.amount.toLocaleString()} so'm
+💳 Tur: Balans to'ldirish
+⏰ Vaqt: ${paymentData.date}
+
+📋 <b>Harakatlar:</b>
+    `;
+
+    const keyboard = new InlineKeyboard()
+      .text('✅ Tasdiqlash', `approve_${paymentId}`)
+      .text('❌ Rad qilish', `reject_${paymentId}`).row()
+      .text('💳 To\'lovlar', 'admin_payments');
 
     for (const adminId of adminUsers) {
       if (adminId > 0) {
@@ -4336,7 +4609,7 @@ ${description ? `📝 <b>Qo'shimcha:</b> ${description}` : ''}
 
 
   // Registration Methods
-  private async startRegistration(ctx: any, role: 'yukchi' | 'haydovchi' | 'dispechr') {
+  private async startRegistration(ctx: any, role: 'yukchi' | 'haydovchi' | 'dispechr' | 'admin') {
     const user = ctx.from;
     this.logger.log(`Starting registration for ${user.first_name} (${user.id}) as ${role}`);
     this.registrationInProgress.add(user.id);
@@ -7890,7 +8163,7 @@ Yo'nalish, tonnaj va yuk turini kiriting
     `;
 
     const keyboard = new InlineKeyboard()
-      .text('💳 Balansni to\'ldirish', 'add_balance')
+      .text('💳 Balans to\'ldirish', 'add_balance')
       .text('💸 Pul yechish', 'withdraw_money').row()
       .text('📋 To\'lov tarixi', 'payment_history')
       .text('🧾 Hisob-kitob', 'invoices').row()
@@ -9533,10 +9806,19 @@ Use "🖥️ Admin Control Panel" for complete control!
     const today = new Date().toISOString().split('T')[0];
     const todayOrders = Array.from(this.cargoOffers.values()).filter(o => o.date.startsWith(today)).length;
     const todayRegistrations = Array.from(this.userRoles.values()).filter(u => u.registrationDate?.startsWith(today)).length;
-    
+
     const totalRevenue = Array.from(this.cargoOffers.values())
       .filter(o => o.status === 'completed')
       .reduce((sum, o) => sum + (o.price || 0), 0);
+
+    // Kompanya balansini hisoblash - barcha virtual balanslar yig'indisi
+    const companyBalance = Array.from(this.virtualBalances.values())
+      .reduce((sum, balance) => sum + (balance.balance || 0), 0);
+
+    // Kompaniya daromadi - to'lovlardan foyda
+    const companyProfit = Array.from(this.pendingPayments.values())
+      .filter(payment => payment.status === 'approved')
+      .reduce((sum, payment) => sum + (payment.amount || 0), 0);
 
     const topDrivers = Array.from(this.driverOffers.values())
       .sort((a, b) => (b.completedOrders || 0) - (a.completedOrders || 0))
@@ -9555,7 +9837,9 @@ Use "🖥️ Admin Control Panel" for complete control!
 👤 Bugungi ro'yxatdan o'tishlar: <b>${todayRegistrations}</b>
 
 💰 <b>MOLIYAVIY:</b>
+🏢 Kompanya balansi: <b>${companyBalance.toLocaleString()} so'm</b>
 💵 Jami aylanma: <b>${totalRevenue.toLocaleString()} so'm</b>
+💎 To'lov tizimi daromadi: <b>${companyProfit.toLocaleString()} so'm</b>
 📊 O'rtacha order qiymati: <b>${Math.round(totalRevenue / Math.max(this.cargoOffers.size, 1)).toLocaleString()} so'm</b>
 
 🏆 <b>TOP HAYDOVCHILAR:</b>
@@ -9567,7 +9851,7 @@ ${topDriversText || 'Ma\'lumot yo\'q'}
     const keyboard = new InlineKeyboard()
       .text('🔄 Yangilash', 'admin_stats')
       .text('📊 Export', 'admin_export').row()
-      .text('🔙 Admin Panel', 'admin_panel');
+      .text('🔙 Bosh menyu', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
@@ -9609,7 +9893,7 @@ ${usersText || 'Foydalanuvchi yo\'q'}
       .text('🔍 Qidirish', 'admin_search_user')
       .text('📊 Batafsil', 'admin_user_details').row()
       .text('🔄 Yangilash', 'admin_users')
-      .text('🔙 Admin Panel', 'admin_panel');
+      .text('🔙 Bosh menyu', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
@@ -9652,7 +9936,7 @@ ${ordersText || 'Order yo\'q'}
       .text('🔍 Order Qidirish', 'admin_search_order')
       .text('📊 Order Statistika', 'admin_order_stats').row()
       .text('🔄 Yangilash', 'admin_orders')
-      .text('🔙 Admin Panel', 'admin_panel');
+      .text('🔙 Bosh menyu', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
@@ -9708,7 +9992,7 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
       .text('📊 To\'lov statistikasi', 'admin_payment_stats').row()
       .text('💳 Karta ma\'lumotlari', 'admin_payment_info')
       .text('🔄 Yangilash', 'admin_payments').row()
-      .text('🔙 Admin Panel', 'admin_panel');
+      .text('🔙 Bosh menyu', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
@@ -9768,7 +10052,7 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
       .text('📄 PDF Hisobot', 'admin_export_pdf').row()
       .text('📈 Grafik Ko\'rish', 'admin_charts')
       .text('🔄 Yangilash', 'admin_reports').row()
-      .text('🔙 Admin Panel', 'admin_panel');
+      .text('🔙 Bosh menyu', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
@@ -9812,16 +10096,141 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
     `;
 
     const keyboard = new InlineKeyboard()
-      .text('🔄 Restart Bot', 'admin_restart_bot')
-      .text('🧹 Clear Cache', 'admin_clear_cache').row()
-      .text('💾 Backup Data', 'admin_backup')
-      .text('📊 System Logs', 'admin_logs').row()
-      .text('🔙 Admin Panel', 'admin_panel');
+      .text('💳 To\'lov sozlamalari', 'payment_settings')
+      .text('🔄 Restart Bot', 'admin_restart_bot').row()
+      .text('🧹 Clear Cache', 'admin_clear_cache')
+      .text('💾 Backup Data', 'admin_backup').row()
+      .text('📊 System Logs', 'admin_logs')
+      .text('🔙 Bosh menyu', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
       reply_markup: keyboard
     });
+  }
+
+  // To'lov sozlamalarini ko'rsatish
+  private async showPaymentSettings(ctx: any) {
+    const adminUsers = [5772668259];
+    if (!adminUsers.includes(ctx.from.id)) {
+      await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
+      return;
+    }
+
+    const methods = this.paymentMethods;
+
+    let message = `💳 <b>TO'LOV USULLARI SOZLAMALARI</b>\n\n`;
+
+    Object.entries(methods).forEach(([key, method]) => {
+      const status = method.enabled ? '✅' : '❌';
+      const rateText = key === 'percentage' ? `${method.rate}%` : `${method.rate.toLocaleString()} so'm`;
+      message += `${status} <b>${method.description}</b>\n`;
+      message += `   💰 Narx: ${rateText}\n`;
+      message += `   📊 Holat: ${method.enabled ? 'Faol' : 'Nofaol'}\n\n`;
+    });
+
+    message += `📋 <b>TIZIM MA'LUMOTLARI:</b>\n`;
+    message += `🔧 Jami to'lov usullari: ${Object.keys(methods).length} ta\n`;
+    message += `✅ Faol usullar: ${Object.values(methods).filter(m => m.enabled).length} ta\n`;
+    message += `⏰ Oxirgi yangilash: ${new Date().toLocaleString('uz-UZ')}\n`;
+
+    const keyboard = new InlineKeyboard()
+      .text('📊 Kunlik', 'toggle_method_daily')
+      .text('📦 Donali', 'toggle_method_perOrder').row()
+      .text('📈 Foizlik', 'toggle_method_percentage')
+      .text('🛣️ KM asosida', 'toggle_method_kmBased').row()
+      .text('📅 Haftalik', 'toggle_method_weekly')
+      .text('⚙️ Narxlarni sozlash', 'update_rates').row()
+      .text('💾 Saqlash', 'save_payment_settings')
+      .text('🔙 Orqaga', 'admin_system');
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  }
+
+  // To'lov usulini yoqish/o'chirish
+  private async handleTogglePaymentMethod(ctx: any, methodKey: string) {
+    const adminUsers = [5772668259];
+    if (!adminUsers.includes(ctx.from.id)) {
+      await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
+      return;
+    }
+
+    if (this.paymentMethods[methodKey]) {
+      this.paymentMethods[methodKey].enabled = !this.paymentMethods[methodKey].enabled;
+      const status = this.paymentMethods[methodKey].enabled ? 'yoqildi' : 'o\'chirildi';
+      const methodName = this.paymentMethods[methodKey].description;
+
+      await this.safeAnswerCallback(ctx, `✅ ${methodName} ${status}!`);
+
+      this.logger.log(`Payment method ${methodKey} toggled: ${this.paymentMethods[methodKey].enabled}`);
+
+      // Sozlamalar panelini yangilash
+      await this.showPaymentSettings(ctx);
+    } else {
+      await this.safeAnswerCallback(ctx, '❌ Noto\'g\'ri to\'lov usuli!');
+    }
+  }
+
+  // To'lov usullariga asoslangan ish haqi hisoblash
+  private calculateDriverPayment(driverId: number, orderData: any): number {
+    const methods = this.paymentMethods;
+    let totalPayment = 0;
+
+    // Kunlik to'lov
+    if (methods.daily.enabled) {
+      totalPayment += methods.daily.rate;
+    }
+
+    // Donali to'lov (har bir order uchun)
+    if (methods.perOrder.enabled) {
+      totalPayment += methods.perOrder.rate;
+    }
+
+    // Foizlik to'lov (order summasidan)
+    if (methods.percentage.enabled && orderData.price) {
+      const percentageAmount = (orderData.price * methods.percentage.rate) / 100;
+      totalPayment += percentageAmount;
+    }
+
+    // KM asosidagi to'lov
+    if (methods.kmBased.enabled && orderData.distance) {
+      const kmAmount = orderData.distance * methods.kmBased.rate;
+      totalPayment += kmAmount;
+    }
+
+    // Haftalik to'lov (haftada bir marta)
+    if (methods.weekly.enabled) {
+      const weeklyPayment = this.calculateWeeklyPayment(driverId);
+      totalPayment += weeklyPayment;
+    }
+
+    return Math.round(totalPayment);
+  }
+
+  // To'lov sozlamalarini saqlash
+  private async savePaymentSettings(ctx: any) {
+    const adminUsers = [5772668259];
+    if (!adminUsers.includes(ctx.from.id)) {
+      await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
+      return;
+    }
+
+    try {
+      // Sozlamalarni faylga saqlash
+      await this.savePaymentSettingsToFile();
+
+      await this.safeAnswerCallback(ctx, '✅ Sozlamalar saqlandi!');
+      this.logger.log('Payment settings saved successfully');
+
+      // Sozlamalar panelini yangilash
+      await this.showPaymentSettings(ctx);
+    } catch (error) {
+      this.logger.error('Error saving payment settings:', error);
+      await this.safeAnswerCallback(ctx, '❌ Xatolik yuz berdi!');
+    }
   }
 
   private async handleExportExcel(ctx: any) {
@@ -9848,7 +10257,7 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
     `;
 
     const keyboard = new InlineKeyboard()
-      .text('🔙 Admin Panel', 'admin_panel');
+      .text('🔙 Bosh menyu', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
@@ -9881,7 +10290,7 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
     `;
 
     const keyboard = new InlineKeyboard()
-      .text('🔙 Admin Panel', 'admin_panel');
+      .text('🔙 Bosh menyu', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
@@ -9915,7 +10324,7 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
     `;
 
     const keyboard = new InlineKeyboard()
-      .text('🔙 Admin Panel', 'admin_panel');
+      .text('🔙 Bosh menyu', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
@@ -9952,7 +10361,7 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
     `;
 
     const keyboard = new InlineKeyboard()
-      .text('🔙 Admin Panel', 'admin_panel');
+      .text('🔙 Bosh menyu', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
@@ -9992,7 +10401,7 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
     `;
 
     const keyboard = new InlineKeyboard()
-      .text('🔙 Admin Panel', 'admin_panel');
+      .text('🔙 Bosh menyu', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
@@ -10269,7 +10678,7 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
 
     const keyboard = new InlineKeyboard()
       .text('✅ Ha, barchasini o\'chir', 'confirm_clear_data')
-      .text('❌ Yo\'q, bekor qilish', 'admin_panel').row();
+      .text('❌ Yo\'q, bekor qilish', 'back_main').row();
 
     await this.safeEditMessage(ctx, message, {
       parse_mode: 'HTML',
@@ -10312,13 +10721,13 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
         parse_mode: 'HTML',
         reply_markup: new InlineKeyboard()
           .text('🏠 Bosh menyu', 'back_main')
-          .text('🔐 Admin panel', 'admin_panel')
+          .text('🔙 Bosh menyu', 'back_main')
       });
     } else {
       await this.safeEditMessage(ctx, '❌ Ma\'lumotlarni tozalashda xatolik yuz berdi!', {
         reply_markup: new InlineKeyboard()
           .text('🔄 Qayta urinish', 'admin_clear_data')
-          .text('🔐 Admin panel', 'admin_panel')
+          .text('🔙 Bosh menyu', 'back_main')
       });
     }
   }
@@ -14062,6 +14471,367 @@ RETURN THE TEXT WITH MINIMAL CHANGES ONLY!`;
             .text('🏠 Bosh menyu', 'back_main')
         }
       );
+    }
+  }
+
+  // ===============================
+  // PAYMENT SETTINGS FUNCTIONS
+  // ===============================
+
+  // Payment settings'ni fayldan yuklash
+  private async loadPaymentSettings() {
+    try {
+      const filePath = path.join(process.cwd(), 'src', 'data', 'payment-settings.json');
+      if (fs.existsSync(filePath)) {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (data.paymentMethods) {
+          this.paymentMethods = data.paymentMethods;
+        }
+        if (data.balances) {
+          Object.entries(data.balances).forEach(([userId, balance]) => {
+            this.userBalances.set(parseInt(userId), balance as number);
+          });
+        }
+        this.logger.log('✅ Payment settings loaded from file');
+      }
+    } catch (error) {
+      this.logger.error('❌ Error loading payment settings:', error);
+    }
+  }
+
+  // Payment settings'ni faylga saqlash
+  private async savePaymentSettingsToFile() {
+    try {
+      const filePath = path.join(process.cwd(), 'src', 'data', 'payment-settings.json');
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      const balances: Record<string, number> = {};
+      this.userBalances.forEach((balance, userId) => {
+        balances[userId.toString()] = balance;
+      });
+
+      const data = {
+        paymentMethods: this.paymentMethods,
+        balances: balances,
+        lastUpdated: new Date().toISOString()
+      };
+
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+      this.logger.log('✅ Payment settings saved to file');
+    } catch (error) {
+      this.logger.error('❌ Error saving payment settings:', error);
+    }
+  }
+
+  // Yangi narx kiritish handler
+  private async handlePriceUpdate(ctx: any, newRateText: string) {
+    const userId = ctx.from.id;
+    const updateInfo = this.priceUpdateWaitingUsers.get(userId);
+
+    if (!updateInfo) {
+      await ctx.reply('❌ Xatolik yuz berdi. Qaytadan urinib ko\'ring.');
+      return;
+    }
+
+    const adminUsers = [5772668259];
+    if (!adminUsers.includes(userId)) {
+      await ctx.reply('❌ Admin huquqi yo\'q!');
+      return;
+    }
+
+    try {
+      const newRate = parseFloat(newRateText.trim());
+
+      if (isNaN(newRate) || newRate < 0) {
+        await ctx.reply('❌ Noto\'g\'ri narx! Faqat raqam kiriting (masalan: 50000 yoki 15)');
+        return;
+      }
+
+      const methodKey = updateInfo.methodKey;
+      const method = this.paymentMethods[methodKey];
+
+      if (!method) {
+        await ctx.reply('❌ Noto\'g\'ri to\'lov usuli!');
+        this.priceUpdateWaitingUsers.delete(userId);
+        return;
+      }
+
+      const oldRate = method.rate;
+      method.rate = newRate;
+
+      // Faylga saqlash
+      await this.savePaymentSettingsToFile();
+
+      const rateText = methodKey === 'percentage' ? `${newRate}%` : `${newRate.toLocaleString()} so'm`;
+      const oldRateText = methodKey === 'percentage' ? `${oldRate}%` : `${oldRate.toLocaleString()} so'm`;
+
+      await ctx.reply(
+        `✅ <b>NARX YANGILANDI!</b>\n\n` +
+        `📋 <b>To'lov usuli:</b> ${method.description}\n` +
+        `💰 <b>Eski narx:</b> ${oldRateText}\n` +
+        `💰 <b>Yangi narx:</b> ${rateText}\n` +
+        `⏰ <b>Yangilash vaqti:</b> ${new Date().toLocaleString('uz-UZ')}\n\n` +
+        `💾 Sozlamalar avtomatik saqlandi.`,
+        { parse_mode: 'HTML' }
+      );
+
+      this.priceUpdateWaitingUsers.delete(userId);
+
+      // Sozlamalar panelini ko'rsatish
+      setTimeout(() => {
+        this.showPaymentSettings(ctx);
+      }, 2000);
+
+    } catch (error) {
+      this.logger.error('Price update error:', error);
+      await ctx.reply('❌ Xatolik yuz berdi. Qaytadan urinib ko\'ring.');
+      this.priceUpdateWaitingUsers.delete(userId);
+    }
+  }
+
+  // Update rates menyusini ko'rsatish
+  private async showUpdateRatesMenu(ctx: any) {
+    const adminUsers = [5772668259];
+    if (!adminUsers.includes(ctx.from.id)) {
+      await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
+      return;
+    }
+
+    const methods = this.paymentMethods;
+
+    let message = `💰 <b>NARXLARNI YANGILASH</b>\n\n`;
+    message += `Qaysi to'lov usuli narxini o'zgartirmoqchisiz?\n\n`;
+
+    Object.entries(methods).forEach(([key, method]) => {
+      const status = method.enabled ? '✅' : '❌';
+      const rateText = key === 'percentage' ? `${method.rate}%` : `${method.rate.toLocaleString()} so'm`;
+      message += `${status} <b>${method.description}</b>\n`;
+      message += `   💰 Joriy narx: ${rateText}\n\n`;
+    });
+
+    const keyboard = new InlineKeyboard();
+
+    Object.entries(methods).forEach(([key, method]) => {
+      keyboard.text(`💰 ${method.description}`, `update_rate_${key}`).row();
+    });
+
+    keyboard.text('🔙 Orqaga', 'payment_settings');
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  }
+
+  // Narxlarni yangilash dialogi
+  private async showUpdateRateDialog(ctx: any, methodKey: string) {
+    const adminUsers = [5772668259];
+    if (!adminUsers.includes(ctx.from.id)) {
+      await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
+      return;
+    }
+
+    const method = this.paymentMethods[methodKey];
+    if (!method) {
+      await this.safeAnswerCallback(ctx, '❌ Noto\'g\'ri to\'lov usuli!');
+      return;
+    }
+
+    const currentRate = methodKey === 'percentage' ? `${method.rate}%` : `${method.rate.toLocaleString()} so'm`;
+
+    const message = `💰 <b>NARXNI YANGILASH</b>
+
+📋 <b>To'lov usuli:</b> ${method.description}
+💳 <b>Joriy narx:</b> ${currentRate}
+📊 <b>Holat:</b> ${method.enabled ? '✅ Faol' : '❌ Nofaol'}
+
+📝 <b>Yangi narxni kiriting:</b>
+${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\'m ko\'rinishida (masalan: 50000)'}
+
+⚠️ <b>Eslatma:</b> Narxni o'zgartirish darhol qo'llaniladi.
+  `;
+
+    const keyboard = new InlineKeyboard()
+      .text('🔙 Orqaga', 'payment_settings');
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+
+    // Text input kutish holatini o'rnatish
+    this.priceUpdateWaitingUsers.set(ctx.from.id, { methodKey });
+  }
+
+  // Haftalik to'lov logikasi
+  private getWeekNumber(date: Date): number {
+    const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+    const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+    return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+  }
+
+  private driverWeeklyPayments = new Map<string, boolean>();
+
+  private getDriverWeeklyPayments(): Map<string, boolean> {
+    if (!this.driverWeeklyPayments) {
+      this.driverWeeklyPayments = new Map();
+    }
+    return this.driverWeeklyPayments;
+  }
+
+  private calculateWeeklyPayment(driverId: number): number {
+    const currentWeek = this.getWeekNumber(new Date());
+    const currentYear = new Date().getFullYear();
+
+    const weeklyKey = `${driverId}_${currentYear}_${currentWeek}`;
+
+    const weeklyPayments = this.getDriverWeeklyPayments();
+    if (weeklyPayments.has(weeklyKey)) {
+      return 0;
+    }
+
+    weeklyPayments.set(weeklyKey, true);
+
+    return this.paymentMethods.weekly.enabled ? this.paymentMethods.weekly.rate : 0;
+  }
+
+  // Balans yangilash funksiyasi
+  private async updateUserBalance(userId: number, amount: number, reason: string = 'Balance update') {
+    const currentBalance = this.userBalances.get(userId) || 0;
+    const newBalance = currentBalance + amount;
+
+    this.userBalances.set(userId, newBalance);
+    await this.savePaymentSettingsToFile();
+
+    this.logger.log(`💰 Balance updated for user ${userId}: ${currentBalance} -> ${newBalance} (${reason})`);
+    return newBalance;
+  }
+
+  // To'lovni tasdiqlash
+  private async approvePayment(ctx: any, paymentId: string) {
+    const adminUsers = [parseInt(process.env.ADMIN_USER_ID || '5772668259')];
+    if (!adminUsers.includes(ctx.from.id)) {
+      await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
+      return;
+    }
+
+    const payment = this.pendingPayments.get(paymentId);
+    if (!payment) {
+      await this.safeAnswerCallback(ctx, '❌ To\'lov topilmadi!');
+      return;
+    }
+
+    if (payment.status !== 'pending') {
+      await this.safeAnswerCallback(ctx, '❌ To\'lov allaqachon qaralgan!');
+      return;
+    }
+
+    try {
+      payment.status = 'approved';
+      this.pendingPayments.set(paymentId, payment);
+
+      if (payment.plan === 'balance') {
+        await this.updateUserBalance(payment.userId, payment.amount, `Balance top-up: ${paymentId}`);
+      }
+
+      if (!this.userPayments.has(payment.userId)) {
+        this.userPayments.set(payment.userId, []);
+      }
+      const userPaymentsList = this.userPayments.get(payment.userId)!;
+      const existingPaymentIndex = userPaymentsList.findIndex(p => p.id === paymentId);
+      if (existingPaymentIndex >= 0) {
+        userPaymentsList[existingPaymentIndex].status = 'approved';
+      }
+
+      await this.safeAnswerCallback(ctx, '✅ To\'lov tasdiqlandi!');
+
+      try {
+        const newBalance = this.userBalances.get(payment.userId) || 0;
+        await this.bot.api.sendMessage(payment.userId,
+          `✅ <b>TO'LOV TASDIQLANDI!</b>\n\n` +
+          `🆔 To'lov ID: <code>${paymentId}</code>\n` +
+          `💰 Summa: ${payment.amount.toLocaleString()} so'm\n` +
+          `💳 Yangi balans: ${newBalance.toLocaleString()} so'm\n` +
+          `⏰ Tasdiq vaqti: ${new Date().toLocaleString('uz-UZ')}\n\n` +
+          `🎉 Balans muvaffaqiyatli to'ldirildi!`,
+          { parse_mode: 'HTML' }
+        );
+      } catch (error) {
+        this.logger.error(`Error sending approval notification to user ${payment.userId}:`, error);
+      }
+
+      this.logger.log(`Payment ${paymentId} approved by admin ${ctx.from.id}`);
+
+    } catch (error) {
+      this.logger.error('Error approving payment:', error);
+      await this.safeAnswerCallback(ctx, '❌ Xatolik yuz berdi!');
+    }
+  }
+
+  // To'lovni rad qilish
+  private async rejectPayment(ctx: any, paymentId: string) {
+    const adminUsers = [parseInt(process.env.ADMIN_USER_ID || '5772668259')];
+    if (!adminUsers.includes(ctx.from.id)) {
+      await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
+      return;
+    }
+
+    const payment = this.pendingPayments.get(paymentId);
+    if (!payment) {
+      await this.safeAnswerCallback(ctx, '❌ To\'lov topilmadi!');
+      return;
+    }
+
+    if (payment.status !== 'pending') {
+      await this.safeAnswerCallback(ctx, '❌ To\'lov allaqachon qaralgan!');
+      return;
+    }
+
+    try {
+      payment.status = 'rejected';
+      this.pendingPayments.set(paymentId, payment);
+
+      if (this.userPayments.has(payment.userId)) {
+        const userPaymentsList = this.userPayments.get(payment.userId)!;
+        const existingPaymentIndex = userPaymentsList.findIndex(p => p.id === paymentId);
+        if (existingPaymentIndex >= 0) {
+          userPaymentsList[existingPaymentIndex].status = 'rejected';
+        }
+      }
+
+      await this.safeAnswerCallback(ctx, '❌ To\'lov rad qilindi!');
+
+      try {
+        await this.bot.api.sendMessage(payment.userId,
+          `❌ <b>TO'LOV RAD QILINDI!</b>\n\n` +
+          `🆔 To'lov ID: <code>${paymentId}</code>\n` +
+          `💰 Summa: ${payment.amount.toLocaleString()} so'm\n` +
+          `⏰ Rad qilish vaqti: ${new Date().toLocaleString('uz-UZ')}\n\n` +
+          `📝 <b>Sabab:</b>\n` +
+          `• Screenshot noaniq yoki noto'g'ri\n` +
+          `• To'lov summasi mos kelmaydi\n` +
+          `• Karta ma'lumotlari noto'g'ri\n\n` +
+          `🔄 Qaytadan urinib ko'rishingiz mumkin.\n` +
+          `📞 Savollar bo'lsa: @support_username`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: new InlineKeyboard()
+              .text('🔄 Qayta urinish', 'add_balance')
+              .text('📞 Yordam', 'help_menu')
+          }
+        );
+      } catch (error) {
+        this.logger.error(`Error sending rejection notification to user ${payment.userId}:`, error);
+      }
+
+      this.logger.log(`Payment ${paymentId} rejected by admin ${ctx.from.id}`);
+
+    } catch (error) {
+      this.logger.error('Error rejecting payment:', error);
+      await this.safeAnswerCallback(ctx, '❌ Xatolik yuz berdi!');
     }
   }
 }
