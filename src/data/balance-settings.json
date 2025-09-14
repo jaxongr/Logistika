@@ -1,0 +1,14 @@
+{
+  "balanceSettings": {
+    "enabled": true,
+    "minTopUpAmount": 10000,
+    "maxTopUpAmount": 10000000,
+    "autoCommissionDeduction": true,
+    "lowBalanceWarning": 50000,
+    "description": "Virtual balance system for drivers and dispatchers"
+  },
+  "userBalances": {},
+  "balanceHistory": {},
+  "lastUpdated": "2025-09-14T17:30:00.000Z",
+  "updatedBy": "system"
+}

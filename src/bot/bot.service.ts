@@ -45,7 +45,10 @@ export class BotService implements OnModuleInit {
   private routeInputWaitingUsers = new Set<number>();
   private phoneWaitingUsers = new Set<number>();
   private codeWaitingUsers = new Map<number, {phoneCodeHash: string, phone: string, client: TelegramClient}>();
-  private userSessions = new Map<number, {connected: boolean, phone: string, client: TelegramClient, session: string}>();
+  private commissionSettings: any = {};
+  private balanceSettings: any = {};
+  private balanceInputWaitingUsers = new Set<number>();
+  private userSessions = new Map<number, {connected: boolean, phone: string, client: TelegramClient, session: string}>;
   private connectedGroups = new Map<number, Array<{id: string, title: string, members: number, restrictions?: any}>>();
   private userGroups = new Map<number, Array<{id: string, title: string, members: number, connected: boolean, type: 'chat' | 'channel', restrictions?: any, botAdmin?: boolean}>>();
   private selectedGroups = new Map<number, Set<string>>();
@@ -374,6 +377,10 @@ export class BotService implements OnModuleInit {
 
     // Payment settings'ni yuklash
     await this.loadPaymentSettings();
+
+    // Commission settings'ni yuklash
+    await this.loadCommissionSettings();
+    await this.loadBalanceSettings();
     
     // Global update logger - catches ALL incoming updates
     this.bot.use(async (ctx, next) => {
@@ -423,6 +430,30 @@ export class BotService implements OnModuleInit {
           break;
         case 'add_balance':
           await this.showAddBalance(ctx);
+          break;
+        case 'balance_50000':
+          await this.processBalanceTopUp(ctx, 50000);
+          break;
+        case 'balance_100000':
+          await this.processBalanceTopUp(ctx, 100000);
+          break;
+        case 'balance_200000':
+          await this.processBalanceTopUp(ctx, 200000);
+          break;
+        case 'balance_500000':
+          await this.processBalanceTopUp(ctx, 500000);
+          break;
+        case 'balance_1000000':
+          await this.processBalanceTopUp(ctx, 1000000);
+          break;
+        case 'balance_2000000':
+          await this.processBalanceTopUp(ctx, 2000000);
+          break;
+        case 'balance_custom':
+          await this.showCustomBalanceInput(ctx);
+          break;
+        case 'balance_history':
+          await this.showBalanceHistory(ctx);
           break;
         case 'help_menu':
           await this.showHelpMenu(ctx);
@@ -493,6 +524,79 @@ export class BotService implements OnModuleInit {
           break;
         case 'pending_payments':
           await this.showPendingPayments(ctx);
+          break;
+        case 'commission_settings':
+          await this.showCommissionSettings(ctx);
+          break;
+        case 'admin_balance_management':
+          await this.showAdminBalanceManagement(ctx);
+          break;
+        case 'admin_pending_topups':
+          await this.showAdminPendingTopUps(ctx);
+          break;
+        case 'admin_approve_all_topups':
+          await this.approveAllPendingTopUps(ctx);
+          break;
+        case 'admin_reject_all_topups':
+          await this.rejectAllPendingTopUps(ctx);
+          break;
+        case 'commission_general':
+          await this.editCommissionGeneral(ctx);
+          break;
+        case 'commission_daily':
+          await this.editCommissionDaily(ctx);
+          break;
+        case 'commission_weekly':
+          await this.editCommissionWeekly(ctx);
+          break;
+        case 'commission_monthly':
+          await this.editCommissionMonthly(ctx);
+          break;
+        case 'commission_percentage':
+          await this.editCommissionPercentage(ctx);
+          break;
+        case 'commission_fixed_per_order':
+          await this.editCommissionFixedPerOrder(ctx);
+          break;
+        case 'save_commission_settings':
+          await this.saveCommissionSettings();
+          await this.safeAnswerCallback(ctx, '✅ Komission sozlamalari saqlandi!');
+          await this.showCommissionSettings(ctx);
+          break;
+        case 'toggle_commission_enabled':
+          this.commissionSettings.enabled = !this.commissionSettings.enabled;
+          await this.safeAnswerCallback(ctx, this.commissionSettings.enabled ? '✅ Komission tizimi yoqildi' : '❌ Komission tizimi o\'chirildi');
+          await this.editCommissionGeneral(ctx);
+          break;
+        case 'toggle_daily_enabled':
+          if (!this.commissionSettings.dailyCommission) this.commissionSettings.dailyCommission = { type: 'fixed', amount: 5000 };
+          this.commissionSettings.dailyCommission.enabled = !this.commissionSettings.dailyCommission.enabled;
+          await this.safeAnswerCallback(ctx, this.commissionSettings.dailyCommission.enabled ? '✅ Kunlik komission yoqildi' : '❌ Kunlik komission o\'chirildi');
+          await this.editCommissionDaily(ctx);
+          break;
+        case 'toggle_weekly_enabled':
+          if (!this.commissionSettings.weeklyCommission) this.commissionSettings.weeklyCommission = { type: 'fixed', amount: 30000 };
+          this.commissionSettings.weeklyCommission.enabled = !this.commissionSettings.weeklyCommission.enabled;
+          await this.safeAnswerCallback(ctx, this.commissionSettings.weeklyCommission.enabled ? '✅ Haftalik komission yoqildi' : '❌ Haftalik komission o\'chirildi');
+          await this.editCommissionWeekly(ctx);
+          break;
+        case 'toggle_monthly_enabled':
+          if (!this.commissionSettings.monthlyCommission) this.commissionSettings.monthlyCommission = { type: 'fixed', amount: 100000 };
+          this.commissionSettings.monthlyCommission.enabled = !this.commissionSettings.monthlyCommission.enabled;
+          await this.safeAnswerCallback(ctx, this.commissionSettings.monthlyCommission.enabled ? '✅ Oylik komission yoqildi' : '❌ Oylik komission o\'chirildi');
+          await this.editCommissionMonthly(ctx);
+          break;
+        case 'toggle_percentage_enabled':
+          if (!this.commissionSettings.perOrderCommission) this.commissionSettings.perOrderCommission = { type: 'percentage', percentage: 2.0 };
+          this.commissionSettings.perOrderCommission.enabled = !this.commissionSettings.perOrderCommission.enabled;
+          await this.safeAnswerCallback(ctx, this.commissionSettings.perOrderCommission.enabled ? '✅ Foizlik komission yoqildi' : '❌ Foizlik komission o\'chirildi');
+          await this.editCommissionPercentage(ctx);
+          break;
+        case 'toggle_fixed_per_order_enabled':
+          if (!this.commissionSettings.perOrderFixedCommission) this.commissionSettings.perOrderFixedCommission = { type: 'fixed', amount: 3000 };
+          this.commissionSettings.perOrderFixedCommission.enabled = !this.commissionSettings.perOrderFixedCommission.enabled;
+          await this.safeAnswerCallback(ctx, this.commissionSettings.perOrderFixedCommission.enabled ? '✅ Donali qat\'iy komission yoqildi' : '❌ Donali qat\'iy komission o\'chirildi');
+          await this.editCommissionFixedPerOrder(ctx);
           break;
         case 'back_main':
           await this.showMainMenu(ctx);
@@ -873,6 +977,12 @@ export class BotService implements OnModuleInit {
         await this.analyzeRoute(ctx, ctx.message.text);
         return;
       }
+
+      // Custom balance input kutilmoqda
+      if (this.balanceInputWaitingUsers.has(userId)) {
+        await this.handleCustomBalanceInput(ctx, ctx.message.text);
+        return;
+      }
       
       // Foydalanuvchi xabar yuborish holatida bo'lsa
       if (this.messageWaitingUsers.has(userId)) {
@@ -916,7 +1026,40 @@ export class BotService implements OnModuleInit {
       const userRole = this.userRoles.get(userId);
 
       this.logger.log(`📥 MESSAGE: User ${userId} sent: "${text}". Role: ${userRole?.role || 'no role'}`);
-      
+      this.logger.log(`🔍 DEBUG: Text length: ${text.length}, Text code: ${text.charCodeAt(0)}-${text.charCodeAt(1) || 'N/A'}`);
+      this.logger.log(`🔍 DEBUG: Expected "💰 Balansim" length: ${('💰 Balansim').length}`);
+
+      // Admin panel tugmalari
+      const adminUserId = parseInt(process.env.ADMIN_USER_ID || '0');
+      if (userId === adminUserId || userRole?.role === 'admin') {
+        switch(text) {
+          case '📊 Statistika':
+            await this.showAdminStats(ctx);
+            return;
+          case '👥 Foydalanuvchilar':
+            await this.showAdminUsers(ctx);
+            return;
+          case '📋 Orderlar':
+            await this.showAdminOrders(ctx);
+            return;
+          case '💳 To\'lovlar':
+            await this.showAdminPayments(ctx);
+            return;
+          case '🤖 AI Analytics':
+            await this.showAIAnalytics(ctx);
+            return;
+          case '📈 Hisobotlar':
+            await this.showAdminReports(ctx);
+            return;
+          case '⚙️ Sozlamalar':
+            await this.showSettings(ctx);
+            return;
+          case '📞 Aloqa':
+            await this.showContact(ctx);
+            return;
+        }
+      }
+
       // Universal tugmalar (barcha role'lar uchun)
       switch(text) {
         case '📦 Yuk berish':
@@ -946,6 +1089,8 @@ export class BotService implements OnModuleInit {
           return;
           
         case '💰 Balansim':
+          this.logger.log(`💰 Balansim button pressed by user ${userId}`);
+          this.logger.log(`💰 User role data: ${JSON.stringify(this.userRoles.get(userId))}`);
           await this.showVirtualBalance(ctx);
           return;
           
@@ -1232,17 +1377,22 @@ export class BotService implements OnModuleInit {
 ⏰ <b>Last Updated:</b> ${new Date().toLocaleString('uz-UZ')}
         `;
 
-        const keyboard = new InlineKeyboard()
-          .text('📊 Statistika', 'admin_stats')
-          .text('👥 Foydalanuvchilar', 'admin_users').row()
-          .text('📋 Orderlar', 'admin_orders')
-          .text('💳 To\'lovlar', 'admin_payments').row()
-          .text('🤖 AI Analytics', 'ai_analytics')
-          .text('📈 Hisobotlar', 'admin_reports').row()
-          .text('⚙️ Sozlamalar', 'admin_system')
-          .text('📞 Aloqa', 'contact').row();
-
-        return await this.sendMenuMessage(ctx, welcomeMessage, keyboard);
+        // Admin uchun regular keyboard
+        await ctx.reply(welcomeMessage, {
+          parse_mode: 'HTML',
+          reply_markup: {
+            keyboard: [
+              [{ text: '📊 Statistika' }, { text: '👥 Foydalanuvchilar' }],
+              [{ text: '📋 Orderlar' }, { text: '💳 To\'lovlar' }],
+              [{ text: '🤖 AI Analytics' }, { text: '📈 Hisobotlar' }],
+              [{ text: '⚙️ Sozlamalar' }, { text: '💰 Balansim' }],
+              [{ text: '📞 Aloqa' }]
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: false
+          }
+        });
+        return;
       }
 
       // Ro'yxatdan o'tgan foydalanuvchilar uchun
@@ -1280,30 +1430,36 @@ export class BotService implements OnModuleInit {
 ⏰ <b>Last Updated:</b> ${new Date().toLocaleString('uz-UZ')}
         `;
 
-        keyboard = new InlineKeyboard()
-          .text('📊 Statistika', 'admin_stats')
-          .text('👥 Foydalanuvchilar', 'admin_users').row()
-          .text('📋 Orderlar', 'admin_orders')
-          .text('💳 To\'lovlar', 'admin_payments').row()
-          .text('🤖 AI Analytics', 'ai_analytics')
-          .text('📈 Hisobotlar', 'admin_reports').row()
-          .text('⚙️ Sozlamalar', 'admin_system')
-          .text('📞 Aloqa', 'contact').row();
-
-        return await this.sendMenuMessage(ctx, welcomeMessage, keyboard);
+        // Admin uchun regular keyboard (role-based admin)
+        await ctx.reply(welcomeMessage, {
+          parse_mode: 'HTML',
+          reply_markup: {
+            keyboard: [
+              [{ text: '📊 Statistika' }, { text: '👥 Foydalanuvchilar' }],
+              [{ text: '📋 Orderlar' }, { text: '💳 To\'lovlar' }],
+              [{ text: '🤖 AI Analytics' }, { text: '📈 Hisobotlar' }],
+              [{ text: '⚙️ Sozlamalar' }, { text: '📞 Aloqa' }]
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: false
+          }
+        });
+        return;
       }
 
       switch ((userRole as any).role) {
         case 'yukchi':
           const activeOrders = Math.floor(Math.random() * 5) + 1; // Fake data
           const completedOrders = Math.floor(Math.random() * 20) + 5;
-          
+          const yukchuBalance = await this.getUserBalance(user.id);
+
           welcomeMessage = `
 📦 <b>YUKCHI PANELI</b>
 
 👋 Salom, ${user.first_name}!
 
 🔄 <b>Faol:</b> ${activeOrders} ta | ✅ <b>Bajarilgan:</b> ${completedOrders} ta
+💰 <b>Balans:</b> ${yukchuBalance.toLocaleString()} so'm
 
 💡 Yuk e'lon qilish uchun quyidagi tugmalardan foydalaning:
           `;
@@ -1315,7 +1471,8 @@ export class BotService implements OnModuleInit {
               keyboard: [
                 [{ text: '📦 Yuk berish' }, { text: '📋 Mening orderlarim' }],
                 [{ text: '🔍 Yuk kuzatuvi' }, { text: '🚚 Haydovchilar' }],
-                [{ text: '📞 Qo\'llab-quvvatlash' }, { text: '⚙️ Sozlamalar' }]
+                [{ text: '💰 Balansim' }, { text: '📞 Qo\'llab-quvvatlash' }],
+                [{ text: '⚙️ Sozlamalar' }]
               ],
               resize_keyboard: true,
               one_time_keyboard: false
@@ -1338,16 +1495,19 @@ export class BotService implements OnModuleInit {
             this.logger.log(`Driver profile:`, driverProfile);
           }
           
-          const activeOrdersText = driverActiveOrders && driverActiveOrders.size > 0 
+          const activeOrdersText = driverActiveOrders && driverActiveOrders.size > 0
             ? `🔥 Aktiv order: ${driverActiveOrders.size} ta`
             : '🟢 Aktiv order yo\'q';
-          
+
+          const haydovchiBalance = await this.getUserBalance(user.id);
+
           welcomeMessage = `
 🚚 <b>HAYDOVCHI PANELI</b>
 
 👋 Salom, ${driverProfile?.fullName || user.first_name}!
 
 ${isDriverRegistered ? '✅ <b>Profil faol</b>' : '⏳ <b>Profil to\'ldiring</b>'} | 📊 <b>Bajarilgan:</b> ${driverProfile?.completedOrders || 0} ta
+💰 <b>Balans:</b> ${haydovchiBalance.toLocaleString()} so'm
 
 ${activeOrdersText}
 
@@ -1376,15 +1536,15 @@ ${activeOrdersText}
             referredCustomers: new Set(), 
             totalEarnings: 0
           };
-          const virtualBalance = this.virtualBalances.get(user.id);
-          
+          const dispetcherBalance = await this.getUserBalance(user.id);
+
           welcomeMessage = `
 🎯 <b>DISPECHR PANELI</b>
 
 Assalomu alaykum, ${user.first_name}!
 
 👨‍💼 <b>Professional Dispechr</b>
-💰 <b>Balans:</b> ${virtualBalance?.balance?.toLocaleString() || 0} so'm
+💰 <b>Balans:</b> ${dispetcherBalance.toLocaleString()} so'm
 
 📈 <b>Referral statistika:</b>
 🚚 Haydovchilar: ${dispatcherStats.referredDrivers.size} ta | 👤 Mijozlar: ${dispatcherStats.referredCustomers.size} ta
@@ -1863,8 +2023,7 @@ ${stats.recentReferrals.length === 0 ? 'Hozircha taklif yo\'q' :
   // Balans to'ldirish
   private async showAddBalance(ctx: any) {
     const userId = ctx.from.id;
-    const userBalance = this.virtualBalances.get(userId);
-    const currentBalance = userBalance?.balance || 0;
+    const currentBalance = await this.getUserBalance(userId);
 
     const message = `
 💳 <b>BALANS TO'LDIRISH</b>
@@ -1892,6 +2051,8 @@ ${stats.recentReferrals.length === 0 ? 'Hozircha taklif yo\'q' :
       .text('💳 500,000', 'balance_500000').row()
       .text('💳 1,000,000', 'balance_1000000')
       .text('💳 2,000,000', 'balance_2000000').row()
+      .text('💰 Boshqa summa', 'balance_custom')
+      .text('📊 Balans tarixi', 'balance_history').row()
       .text('🔙 Orqaga', 'my_balance');
 
     await this.safeEditMessage(ctx, message, {
@@ -7379,64 +7540,85 @@ Keyingi safar baho berishingiz mumkin.
   // Show virtual balance
   private async showVirtualBalance(ctx: any) {
     const userId = ctx.from.id;
-    const balance = this.virtualBalances.get(userId);
+    this.logger.log(`💰 ShowVirtualBalance called for user ${userId}`);
+    const currentBalance = await this.getUserBalance(userId);
+    this.logger.log(`💰 Current balance for user ${userId}: ${currentBalance}`);
 
-    if (!balance) {
+    if (currentBalance === 0) {
       const message = `
 💳 <b>VIRTUAL BALANS</b>
 
-💰 <b>Joriy balans:</b> 0 so'm
-📊 <b>Jami ishlab topilgan:</b> 0 so'm
-💸 <b>Yechildi:</b> 0 so'm
+💰 <b>Joriy balans:</b> ${currentBalance.toLocaleString()} so'm
 
 📝 <b>Hali tranzaksiyalar yo'q</b>
 
-💡 <b>Pul yechish:</b>
-• Dam olish kunlari (Shanba-Yakshanba)
-• Soat: 9:00 dan 18:00 gacha
-• Minimal miqdor: 50,000 so'm
+💡 <b>Balans to'ldirish:</b>
+• Har qanday vaqtda
+• Minimal: 10,000 so'm
+• Maksimal: 10,000,000 so'm
+• Tez va xavfsiz
       `;
 
       await ctx.reply(message, {
         parse_mode: 'HTML',
         reply_markup: new InlineKeyboard()
+          .text('💳 Balans to\'ldirish', 'add_balance')
+          .text('📊 Balans tarixi', 'balance_history').row()
           .text('🔙 Orqaga', 'back_to_main')
       });
       return;
     }
 
+    // Get balance history for user
+    const filePath = path.join(process.cwd(), 'src', 'data', 'balance-settings.json');
+    let balanceHistory = [];
+
+    try {
+      if (fs.existsSync(filePath)) {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        balanceHistory = data.balanceHistory?.[userId] || [];
+      }
+    } catch (error) {
+      this.logger.error('❌ Error loading balance history:', error);
+    }
+
     // Get last 5 transactions
-    const recentTransactions = balance.transactions
+    const recentTransactions = balanceHistory
       .slice(-5)
       .reverse()
-      .map(t => `• ${t.amount.toLocaleString()} so'm - ${t.description}`)
+      .map(t => {
+        const type = t.type === 'top_up' ? '➕' : '➖';
+        return `${type} ${t.amount.toLocaleString()} so'm - ${t.description || (t.type === 'top_up' ? 'Balans to\'ldirish' : 'Komission')}`;
+      })
       .join('\n');
+
+    const totalTopUps = balanceHistory
+      .filter(t => t.type === 'top_up')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const totalDeductions = balanceHistory
+      .filter(t => t.type === 'deduction')
+      .reduce((sum, t) => sum + t.amount, 0);
 
     const message = `
 💳 <b>VIRTUAL BALANS</b>
 
-💰 <b>Joriy balans:</b> ${balance.balance.toLocaleString()} so'm
-📊 <b>Jami ishlab topilgan:</b> ${balance.totalEarned.toLocaleString()} so'm
-💸 <b>Yechildi:</b> ${balance.withdrawnAmount.toLocaleString()} so'm
-📅 <b>Oxirgi yechim:</b> ${balance.lastWithdrawal || 'Hali yechilmagan'}
+💰 <b>Joriy balans:</b> ${currentBalance.toLocaleString()} so'm
+➕ <b>Jami to'ldirilgan:</b> ${totalTopUps.toLocaleString()} so'm
+➖ <b>Jami yechilgan:</b> ${totalDeductions.toLocaleString()} so'm
 
 📝 <b>So'nggi tranzaksiyalar:</b>
 ${recentTransactions || 'Hali tranzaksiyalar yo\'q'}
 
-💡 <b>Pul yechish:</b>
-• Dam olish kunlari (Shanba-Yakshanba)
-• Soat: 9:00 dan 18:00 gacha
-• Minimal miqdor: 50,000 so'm
+💡 <b>Balans to'ldirish:</b>
+• Har qanday vaqtda
+• Tez va xavfsiz
+• Avtomatik komission yechimi
     `;
 
-    const keyboard = new InlineKeyboard();
-    
-    // Add withdrawal button if it's weekend and within hours
-    if (this.isWithdrawalTimeAvailable() && balance.balance >= 50000) {
-      keyboard.text('💸 Pul yechish', 'withdraw_money').row();
-    }
-    
-    keyboard.text('📊 Batafsil hisobot', 'detailed_transactions')
+    const keyboard = new InlineKeyboard()
+      .text('💳 Balans to\'ldirish', 'add_balance')
+      .text('📊 Batafsil tariх', 'balance_history').row()
       .text('🔙 Orqaga', 'back_to_main');
 
     await ctx.reply(message, {
@@ -9799,7 +9981,7 @@ Use "🖥️ Admin Control Panel" for complete control!
   private async showAdminStats(ctx: any) {
     const adminUsers = [5772668259];
     if (!adminUsers.includes(ctx.from.id)) {
-      await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
+      await ctx.reply('❌ Admin huquqi yo\'q!');
       return;
     }
 
@@ -9848,21 +10030,26 @@ ${topDriversText || 'Ma\'lumot yo\'q'}
 📅 <b>VAQT:</b> ${new Date().toLocaleString('uz-UZ')}
     `;
 
-    const keyboard = new InlineKeyboard()
-      .text('🔄 Yangilash', 'admin_stats')
-      .text('📊 Export', 'admin_export').row()
-      .text('🔙 Bosh menyu', 'back_main');
-
-    await this.safeEditMessage(ctx, message, {
+    // Admin keyboard tugmalarini saqlab qolish
+    await ctx.reply(message, {
       parse_mode: 'HTML',
-      reply_markup: keyboard
+      reply_markup: {
+        keyboard: [
+          [{ text: '📊 Statistika' }, { text: '👥 Foydalanuvchilar' }],
+          [{ text: '📋 Orderlar' }, { text: '💳 To\'lovlar' }],
+          [{ text: '🤖 AI Analytics' }, { text: '📈 Hisobotlar' }],
+          [{ text: '⚙️ Sozlamalar' }, { text: '📞 Aloqa' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false
+      }
     });
   }
 
   private async showAdminUsers(ctx: any) {
     const adminUsers = [5772668259];
     if (!adminUsers.includes(ctx.from.id)) {
-      await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
+      await ctx.reply('❌ Admin huquqi yo\'q!');
       return;
     }
 
@@ -9889,22 +10076,26 @@ ${usersText || 'Foydalanuvchi yo\'q'}
 ⏰ <b>Vaqt:</b> ${new Date().toLocaleString('uz-UZ')}
     `;
 
-    const keyboard = new InlineKeyboard()
-      .text('🔍 Qidirish', 'admin_search_user')
-      .text('📊 Batafsil', 'admin_user_details').row()
-      .text('🔄 Yangilash', 'admin_users')
-      .text('🔙 Bosh menyu', 'back_main');
-
-    await this.safeEditMessage(ctx, message, {
+    // Admin keyboard tugmalarini saqlab qolish
+    await ctx.reply(message, {
       parse_mode: 'HTML',
-      reply_markup: keyboard
+      reply_markup: {
+        keyboard: [
+          [{ text: '📊 Statistika' }, { text: '👥 Foydalanuvchilar' }],
+          [{ text: '📋 Orderlar' }, { text: '💳 To\'lovlar' }],
+          [{ text: '🤖 AI Analytics' }, { text: '📈 Hisobotlar' }],
+          [{ text: '⚙️ Sozlamalar' }, { text: '📞 Aloqa' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false
+      }
     });
   }
 
   private async showAdminOrders(ctx: any) {
     const adminUsers = [5772668259];
     if (!adminUsers.includes(ctx.from.id)) {
-      await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
+      await ctx.reply('❌ Admin huquqi yo\'q!');
       return;
     }
 
@@ -9932,22 +10123,26 @@ ${ordersText || 'Order yo\'q'}
 ⏰ <b>Vaqt:</b> ${new Date().toLocaleString('uz-UZ')}
     `;
 
-    const keyboard = new InlineKeyboard()
-      .text('🔍 Order Qidirish', 'admin_search_order')
-      .text('📊 Order Statistika', 'admin_order_stats').row()
-      .text('🔄 Yangilash', 'admin_orders')
-      .text('🔙 Bosh menyu', 'back_main');
-
-    await this.safeEditMessage(ctx, message, {
+    // Admin keyboard tugmalarini saqlab qolish
+    await ctx.reply(message, {
       parse_mode: 'HTML',
-      reply_markup: keyboard
+      reply_markup: {
+        keyboard: [
+          [{ text: '📊 Statistika' }, { text: '👥 Foydalanuvchilar' }],
+          [{ text: '📋 Orderlar' }, { text: '💳 To\'lovlar' }],
+          [{ text: '🤖 AI Analytics' }, { text: '📈 Hisobotlar' }],
+          [{ text: '⚙️ Sozlamalar' }, { text: '📞 Aloqa' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false
+      }
     });
   }
 
   private async showAdminPayments(ctx: any) {
     const adminUsers = [5772668259];
     if (!adminUsers.includes(ctx.from.id)) {
-      await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
+      await ctx.reply('❌ Admin huquqi yo\'q!');
       return;
     }
 
@@ -9987,23 +10182,43 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
 ⏰ <b>Vaqt:</b> ${new Date().toLocaleString('uz-UZ')}
     `;
 
-    const keyboard = new InlineKeyboard()
-      .text('⏳ Kutilayotgan to\'lovlar', 'pending_payments')
-      .text('📊 To\'lov statistikasi', 'admin_payment_stats').row()
-      .text('💳 Karta ma\'lumotlari', 'admin_payment_info')
-      .text('🔄 Yangilash', 'admin_payments').row()
-      .text('🔙 Bosh menyu', 'back_main');
-
-    await this.safeEditMessage(ctx, message, {
+    // To'lovlar boshqaruvi uchun maxsus inline tugmalar
+    await ctx.reply(message, {
       parse_mode: 'HTML',
-      reply_markup: keyboard
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '⏳ Kutilayotgan to\'lovlar', callback_data: 'pending_payments' }],
+          [{ text: '💰 Balans boshqaruvi', callback_data: 'admin_balance_management' }],
+          [{ text: '📊 To\'lov statistikasi', callback_data: 'admin_payment_stats' }],
+          [{ text: '💳 Karta ma\'lumotlari', callback_data: 'admin_payment_info' }],
+          [{ text: '⚙️ Komission sozlamalari', callback_data: 'commission_settings' }],
+          [{ text: '🔄 Yangilash', callback_data: 'admin_payments' }]
+        ]
+      }
     });
+
+    // Admin keyboard tugmalarini ham saqlab qolish (alohida xabar)
+    setTimeout(async () => {
+      await ctx.reply('📱 <b>ADMIN PANEL</b>', {
+        parse_mode: 'HTML',
+        reply_markup: {
+          keyboard: [
+            [{ text: '📊 Statistika' }, { text: '👥 Foydalanuvchilar' }],
+            [{ text: '📋 Orderlar' }, { text: '💳 To\'lovlar' }],
+            [{ text: '🤖 AI Analytics' }, { text: '📈 Hisobotlar' }],
+            [{ text: '⚙️ Sozlamalar' }, { text: '📞 Aloqa' }]
+          ],
+          resize_keyboard: true,
+          one_time_keyboard: false
+        }
+      });
+    }, 500);
   }
 
   private async showAdminReports(ctx: any) {
     const adminUsers = [5772668259];
     if (!adminUsers.includes(ctx.from.id)) {
-      await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
+      await ctx.reply('❌ Admin huquqi yo\'q!');
       return;
     }
 
@@ -10047,16 +10262,19 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
 ⏰ <b>Yaratildi:</b> ${new Date().toLocaleString('uz-UZ')}
     `;
 
-    const keyboard = new InlineKeyboard()
-      .text('📊 Excel Export', 'admin_export_excel')
-      .text('📄 PDF Hisobot', 'admin_export_pdf').row()
-      .text('📈 Grafik Ko\'rish', 'admin_charts')
-      .text('🔄 Yangilash', 'admin_reports').row()
-      .text('🔙 Bosh menyu', 'back_main');
-
-    await this.safeEditMessage(ctx, message, {
+    // Admin keyboard tugmalarini saqlab qolish
+    await ctx.reply(message, {
       parse_mode: 'HTML',
-      reply_markup: keyboard
+      reply_markup: {
+        keyboard: [
+          [{ text: '📊 Statistika' }, { text: '👥 Foydalanuvchilar' }],
+          [{ text: '📋 Orderlar' }, { text: '💳 To\'lovlar' }],
+          [{ text: '🤖 AI Analytics' }, { text: '📈 Hisobotlar' }],
+          [{ text: '⚙️ Sozlamalar' }, { text: '📞 Aloqa' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false
+      }
     });
   }
 
@@ -12472,12 +12690,19 @@ ${Array.from(todayData.truckTypes.entries())
   .join('\n')}
     `;
 
+    // Admin keyboard tugmalarini saqlab qolish
     await ctx.reply(message, {
       parse_mode: 'HTML',
-      reply_markup: new InlineKeyboard()
-        .text('📈 Narx tahlili', 'price_analysis')
-        .text('📋 Hisobot yaratish', 'generate_report').row()
-        .text('🔙 Orqaga', 'back_main')
+      reply_markup: {
+        keyboard: [
+          [{ text: '📊 Statistika' }, { text: '👥 Foydalanuvchilar' }],
+          [{ text: '📋 Orderlar' }, { text: '💳 To\'lovlar' }],
+          [{ text: '🤖 AI Analytics' }, { text: '📈 Hisobotlar' }],
+          [{ text: '⚙️ Sozlamalar' }, { text: '📞 Aloqa' }]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false
+      }
     });
   }
 
@@ -13937,6 +14162,9 @@ ${aiInsights.recommendations}
       });
     }
 
+    // Process commission deduction from virtual balance
+    await this.processCommissionDeduction(userId, cargoOffer);
+
     // Clear posting steps
     this.cargoPostingSteps.delete(userId);
 
@@ -14497,6 +14725,1026 @@ RETURN THE TEXT WITH MINIMAL CHANGES ONLY!`;
     } catch (error) {
       this.logger.error('❌ Error loading payment settings:', error);
     }
+  }
+
+  // Commission settings'ni yuklash
+  private async loadCommissionSettings() {
+    try {
+      const filePath = path.join(process.cwd(), 'src', 'data', 'commission-settings.json');
+      if (fs.existsSync(filePath)) {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (data.commissionSettings) {
+          this.commissionSettings = data.commissionSettings;
+        }
+        this.logger.log('✅ Commission settings loaded from file');
+      }
+    } catch (error) {
+      this.logger.error('❌ Error loading commission settings:', error);
+    }
+  }
+
+  // Balance settings'ni fayldan yuklash
+  private async loadBalanceSettings() {
+    try {
+      const filePath = path.join(process.cwd(), 'src', 'data', 'balance-settings.json');
+      if (fs.existsSync(filePath)) {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (data.balanceSettings) {
+          this.balanceSettings = data.balanceSettings;
+        }
+        this.logger.log('✅ Balance settings loaded from file');
+        this.logger.log(`🔍 Balance settings: ${JSON.stringify(this.balanceSettings)}`);
+      }
+    } catch (error) {
+      this.logger.error('❌ Error loading balance settings:', error);
+    }
+  }
+
+  // Balance settings'ni faylga saqlash
+  private async saveBalanceSettings() {
+    try {
+      const filePath = path.join(process.cwd(), 'src', 'data', 'balance-settings.json');
+      const currentData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+
+      const updatedData = {
+        ...currentData,
+        balanceSettings: {
+          ...this.balanceSettings,
+          lastUpdated: new Date().toISOString(),
+          updatedBy: 'system'
+        }
+      };
+
+      fs.writeFileSync(filePath, JSON.stringify(updatedData, null, 2));
+      this.logger.log('✅ Balance settings saved to file');
+    } catch (error) {
+      this.logger.error('❌ Error saving balance settings:', error);
+    }
+  }
+
+  // Foydalanuvchining balansini olish
+  private async getUserBalance(userId: number): Promise<number> {
+    try {
+      const filePath = path.join(process.cwd(), 'src', 'data', 'balance-settings.json');
+      if (fs.existsSync(filePath)) {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        return data.userBalances?.[userId] || 0;
+      }
+      return 0;
+    } catch (error) {
+      this.logger.error('❌ Error getting user balance:', error);
+      return 0;
+    }
+  }
+
+  // Foydalanuvchining balansini yangilash
+  private async updateUserBalance(userId: number, amount: number): Promise<boolean> {
+    try {
+      const filePath = path.join(process.cwd(), 'src', 'data', 'balance-settings.json');
+      let data = { userBalances: {}, balanceHistory: {} };
+
+      if (fs.existsSync(filePath)) {
+        data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      }
+
+      const currentBalance = data.userBalances[userId] || 0;
+      const newBalance = currentBalance + amount;
+
+      // Balans manfiy bo'lmasligi kerak
+      if (newBalance < 0) {
+        this.logger.warn(`❌ Insufficient balance for user ${userId}: current=${currentBalance}, requested=${amount}`);
+        return false;
+      }
+
+      data.userBalances[userId] = newBalance;
+
+      // Tarix saqlash
+      if (!data.balanceHistory[userId]) {
+        data.balanceHistory[userId] = [];
+      }
+
+      data.balanceHistory[userId].push({
+        type: amount > 0 ? 'top_up' : 'deduction',
+        amount: Math.abs(amount),
+        balance_before: currentBalance,
+        balance_after: newBalance,
+        timestamp: new Date().toISOString(),
+        description: amount > 0 ? 'Balance top-up' : 'Commission deduction'
+      });
+
+      // Faqat so'nggi 100 ta yozuvni saqlash
+      if (data.balanceHistory[userId].length > 100) {
+        data.balanceHistory[userId] = data.balanceHistory[userId].slice(-100);
+      }
+
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+      this.logger.log(`✅ Balance updated for user ${userId}: ${currentBalance} -> ${newBalance}`);
+      return true;
+    } catch (error) {
+      this.logger.error('❌ Error updating user balance:', error);
+      return false;
+    }
+  }
+
+  // Balance top-up jarayonini boshlash
+  private async processBalanceTopUp(ctx: any, amount: number) {
+    const userId = ctx.from.id;
+    const userInfo = ctx.from;
+
+    const message = `
+💳 <b>BALANS TO'LDIRISH BUYURTMASI</b>
+
+💰 <b>Summa:</b> ${amount.toLocaleString()} so'm
+👤 <b>Foydalanuvchi:</b> ${userInfo.first_name} ${userInfo.last_name || ''}
+
+💳 <b>To'lov ma'lumotlari:</b>
+🔢 <b>Karta:</b> ${process.env.PAYMENT_CARD_NUMBER || '9860120112345678'}
+👤 <b>Ega:</b> ${process.env.PAYMENT_CARD_HOLDER || 'Yolda Logistics'}
+🏪 <b>Bank:</b> ${process.env.PAYMENT_PROVIDER || 'Uzcard'}
+
+📋 <b>To'lov qo'llanmasi:</b>
+1️⃣ Yuqoridagi kartaga ${amount.toLocaleString()} so'm o'tkazma qiling
+2️⃣ O'tkazma screenshotini yuboring
+3️⃣ Admin tasdiqini kuting (5-10 daqiqa)
+
+⚠️ <b>Muhim:</b> Balans faqat admin tasdiqlashidan keyin qo'shiladi!
+    `;
+
+    const keyboard = new InlineKeyboard()
+      .text('📷 Screenshot yuborish', 'balance_send_proof')
+      .text('🔙 Orqaga', 'add_balance');
+
+    // Balans top-up buyurtmasini saqlash
+    await this.savePendingBalanceTopUp(userId, amount);
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  }
+
+  // Custom balance input
+  private async showCustomBalanceInput(ctx: any) {
+    const message = `
+💰 <b>BOSHQA SUMMA KIRITISH</b>
+
+💵 <b>To'ldirish miqdorini kiriting:</b>
+• Minimal: ${this.balanceSettings.minTopUpAmount?.toLocaleString() || '10,000'} so'm
+• Maksimal: ${this.balanceSettings.maxTopUpAmount?.toLocaleString() || '10,000,000'} so'm
+
+✍️ <b>Kerakli summani yozing:</b>
+(Faqat son ko'rinishida, masalan: 150000)
+    `;
+
+    const keyboard = new InlineKeyboard()
+      .text('🔙 Orqaga', 'add_balance');
+
+    // Foydalanuvchini custom balance input kutish holatiga qo'yish
+    this.balanceInputWaitingUsers.add(ctx.from.id);
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  }
+
+  // Balance history ko'rsatish
+  private async showBalanceHistory(ctx: any) {
+    const userId = ctx.from.id;
+
+    try {
+      const filePath = path.join(process.cwd(), 'src', 'data', 'balance-settings.json');
+      let data = { balanceHistory: {} };
+
+      if (fs.existsSync(filePath)) {
+        data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      }
+
+      const userHistory = data.balanceHistory[userId] || [];
+      const currentBalance = await this.getUserBalance(userId);
+
+      let message = `
+📊 <b>BALANS TARIXI</b>
+
+💰 <b>Joriy balans:</b> ${currentBalance.toLocaleString()} so'm
+
+📋 <b>So'nggi operatsiyalar:</b>
+      `;
+
+      if (userHistory.length === 0) {
+        message += '\n\n📭 <b>Hali operatsiyalar yo\'q</b>';
+      } else {
+        // So'nggi 10 ta operatsiyani ko'rsatish
+        const recentHistory = userHistory.slice(-10).reverse();
+
+        for (const record of recentHistory) {
+          const date = new Date(record.timestamp).toLocaleString('uz-UZ');
+          const type = record.type === 'top_up' ? '➕ To\'ldirish' : '➖ Komission';
+          const amount = record.amount.toLocaleString();
+
+          message += `\n\n${type}: ${amount} so'm`;
+          message += `\n📅 ${date}`;
+          message += `\n💰 Balans: ${record.balance_after.toLocaleString()} so'm`;
+        }
+      }
+
+      const keyboard = new InlineKeyboard()
+        .text('🔙 Orqaga', 'add_balance');
+
+      await this.safeEditMessage(ctx, message, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard
+      });
+
+    } catch (error) {
+      this.logger.error('❌ Error showing balance history:', error);
+
+      const errorKeyboard = new InlineKeyboard()
+        .text('🔙 Orqaga', 'add_balance');
+
+      await this.safeEditMessage(ctx, '❌ Balans tarixini yuklashda xatolik yuz berdi.', {
+        parse_mode: 'HTML',
+        reply_markup: errorKeyboard
+      });
+    }
+  }
+
+  // Pending balance top-up saqlash
+  private async savePendingBalanceTopUp(userId: number, amount: number) {
+    try {
+      const filePath = path.join(process.cwd(), 'src', 'data', 'pending-balance-topups.json');
+      let data = { pendingTopUps: {} };
+
+      if (fs.existsSync(filePath)) {
+        data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      }
+
+      if (!data.pendingTopUps[userId]) {
+        data.pendingTopUps[userId] = [];
+      }
+
+      data.pendingTopUps[userId].push({
+        amount: amount,
+        timestamp: new Date().toISOString(),
+        status: 'pending_payment_proof',
+        id: Date.now().toString()
+      });
+
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+      this.logger.log(`✅ Pending balance top-up saved for user ${userId}: ${amount}`);
+    } catch (error) {
+      this.logger.error('❌ Error saving pending balance top-up:', error);
+    }
+  }
+
+  // Custom balance input handler
+  private async handleCustomBalanceInput(ctx: any, text: string) {
+    const userId = ctx.from.id;
+    this.balanceInputWaitingUsers.delete(userId);
+
+    try {
+      // Raqamni ajratish
+      const amount = parseInt(text.replace(/[^\d]/g, ''));
+
+      if (isNaN(amount) || amount <= 0) {
+        await ctx.reply('❌ Noto\'g\'ri format! Faqat musbat son kiriting.\n\nMasalan: 150000');
+        return;
+      }
+
+      const minAmount = this.balanceSettings.minTopUpAmount || 10000;
+      const maxAmount = this.balanceSettings.maxTopUpAmount || 10000000;
+
+      if (amount < minAmount) {
+        await ctx.reply(`❌ Minimal summa: ${minAmount.toLocaleString()} so'm`);
+        return;
+      }
+
+      if (amount > maxAmount) {
+        await ctx.reply(`❌ Maksimal summa: ${maxAmount.toLocaleString()} so'm`);
+        return;
+      }
+
+      // Balans top-up jarayonini boshlash
+      await this.processBalanceTopUp(ctx, amount);
+
+    } catch (error) {
+      this.logger.error('❌ Error handling custom balance input:', error);
+      await ctx.reply('❌ Xatolik yuz berdi. Qaytadan urinib ko\'ring.');
+    }
+  }
+
+  // Commission deduction from virtual balance
+  private async processCommissionDeduction(userId: number, cargoOffer: any) {
+    try {
+      // Check if commission system is enabled
+      if (!this.commissionSettings?.enabled) {
+        this.logger.log('🏛️ Commission system disabled - skipping deduction');
+        return;
+      }
+
+      // Check if user is exempt from commission
+      if (this.commissionSettings.exemptUsers?.includes(userId)) {
+        this.logger.log(`🏛️ User ${userId} is exempt from commission`);
+        return;
+      }
+
+      // Check if balance system is enabled
+      if (!this.balanceSettings?.enabled) {
+        this.logger.log('💰 Balance system disabled - skipping deduction');
+        return;
+      }
+
+      // Check if auto commission deduction is enabled
+      if (!this.balanceSettings.autoCommissionDeduction) {
+        this.logger.log('💰 Auto commission deduction disabled - skipping');
+        return;
+      }
+
+      let commissionAmount = 0;
+      let commissionType = '';
+      let commissionDescription = '';
+
+      // Calculate commission based on enabled types
+      if (this.commissionSettings.perOrderCommission?.enabled) {
+        if (this.commissionSettings.perOrderCommission.type === 'percentage') {
+          commissionAmount = (cargoOffer.price || 0) * (this.commissionSettings.perOrderCommission.percentage || 0) / 100;
+          commissionType = 'percentage_per_order';
+          commissionDescription = `${this.commissionSettings.perOrderCommission.percentage}% foizlik komission`;
+        }
+      } else if (this.commissionSettings.perOrderFixedCommission?.enabled) {
+        commissionAmount = this.commissionSettings.perOrderFixedCommission.amount || 0;
+        commissionType = 'fixed_per_order';
+        commissionDescription = `${commissionAmount.toLocaleString()} so'm donali komission`;
+      } else if (this.commissionSettings.dailyCommission?.enabled) {
+        // Daily commission logic - only deduct once per day
+        const today = new Date().toDateString();
+        const lastDailyDeduction = await this.getLastDailyDeduction(userId);
+
+        if (lastDailyDeduction !== today) {
+          commissionAmount = this.commissionSettings.dailyCommission.amount || 0;
+          commissionType = 'daily';
+          commissionDescription = `${commissionAmount.toLocaleString()} so'm kunlik komission`;
+          await this.setLastDailyDeduction(userId, today);
+        } else {
+          this.logger.log(`💰 Daily commission already deducted today for user ${userId}`);
+          return;
+        }
+      } else {
+        this.logger.log('💰 No active commission settings found');
+        return;
+      }
+
+      if (commissionAmount <= 0) {
+        this.logger.log('💰 Commission amount is 0 - skipping deduction');
+        return;
+      }
+
+      // Check if user has sufficient balance
+      const currentBalance = await this.getUserBalance(userId);
+
+      if (currentBalance < commissionAmount) {
+        this.logger.warn(`💰 Insufficient balance for user ${userId}: balance=${currentBalance}, required=${commissionAmount}`);
+
+        // Notify user about insufficient balance
+        try {
+          await this.bot.api.sendMessage(userId, `
+⚠️ <b>BALANS YETARLI EMAS</b>
+
+💰 <b>Joriy balans:</b> ${currentBalance.toLocaleString()} so'm
+💸 <b>Kerakli summa:</b> ${commissionAmount.toLocaleString()} so'm (${commissionDescription})
+
+📱 <b>Balansni to'ldiring:</b> /start tugmasini bosib "💳 Balans to'ldirish" bo'limiga o'ting.
+
+⚠️ <b>Diqqat:</b> Komission to'lanmaguncha keyingi e'lonlaringiz cheklangan bo'lishi mumkin.
+          `, { parse_mode: 'HTML' });
+        } catch (error) {
+          this.logger.error('❌ Error sending balance notification:', error);
+        }
+
+        return;
+      }
+
+      // Deduct commission from balance
+      const deductionSuccessful = await this.updateUserBalance(userId, -commissionAmount);
+
+      if (deductionSuccessful) {
+        this.logger.log(`✅ Commission deducted successfully: ${commissionAmount} from user ${userId}`);
+
+        // Notify user about successful commission deduction
+        try {
+          const newBalance = await this.getUserBalance(userId);
+          await this.bot.api.sendMessage(userId, `
+✅ <b>KOMISSION TO'LANDI</b>
+
+💸 <b>To'langan summa:</b> ${commissionAmount.toLocaleString()} so'm
+📝 <b>Turi:</b> ${commissionDescription}
+💰 <b>Qolgan balans:</b> ${newBalance.toLocaleString()} so'm
+
+📦 <b>E'lon:</b> ${cargoOffer.id}
+🚚 <b>Yo'nalish:</b> ${cargoOffer.fromCity} → ${cargoOffer.toCity}
+          `, { parse_mode: 'HTML' });
+        } catch (error) {
+          this.logger.error('❌ Error sending commission notification:', error);
+        }
+      } else {
+        this.logger.error(`❌ Failed to deduct commission from user ${userId}`);
+      }
+
+    } catch (error) {
+      this.logger.error('❌ Error processing commission deduction:', error);
+    }
+  }
+
+  // Get last daily deduction date for user
+  private async getLastDailyDeduction(userId: number): Promise<string> {
+    try {
+      const filePath = path.join(process.cwd(), 'src', 'data', 'daily-deductions.json');
+      if (!fs.existsSync(filePath)) {
+        return '';
+      }
+
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      return data.lastDeductions?.[userId] || '';
+    } catch (error) {
+      this.logger.error('❌ Error getting last daily deduction:', error);
+      return '';
+    }
+  }
+
+  // Set last daily deduction date for user
+  private async setLastDailyDeduction(userId: number, date: string): Promise<void> {
+    try {
+      const filePath = path.join(process.cwd(), 'src', 'data', 'daily-deductions.json');
+      let data = { lastDeductions: {} };
+
+      if (fs.existsSync(filePath)) {
+        data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      }
+
+      if (!data.lastDeductions) {
+        data.lastDeductions = {};
+      }
+
+      data.lastDeductions[userId] = date;
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    } catch (error) {
+      this.logger.error('❌ Error setting last daily deduction:', error);
+    }
+  }
+
+  // Admin balance management interface
+  private async showAdminBalanceManagement(ctx: any) {
+    // Check admin permissions
+    const adminUsers = [5772668259];
+    if (!adminUsers.includes(ctx.from.id)) {
+      await ctx.reply('❌ Admin huquqi yo\'q!');
+      return;
+    }
+
+    try {
+      // Calculate balance statistics
+      const filePath = path.join(process.cwd(), 'src', 'data', 'balance-settings.json');
+      let allUserBalances = {};
+      let balanceHistory = {};
+
+      if (fs.existsSync(filePath)) {
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        allUserBalances = data.userBalances || {};
+        balanceHistory = data.balanceHistory || {};
+      }
+
+      const totalUsers = Object.keys(allUserBalances).length;
+      const totalBalance = Object.values(allUserBalances).reduce((sum, balance) => sum + (balance || 0), 0);
+      const averageBalance = totalUsers > 0 ? totalBalance / totalUsers : 0;
+
+      // Count recent top-ups (last 24 hours)
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      let recentTopUps = 0;
+      let recentCommissions = 0;
+
+      Object.values(balanceHistory).forEach((userHistory: any[]) => {
+        userHistory?.forEach((record: any) => {
+          if (record.timestamp > dayAgo) {
+            if (record.type === 'top_up') {
+              recentTopUps++;
+            } else if (record.type === 'deduction') {
+              recentCommissions++;
+            }
+          }
+        });
+      });
+
+      // Get pending balance top-ups
+      let pendingTopUps = 0;
+      const pendingFilePath = path.join(process.cwd(), 'src', 'data', 'pending-balance-topups.json');
+
+      if (fs.existsSync(pendingFilePath)) {
+        const pendingData = JSON.parse(fs.readFileSync(pendingFilePath, 'utf8'));
+        pendingTopUps = Object.values(pendingData.pendingTopUps || {}).reduce((count, userTopUps: any[]) => {
+          return count + userTopUps.filter(topUp => topUp.status === 'pending_payment_proof').length;
+        }, 0);
+      }
+
+      const message = `
+💰 <b>BALANS BOSHQARUVI</b>
+
+📊 <b>UMUMIY STATISTIKA:</b>
+👥 Balansli foydalanuvchilar: ${totalUsers} ta
+💰 Jami balans: ${totalBalance.toLocaleString()} so'm
+📈 O'rtacha balans: ${averageBalance.toLocaleString()} so'm
+
+🔄 <b>SO'NGGI 24 SOAT:</b>
+➕ To'ldirish: ${recentTopUps} ta
+➖ Komission: ${recentCommissions} ta
+⏳ Kutilayotgan: ${pendingTopUps} ta
+
+⚡ <b>QUICK ACTIONS:</b>
+      `;
+
+      const keyboard = new InlineKeyboard()
+        .text('⏳ Kutilayotgan to\'ldirish', 'admin_pending_topups')
+        .text('🔍 Foydalanuvchi balansini ko\'rish', 'admin_check_user_balance').row()
+        .text('💳 Balans qo\'shish', 'admin_add_balance')
+        .text('💸 Balans yechish', 'admin_deduct_balance').row()
+        .text('📊 Balans hisoboti', 'admin_balance_report')
+        .text('⚙️ Balans sozlamalari', 'admin_balance_settings').row()
+        .text('🔙 Orqaga', 'admin_payments');
+
+      await this.safeEditMessage(ctx, message, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard
+      });
+
+    } catch (error) {
+      this.logger.error('❌ Error showing admin balance management:', error);
+      await this.safeEditMessage(ctx, '❌ Xatolik yuz berdi. Qaytadan urinib ko\'ring.', {
+        reply_markup: new InlineKeyboard().text('🔙 Orqaga', 'admin_payments')
+      });
+    }
+  }
+
+  // Show admin pending top-ups
+  private async showAdminPendingTopUps(ctx: any) {
+    // Check admin permissions
+    const adminUsers = [5772668259];
+    if (!adminUsers.includes(ctx.from.id)) {
+      await ctx.reply('❌ Admin huquqi yo\'q!');
+      return;
+    }
+
+    try {
+      const pendingFilePath = path.join(process.cwd(), 'src', 'data', 'pending-balance-topups.json');
+      let pendingTopUps = [];
+
+      if (fs.existsSync(pendingFilePath)) {
+        const data = JSON.parse(fs.readFileSync(pendingFilePath, 'utf8'));
+
+        // Convert to array with user info
+        Object.entries(data.pendingTopUps || {}).forEach(([userId, userTopUps]: [string, any[]]) => {
+          userTopUps.forEach((topUp: any) => {
+            if (topUp.status === 'pending_payment_proof') {
+              pendingTopUps.push({
+                ...topUp,
+                userId: parseInt(userId)
+              });
+            }
+          });
+        });
+      }
+
+      // Sort by timestamp (newest first)
+      pendingTopUps.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+      let message = `
+⏳ <b>KUTILAYOTGAN BALANS TO'LDIRISH</b>
+
+📊 <b>Jami:</b> ${pendingTopUps.length} ta kutilayotgan so'rov
+
+`;
+
+      if (pendingTopUps.length === 0) {
+        message += '📭 <b>Kutilayotgan so\'rovlar yo\'q</b>';
+      } else {
+        message += '💰 <b>So\'rovlar:</b>\n\n';
+
+        pendingTopUps.slice(0, 10).forEach((topUp, index) => {
+          const date = new Date(topUp.timestamp).toLocaleString('uz-UZ');
+          message += `${index + 1}. 💳 ${topUp.amount.toLocaleString()} so'm\n`;
+          message += `   👤 User ID: ${topUp.userId}\n`;
+          message += `   📅 ${date}\n\n`;
+        });
+
+        if (pendingTopUps.length > 10) {
+          message += `... va yana ${pendingTopUps.length - 10} ta so'rov`;
+        }
+      }
+
+      const keyboard = new InlineKeyboard();
+
+      if (pendingTopUps.length > 0) {
+        keyboard.text('✅ Barchasini tasdiqlash', 'admin_approve_all_topups')
+          .text('❌ Barchasini rad qilish', 'admin_reject_all_topups').row();
+      }
+
+      keyboard.text('🔄 Yangilash', 'admin_pending_topups')
+        .text('🔙 Orqaga', 'admin_balance_management');
+
+      await this.safeEditMessage(ctx, message, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard
+      });
+
+    } catch (error) {
+      this.logger.error('❌ Error showing pending top-ups:', error);
+      await this.safeEditMessage(ctx, '❌ Xatolik yuz berdi.', {
+        reply_markup: new InlineKeyboard().text('🔙 Orqaga', 'admin_balance_management')
+      });
+    }
+  }
+
+  // Approve all pending top-ups
+  private async approveAllPendingTopUps(ctx: any) {
+    // Check admin permissions
+    const adminUsers = [5772668259];
+    if (!adminUsers.includes(ctx.from.id)) {
+      await ctx.reply('❌ Admin huquqi yo\'q!');
+      return;
+    }
+
+    try {
+      const pendingFilePath = path.join(process.cwd(), 'src', 'data', 'pending-balance-topups.json');
+
+      if (!fs.existsSync(pendingFilePath)) {
+        await this.safeEditMessage(ctx, '📭 Kutilayotgan so\'rovlar yo\'q.', {
+          reply_markup: new InlineKeyboard().text('🔙 Orqaga', 'admin_pending_topups')
+        });
+        return;
+      }
+
+      const data = JSON.parse(fs.readFileSync(pendingFilePath, 'utf8'));
+      let approvedCount = 0;
+      let totalAmount = 0;
+
+      // Process all pending top-ups
+      for (const [userId, userTopUps] of Object.entries(data.pendingTopUps || {})) {
+        const userIdNum = parseInt(userId);
+
+        for (const topUp of (userTopUps as any[])) {
+          if (topUp.status === 'pending_payment_proof') {
+            // Add balance to user
+            const success = await this.updateUserBalance(userIdNum, topUp.amount);
+
+            if (success) {
+              topUp.status = 'approved';
+              topUp.approvedBy = ctx.from.id;
+              topUp.approvedAt = new Date().toISOString();
+              approvedCount++;
+              totalAmount += topUp.amount;
+
+              // Notify user
+              try {
+                await this.bot.api.sendMessage(userIdNum, `
+✅ <b>BALANS TO'LDIRILDI</b>
+
+💰 <b>Summa:</b> ${topUp.amount.toLocaleString()} so'm
+🎉 <b>Balansga qo'shildi!</b>
+
+💳 <b>Joriy balans:</b> ${(await this.getUserBalance(userIdNum)).toLocaleString()} so'm
+
+🚀 Endi e'lon qilishingiz va komission to'lashingiz mumkin!
+                `, { parse_mode: 'HTML' });
+              } catch (error) {
+                this.logger.error(`❌ Error notifying user ${userIdNum}:`, error);
+              }
+            } else {
+              this.logger.error(`❌ Failed to add balance for user ${userIdNum}`);
+            }
+          }
+        }
+      }
+
+      // Save updated data
+      fs.writeFileSync(pendingFilePath, JSON.stringify(data, null, 2));
+
+      const message = `
+✅ <b>BARCHA SO'ROVLAR TASDIQLANDI</b>
+
+📊 <b>Natijalar:</b>
+✅ Tasdiqlangan: ${approvedCount} ta
+💰 Jami summa: ${totalAmount.toLocaleString()} so'm
+
+🎉 Foydalanuvchilarga xabar yuborildi!
+      `;
+
+      await this.safeEditMessage(ctx, message, {
+        parse_mode: 'HTML',
+        reply_markup: new InlineKeyboard()
+          .text('🔄 Yangilash', 'admin_pending_topups')
+          .text('🔙 Orqaga', 'admin_balance_management')
+      });
+
+    } catch (error) {
+      this.logger.error('❌ Error approving all top-ups:', error);
+      await this.safeEditMessage(ctx, '❌ Xatolik yuz berdi.', {
+        reply_markup: new InlineKeyboard().text('🔙 Orqaga', 'admin_pending_topups')
+      });
+    }
+  }
+
+  // Reject all pending top-ups
+  private async rejectAllPendingTopUps(ctx: any) {
+    // Check admin permissions
+    const adminUsers = [5772668259];
+    if (!adminUsers.includes(ctx.from.id)) {
+      await ctx.reply('❌ Admin huquqi yo\'q!');
+      return;
+    }
+
+    try {
+      const pendingFilePath = path.join(process.cwd(), 'src', 'data', 'pending-balance-topups.json');
+
+      if (!fs.existsSync(pendingFilePath)) {
+        await this.safeEditMessage(ctx, '📭 Kutilayotgan so\'rovlar yo\'q.', {
+          reply_markup: new InlineKeyboard().text('🔙 Orqaga', 'admin_pending_topups')
+        });
+        return;
+      }
+
+      const data = JSON.parse(fs.readFileSync(pendingFilePath, 'utf8'));
+      let rejectedCount = 0;
+
+      // Process all pending top-ups
+      for (const [userId, userTopUps] of Object.entries(data.pendingTopUps || {})) {
+        const userIdNum = parseInt(userId);
+
+        for (const topUp of (userTopUps as any[])) {
+          if (topUp.status === 'pending_payment_proof') {
+            topUp.status = 'rejected';
+            topUp.rejectedBy = ctx.from.id;
+            topUp.rejectedAt = new Date().toISOString();
+            rejectedCount++;
+
+            // Notify user
+            try {
+              await this.bot.api.sendMessage(userIdNum, `
+❌ <b>BALANS TO'LDIRISH RAD QILINDI</b>
+
+💰 <b>Summa:</b> ${topUp.amount.toLocaleString()} so'm
+📝 <b>Sabab:</b> To'lov tasdig'i noto'g'ri yoki topilmadi
+
+💡 <b>Qayta harakat qiling:</b>
+1. To'g'ri summani o'tkazing
+2. Aniq screenshot yuboring
+3. Admin tasdiqini kuting
+
+📞 Savollar bo'lsa qo'llab-quvvatlash bilan bog'laning.
+              `, { parse_mode: 'HTML' });
+            } catch (error) {
+              this.logger.error(`❌ Error notifying user ${userIdNum}:`, error);
+            }
+          }
+        }
+      }
+
+      // Save updated data
+      fs.writeFileSync(pendingFilePath, JSON.stringify(data, null, 2));
+
+      const message = `
+❌ <b>BARCHA SO'ROVLAR RAD QILINDI</b>
+
+📊 <b>Natijalar:</b>
+❌ Rad qilingan: ${rejectedCount} ta
+
+📞 Foydalanuvchilarga xabar yuborildi!
+      `;
+
+      await this.safeEditMessage(ctx, message, {
+        parse_mode: 'HTML',
+        reply_markup: new InlineKeyboard()
+          .text('🔄 Yangilash', 'admin_pending_topups')
+          .text('🔙 Orqaga', 'admin_balance_management')
+      });
+
+    } catch (error) {
+      this.logger.error('❌ Error rejecting all top-ups:', error);
+      await this.safeEditMessage(ctx, '❌ Xatolik yuz berdi.', {
+        reply_markup: new InlineKeyboard().text('🔙 Orqaga', 'admin_pending_topups')
+      });
+    }
+  }
+
+  // Commission settings'ni faylga saqlash
+  private async saveCommissionSettings() {
+    try {
+      const filePath = path.join(process.cwd(), 'src', 'data', 'commission-settings.json');
+      const data = {
+        commissionSettings: {
+          ...this.commissionSettings,
+          lastUpdated: new Date().toISOString(),
+          updatedBy: 'admin'
+        }
+      };
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+      this.logger.log('✅ Commission settings saved to file');
+    } catch (error) {
+      this.logger.error('❌ Error saving commission settings:', error);
+    }
+  }
+
+  // Komission sozlamalarini ko'rsatish
+  private async showCommissionSettings(ctx: any) {
+    const adminUsers = [5772668259];
+    if (!adminUsers.includes(ctx.from.id)) {
+      await this.safeAnswerCallback(ctx, '❌ Admin huquqi yo\'q!');
+      return;
+    }
+
+    const settings = this.commissionSettings;
+    const message = `
+⚙️ <b>KOMISSION SOZLAMALARI</b>
+
+🔧 <b>UMUMIY HOLAT:</b>
+🟢 Tizim: ${settings.enabled ? '✅ Faol' : '❌ O\'chiq'}
+
+📅 <b>KUNLIK TO'LOV:</b>
+🟢 ${settings.dailyCommission?.enabled ? '✅ Faol' : '❌ O\'chiq'} - ${(settings.dailyCommission?.amount || 0).toLocaleString()} so'm/kun
+💬 <i>Necha pul ishlashingizdan qat'iy nazar kuniga shuncha to'laysiz</i>
+
+📆 <b>HAFTALIK TO'LOV:</b>
+🟢 ${settings.weeklyCommission?.enabled ? '✅ Faol' : '❌ O\'chiq'} - ${(settings.weeklyCommission?.amount || 0).toLocaleString()} so'm/hafta
+💬 <i>Necha pul ishlashingizdan qat'iy nazar haftasiga shuncha to'laysiz</i>
+
+📊 <b>OYLIK TO'LOV:</b>
+🟢 ${settings.monthlyCommission?.enabled ? '✅ Faol' : '❌ O\'chiq'} - ${(settings.monthlyCommission?.amount || 0).toLocaleString()} so'm/oy
+💬 <i>Necha pul ishlashingizdan qat'iy nazar oyiga shuncha to'laysiz</i>
+
+📈 <b>FOIZLIK KOMISSION:</b>
+🟢 ${settings.perOrderCommission?.enabled ? '✅ Faol' : '❌ O\'chiq'} - ${settings.perOrderCommission?.percentage || 0}%
+💬 <i>Yuk summasi asosida, har order uchun yuk summasidan shuncha foiz yechiladi</i>
+
+💰 <b>DONALI QATIIY KOMISSION:</b>
+🟢 ${settings.perOrderFixedCommission?.enabled ? '✅ Faol' : '❌ O\'chiq'} - ${(settings.perOrderFixedCommission?.amount || 0).toLocaleString()} so'm/order
+💬 <i>Yuk narxidan qat'iy nazar har buyurtma uchun qat'iy summa yechiladi</i>
+
+⏰ <b>Oxirgi yangilanish:</b> ${settings.lastUpdated ? new Date(settings.lastUpdated).toLocaleString('uz-UZ') : 'Noma\'lum'}
+    `;
+
+    const keyboard = new InlineKeyboard()
+      .text('🔧 Umumiy', 'commission_general')
+      .text('📅 Kunlik', 'commission_daily').row()
+      .text('📆 Haftalik', 'commission_weekly')
+      .text('📊 Oylik', 'commission_monthly').row()
+      .text('📈 Foizlik', 'commission_percentage')
+      .text('💰 Donali qat\'iy', 'commission_fixed_per_order').row()
+      .text('💾 Saqlash', 'save_commission_settings')
+      .text('🔙 Orqaga', 'admin_payments');
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  }
+
+  // Umumiy komission sozlamalarini o'zgartirish
+  private async editCommissionGeneral(ctx: any) {
+    const settings = this.commissionSettings;
+    const message = `
+🔧 <b>UMUMIY KOMISSION SOZLAMALARI</b>
+
+Joriy holat:
+🟢 Tizim: ${settings.enabled ? '✅ Faol' : '❌ O\'chiq'}
+
+Bu yerda komission tizimini umuman yoqish yoki o'chirish mumkin.
+    `;
+
+    const keyboard = new InlineKeyboard()
+      .text(settings.enabled ? '❌ Tizimni o\'chirish' : '✅ Tizimni yoqish', 'toggle_commission_enabled')
+      .text('🔙 Orqaga', 'commission_settings');
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  }
+
+  // Kunlik komission sozlamalarini o'zgartirish
+  private async editCommissionDaily(ctx: any) {
+    const settings = this.commissionSettings.dailyCommission || {};
+    const message = `
+📅 <b>KUNLIK QATIIY TO'LOV</b>
+
+Joriy holat:
+🟢 ${settings.enabled ? '✅ Faol' : '❌ O\'chiq'} - ${(settings.amount || 0).toLocaleString()} so'm/kun
+
+💬 <b>Tushuntirish:</b>
+<i>Necha pul ishlashingizdan qat'iy nazar kuniga shuncha to'laysiz. Masalan, 5000 so'm/kun bo'lsa, har kuni 5000 so'm to'lanadi.</i>
+    `;
+
+    const keyboard = new InlineKeyboard()
+      .text(settings.enabled ? '❌ O\'chirish' : '✅ Yoqish', 'toggle_daily_enabled')
+      .text('💰 Summani o\'zgartirish', 'edit_daily_amount').row()
+      .text('🔙 Orqaga', 'commission_settings');
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  }
+
+  // Haftalik komission sozlamalarini o'zgartirish
+  private async editCommissionWeekly(ctx: any) {
+    const settings = this.commissionSettings.weeklyCommission || {};
+    const message = `
+📆 <b>HAFTALIK QATIIY TO'LOV</b>
+
+Joriy holat:
+🟢 ${settings.enabled ? '✅ Faol' : '❌ O\'chiq'} - ${(settings.amount || 0).toLocaleString()} so'm/hafta
+
+💬 <b>Tushuntirish:</b>
+<i>Necha pul ishlashingizdan qat'iy nazar haftasiga shuncha to'laysiz. Dushanba-yakshanba oralig'ida hisoblanadi.</i>
+    `;
+
+    const keyboard = new InlineKeyboard()
+      .text(settings.enabled ? '❌ O\'chirish' : '✅ Yoqish', 'toggle_weekly_enabled')
+      .text('💰 Summani o\'zgartirish', 'edit_weekly_amount').row()
+      .text('🔙 Orqaga', 'commission_settings');
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  }
+
+  // Foizlik komission sozlamalarini o'zgartirish
+  private async editCommissionPercentage(ctx: any) {
+    const settings = this.commissionSettings.perOrderCommission || {};
+    const message = `
+📈 <b>FOIZLIK KOMISSION</b>
+
+Joriy holat:
+🟢 ${settings.enabled ? '✅ Faol' : '❌ O\'chiq'} - ${settings.percentage || 0}%
+
+💬 <b>Tushuntirish:</b>
+<i>Yuk summasi asosida hisoblanadi. Har bir order uchun yuk summasidan shuncha foiz yechiladi. Masalan, yuk 100,000 so'm va 2% bo'lsa, 2,000 so'm yechiladi.</i>
+    `;
+
+    const keyboard = new InlineKeyboard()
+      .text(settings.enabled ? '❌ O\'chirish' : '✅ Yoqish', 'toggle_percentage_enabled')
+      .text('📊 Foizni o\'zgartirish', 'edit_percentage_value').row()
+      .text('🔙 Orqaga', 'commission_settings');
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  }
+
+  // Oylik komission sozlamalarini o'zgartirish
+  private async editCommissionMonthly(ctx: any) {
+    const settings = this.commissionSettings.monthlyCommission || {};
+    const message = `
+📊 <b>OYLIK QAT'IY TO'LOV</b>
+
+Joriy holat:
+🟢 ${settings.enabled ? '✅ Faol' : '❌ O\'chiq'} - ${(settings.amount || 0).toLocaleString()} so'm/oy
+
+💬 <b>Tushuntirish:</b>
+<i>Necha pul ishlashingizdan qat'iy nazar oyiga shuncha to'laysiz. Har oy boshida hisoblanadi.</i>
+    `;
+
+    const keyboard = new InlineKeyboard()
+      .text(settings.enabled ? '❌ O\'chirish' : '✅ Yoqish', 'toggle_monthly_enabled')
+      .text('💰 Summani o\'zgartirish', 'edit_monthly_amount').row()
+      .text('🔙 Orqaga', 'commission_settings');
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
+  }
+
+  // Donali qat'iy komission sozlamalarini o'zgartirish
+  private async editCommissionFixedPerOrder(ctx: any) {
+    const settings = this.commissionSettings.perOrderFixedCommission || {};
+    const message = `
+💰 <b>DONALI QAT'IY KOMISSION</b>
+
+Joriy holat:
+🟢 ${settings.enabled ? '✅ Faol' : '❌ O\'chiq'} - ${(settings.amount || 0).toLocaleString()} so'm/order
+
+💬 <b>Tushuntirish:</b>
+<i>Yuk narxidan qat'iy nazar har bir buyurtma uchun qat'iy summa yechiladi. Masalan, har order uchun 3,000 so'm.</i>
+    `;
+
+    const keyboard = new InlineKeyboard()
+      .text(settings.enabled ? '❌ O\'chirish' : '✅ Yoqish', 'toggle_fixed_per_order_enabled')
+      .text('💰 Summani o\'zgartirish', 'edit_fixed_per_order_amount').row()
+      .text('🔙 Orqaga', 'commission_settings');
+
+    await this.safeEditMessage(ctx, message, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard
+    });
   }
 
   // Payment settings'ni faylga saqlash

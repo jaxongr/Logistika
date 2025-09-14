@@ -1,0 +1,38 @@
+{
+  "commissionSettings": {
+    "enabled": true,
+    "dailyCommission": {
+      "enabled": false,
+      "type": "fixed",
+      "amount": 5000,
+      "description": "Kunlik qat'iy to'lov - necha pul ishlashingizdan qat'iy nazar kuniga shuncha to'laysiz"
+    },
+    "weeklyCommission": {
+      "enabled": false,
+      "type": "fixed",
+      "amount": 30000,
+      "description": "Haftalik qat'iy to'lov - necha pul ishlashingizdan qat'iy nazar haftasiga shuncha to'laysiz"
+    },
+    "monthlyCommission": {
+      "enabled": false,
+      "type": "fixed",
+      "amount": 100000,
+      "description": "Oylik qat'iy to'lov - necha pul ishlashingizdan qat'iy nazar oyiga shuncha to'laysiz"
+    },
+    "perOrderCommission": {
+      "enabled": true,
+      "type": "percentage",
+      "percentage": 2.0,
+      "description": "Foizlik komission - yuk summasi asosida hisoblanadi, har bir order uchun yuk summасидан shuncha foiz yechiladi"
+    },
+    "perOrderFixedCommission": {
+      "enabled": false,
+      "type": "fixed",
+      "amount": 3000,
+      "description": "Donali qat'iy komission - yuk narxidan qat'iy nazar har bir buyurtma uchun qat'iy summa yechiladi"
+    },
+    "exemptUsers": [],
+    "lastUpdated": "2025-09-14T17:07:00.000Z",
+    "updatedBy": "admin"
+  }
+}
