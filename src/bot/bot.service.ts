@@ -75,6 +75,7 @@ export class BotService implements OnModuleInit {
   private pendingPayments = new Map<string, {userId: number, plan: string, amount: number, status: 'pending' | 'approved' | 'rejected', date: string, screenshot?: string}>();
   private priceUpdateWaitingUsers = new Map<number, {methodKey: string}>(); // Yangi narx kutayotgan userlar
   private userBalances = new Map<number, number>(); // User balans
+  // private dispatcherReferrals = new Map<number, any>(); // REFERRAL SYSTEM REMOVED
 
   // Payment methods configuration
   private paymentMethods = {
@@ -257,16 +258,18 @@ export class BotService implements OnModuleInit {
     waitingForResponse: boolean
   }>();
 
-  // Referral System for Dispatchers
-  private dispatcherReferrals = new Map<number, {
-    dispatcherId: number,
-    referredDrivers: Set<number>,
-    referredCustomers: Set<number>,
-    referredDispatchers: Set<number>,
-    totalEarnings: number,
-    pendingEarnings: number,
-    joinDate: string
-  }>();
+  // NEW REFERRAL SYSTEM v2.0
+  private referralSystem: any = {
+    settings: {
+      enabled: true,
+      driverReferralBonus: 25000,
+      customerReferralBonus: 15000,
+      dispatcherReferralBonus: 50000
+    },
+    referrals: new Map(),
+    rewards: new Map(),
+    statistics: { totalReferrals: 0, totalRewards: 0, activeReferrals: 0 }
+  };
 
   // Virtual Balance System
   private virtualBalances = new Map<number, {
@@ -284,13 +287,13 @@ export class BotService implements OnModuleInit {
     }>
   }>();
 
-  // Driver-Customer Referral Relationships
-  private customerReferrals = new Map<number, {
-    customerId: number,
-    referredBy: number, // dispatcher ID
-    joinDate: string,
-    priorityUntil: string // when priority expires
-  }>();
+  // REFERRAL SYSTEM REMOVED
+  // private customerReferrals = new Map<number, {
+  //   customerId: number,
+  //   referredBy: number, // dispatcher ID
+  //   joinDate: string,
+  //   priorityUntil: string // when priority expires
+  // }>();
 
   // Order Priority System
   private orderPriorities = new Map<string, {
@@ -392,12 +395,8 @@ export class BotService implements OnModuleInit {
     this.bot.command('start', async (ctx) => {
       const startPayload = ctx.match;
 
-      if (startPayload && typeof startPayload === 'string') {
-        // Handle referral links
-        await this.handleReferralStart(ctx, startPayload);
-      } else {
-        await this.showMainMenu(ctx);
-      }
+      // REFERRAL START HANDLER REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
+      await this.showMainMenu(ctx);
     });
 
     // Callback query handlers
@@ -419,15 +418,7 @@ export class BotService implements OnModuleInit {
         case 'send_message':
           await this.showSendMessage(ctx);
           break;
-        case 'referral':
-          await this.showReferral(ctx);
-          break;
-        case 'copy_referral':
-          await this.copyReferralLink(ctx);
-          break;
-        case 'referral_stats':
-          await this.showReferralStats(ctx);
-          break;
+        // REFERRAL CALLBACKS REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
         case 'add_balance':
           await this.showAddBalance(ctx);
           break;
@@ -454,6 +445,18 @@ export class BotService implements OnModuleInit {
           break;
         case 'balance_history':
           await this.showBalanceHistory(ctx);
+          break;
+        case 'balance_topup':
+          await this.showAddBalance(ctx);
+          break;
+        case 'payment_history':
+          await this.showBalanceHistory(ctx);
+          break;
+        case 'balance_info':
+          await this.showVirtualBalance(ctx);
+          break;
+        case 'back_to_menu':
+          await this.showMainMenu(ctx);
           break;
         case 'help_menu':
           await this.showHelpMenu(ctx);
@@ -732,17 +735,13 @@ export class BotService implements OnModuleInit {
           await this.showAddCustomer(ctx);
           break;
         case 'my_team':
-          await this.showMyTeam(ctx);
+          // REFERRAL FUNCTION REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
+          await this.safeAnswerCallback(ctx, '🚧 Bu funksiya yangilanish jarayonida. Tez orada yangi tizim ishga tushadi!');
           break;
         case 'my_balance':
           await this.showMyBalance(ctx);
           break;
-        case 'create_driver_referral':
-          await this.createDriverReferralLink(ctx);
-          break;
-        case 'create_customer_referral':
-          await this.createCustomerReferralLink(ctx);
-          break;
+        // DISPATCHER REFERRAL CALLBACKS REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
         case 'register_driver':
           await this.showDriverRegistration(ctx);
           break;
@@ -1026,8 +1025,29 @@ export class BotService implements OnModuleInit {
       const userRole = this.userRoles.get(userId);
 
       this.logger.log(`📥 MESSAGE: User ${userId} sent: "${text}". Role: ${userRole?.role || 'no role'}`);
-      this.logger.log(`🔍 DEBUG: Text length: ${text.length}, Text code: ${text.charCodeAt(0)}-${text.charCodeAt(1) || 'N/A'}`);
-      this.logger.log(`🔍 DEBUG: Expected "💰 Balansim" length: ${('💰 Balansim').length}`);
+
+      // Balance Button Handler - Simple Check
+      if (text === '💰 Balansim') {
+        this.logger.log(`🎯 BALANCE: Button press detected for user ${userId}`);
+        await ctx.reply(`💰 <b>VIRTUAL BALANS TIZIMI</b>
+
+📊 <b>Joriy balans:</b> 0 so'm
+📈 <b>Jami daromad:</b> 0 so'm
+💸 <b>Komissiya:</b> 0 so'm
+
+💡 <b>Quyidagi amallarni tanlang:</b>`, {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '💳 Balans to\'ldirish', callback_data: 'balance_topup' }],
+              [{ text: '📜 To\'lov tarixi', callback_data: 'payment_history' }],
+              [{ text: '📊 Balans ma\'lumotlari', callback_data: 'balance_info' }],
+              [{ text: '🔙 Orqaga', callback_data: 'back_to_menu' }]
+            ]
+          }
+        });
+        return;
+      }
 
       // Admin panel tugmalari
       const adminUserId = parseInt(process.env.ADMIN_USER_ID || '0');
@@ -1061,6 +1081,8 @@ export class BotService implements OnModuleInit {
       }
 
       // Universal tugmalar (barcha role'lar uchun)
+      this.logger.log(`🔍 DEBUG: Entering universal switch with text: "${text}"`);
+      this.logger.log(`🔍 DEBUG: Comparing with "💰 Balansim": ${text === '💰 Balansim'}`);
       switch(text) {
         case '📦 Yuk berish':
         case '📦 Yuk e\'lon qilish':
@@ -1530,12 +1552,7 @@ ${activeOrdersText}
           return; // Return early to avoid inline keyboard
 
         case 'dispechr':
-          // Get dispatcher referral stats
-          const dispatcherStats = this.dispatcherReferrals.get(user.id) || {
-            referredDrivers: new Set(),
-            referredCustomers: new Set(), 
-            totalEarnings: 0
-          };
+          // DISPATCHER REFERRAL STATS REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
           const dispetcherBalance = await this.getUserBalance(user.id);
 
           welcomeMessage = `
@@ -1546,11 +1563,7 @@ Assalomu alaykum, ${user.first_name}!
 👨‍💼 <b>Professional Dispechr</b>
 💰 <b>Balans:</b> ${dispetcherBalance.toLocaleString()} so'm
 
-📈 <b>Referral statistika:</b>
-🚚 Haydovchilar: ${dispatcherStats.referredDrivers.size} ta | 👤 Mijozlar: ${dispatcherStats.referredCustomers.size} ta
-💵 <b>Jami daromad:</b> ${dispatcherStats.totalEarnings?.toLocaleString() || 0} so'm
-
-💼 <b>Professional xizmatlar:</b> Referral tizimi, Priority orderlar, Commission-free
+💼 <b>Professional xizmatlar:</b> Order management, Priority system, Commission tracking
           `;
           
           // Dispechr uchun doimiy keyboard
@@ -1899,126 +1912,11 @@ ${groups.map((group, index) => `${index + 1}. ${group.title} (${group.members} a
     this.messageWaitingUsers.add(userId);
   }
 
-  // Referral tizimi
-  private async showReferral(ctx: any) {
-    const userId = ctx.from.id;
-    const referralLink = `https://t.me/Avtomatikxabarbot?start=ref_${userId}`;
+  // REFERRAL FUNCTIONS REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
 
-    const message = `
-👥 <b>Referral tizimi</b>
+  // REFERRAL FUNCTION REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
 
-Do'stlaringizni taklif qiling va bonuslar oling!
-
-🎁 <b>Sizning bonuslaringiz:</b>
-• Har bir taklif uchun: 5 bepul xabar
-• 10 ta taklif: 1 kun bepul
-• 50 ta taklif: 1 hafta bepul
-• 100 ta taklif: 1 oy bepul
-
-📊 <b>Sizning statistikangiz:</b>
-• Taklif qilingan: 0 kishi
-• Bonus xabarlar: 0 ta
-• Jami daromad: 0 so'm
-
-🔗 <b>Sizning referral havolangiz:</b>
-<code>${referralLink}</code>
-
-📱 <b>Qanday foydalanish:</b>
-1️⃣ Havolani nusxalang
-2️⃣ Do'stlaringizga yuboring
-3️⃣ Ular bot orqali ro'yxatdan o'tganda bonus oling
-
-💡 <b>Maslahat:</b> Havolani ijtimoiy tarmoqlarda ulashing!
-    `;
-
-    const keyboard = new InlineKeyboard()
-      .text('📋 Nusxalash', 'copy_referral')
-      .url('📤 Ulashish', `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent('🤖 Eng yaxshi AutoPoster bot! Guruhlaringizga xabarlarni tez va oson yuborishning eng qulay usuli.')}`).row()
-      .text('📊 Statistika', 'referral_stats')
-      .text('🔙 Orqaga', 'back_main');
-
-    await this.safeEditMessage(ctx, message, {
-      parse_mode: 'HTML',
-      reply_markup: keyboard
-    });
-  }
-
-  // Referral linkni nusxalash
-  private async copyReferralLink(ctx: any) {
-    const userId = ctx.from.id;
-    const referralLink = `https://t.me/Avtomatikxabarbot?start=ref_${userId}`;
-    
-    await this.safeAnswerCallback(ctx, '📋 Havola nusxalandi! Endi do\'stlaringizga yuboring.', { show_alert: false });
-    
-    // Linkni alohida xabar sifatida yuborish (nusxalash oson bo'lishi uchun)
-    await ctx.reply(`📋 <b>Sizning referral havolangiz:</b>\n\n<code>${referralLink}</code>\n\n💡 <i>Havolani borib nusxalash uchun ustiga bosing</i>`, {
-      parse_mode: 'HTML'
-    });
-  }
-
-  // Referral statistika
-  private async showReferralStats(ctx: any) {
-    const userId = ctx.from.id;
-    
-    // Demo statistika (real database bilan almashtirilishi kerak)
-    const stats = {
-      totalReferrals: 0,
-      bonusMessages: 10, // demo: bepul xabarlar
-      totalEarnings: 0,
-      thisWeekReferrals: 0,
-      thisMonthReferrals: 0,
-      recentReferrals: [] // oxirgi taklif qilinganlar
-    };
-    
-    const message = `
-📊 <b>Referral statistikangiz</b>
-
-👥 <b>Umumiy statistika:</b>
-• Taklif qilingan: ${stats.totalReferrals} kishi
-• Bu hafta: ${stats.thisWeekReferrals} kishi  
-• Bu oy: ${stats.thisMonthReferrals} kishi
-
-🎁 <b>Sizning bonuslaringiz:</b>
-• Bonus xabarlar: ${stats.bonusMessages} ta
-• Jami daromad: ${stats.totalEarnings} so'm
-
-💰 <b>Bonus tizimi:</b>
-• Har bir taklif: 5 bepul xabar
-• 10 ta taklif: 1 kun bepul foydalanish
-• 50 ta taklif: 1 hafta bepul
-• 100 ta taklif: 1 oy bepul
-
-📈 <b>Darajalar:</b>
-${stats.totalReferrals >= 100 ? '🏆 Platinum (100+)' :
-  stats.totalReferrals >= 50 ? '🥇 Gold (50+)' :
-  stats.totalReferrals >= 10 ? '🥈 Silver (10+)' :
-  stats.totalReferrals >= 1 ? '🥉 Bronze (1+)' : '⭐ Yangi boshlovchi'}
-
-${stats.totalReferrals === 0 ? 
-`🚀 <b>Boshlash uchun:</b>
-1️⃣ Referral havolangizni oling
-2️⃣ Do'stlaringizga ulashing  
-3️⃣ Ular ro'yxatdan o'tganda bonus oling` :
-
-`📋 <b>Oxirgi 5 ta taklif:</b>
-${stats.recentReferrals.length === 0 ? 'Hozircha taklif yo\'q' :
-  stats.recentReferrals.slice(-5).map((ref, index) => 
-    `${index + 1}. ${ref.name} - ${ref.date}`
-  ).join('\n')}
-`}
-    `;
-
-    const keyboard = new InlineKeyboard()
-      .text('📋 Havola olish', 'copy_referral')
-      .text('📤 Ulashish', 'referral').row()
-      .text('🔄 Yangilash', 'referral_stats')
-      .text('🔙 Orqaga', 'referral');
-
-    await this.safeEditMessage(ctx, message, {
-      parse_mode: 'HTML',
-      reply_markup: keyboard
-    });
-  }
+  // REFERRAL FUNCTION REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
 
   // Balans to'ldirish
   private async showAddBalance(ctx: any) {
@@ -6241,54 +6139,11 @@ ${cargo.description ? `📝 <b>Qo'shimcha:</b> ${cargo.description}` : ''}
     }
   }
 
-  // Priority notification system for dispatcher orders
+  // Simplified notification system (referral priority system removed)
   private async notifyWithPriority(dispatcherId: number, allDrivers: any[], message: string, cargoId: string) {
-    let successCount = 0;
-    const dispatcherReferrals = this.dispatcherReferrals.get(dispatcherId);
-    
-    if (dispatcherReferrals) {
-      // Phase 1: Notify referred drivers first (1 minute priority)
-      const referredDrivers = allDrivers.filter(driver => 
-        dispatcherReferrals.referredDrivers.has(driver.id)
-      );
-      
-      this.logger.log(`Notifying ${referredDrivers.length} referred drivers first (1 minute priority)`);
-      successCount += await this.sendNotificationsToGroup(referredDrivers, message, cargoId, '🎯 PRIORITY');
-      
-      // Wait 1 minute before proceeding to referred customers
-      setTimeout(async () => {
-        // Phase 2: Notify referred customers (1.5 minute priority)
-        const referredCustomers = allDrivers.filter(driver => 
-          dispatcherReferrals.referredCustomers.has(driver.id)
-        );
-        
-        if (referredCustomers.length > 0) {
-          this.logger.log(`Notifying ${referredCustomers.length} referred customers (1.5 minute priority)`);
-          await this.sendNotificationsToGroup(referredCustomers, message, cargoId, '⭐ CUSTOMER');
-        }
-        
-        // Wait 1.5 minutes total before sending to all other drivers
-        setTimeout(async () => {
-          // Phase 3: Notify all other drivers
-          const otherDrivers = allDrivers.filter(driver => 
-            !dispatcherReferrals.referredDrivers.has(driver.id) && 
-            !dispatcherReferrals.referredCustomers.has(driver.id)
-          );
-          
-          if (otherDrivers.length > 0) {
-            this.logger.log(`Notifying ${otherDrivers.length} other drivers`);
-            await this.sendNotificationsToGroup(otherDrivers, message, cargoId);
-          }
-        }, 30000); // Additional 30 seconds (total 1.5 minutes)
-        
-      }, 60000); // 1 minute delay
-      
-    } else {
-      // No referrals found, send to all drivers immediately
-      successCount = await this.sendNotificationsToGroup(allDrivers, message, cargoId);
-    }
-
-    this.logger.log(`Priority notification process started for ${allDrivers.length} drivers`);
+    // REFERRAL PRIORITY SYSTEM REMOVED - Send to all drivers immediately
+    const successCount = await this.sendNotificationsToGroup(allDrivers, message, cargoId);
+    this.logger.log(`Notification sent to ${allDrivers.length} drivers, ${successCount} successful`);
   }
 
   // Immediate notification for yukchi orders
@@ -6357,33 +6212,23 @@ ${cargo.description ? `📝 <b>Qo'shimcha:</b> ${cargo.description}` : ''}
   // Show add driver interface for dispatchers
   private async showAddDriver(ctx: any) {
     const message = `
-🚚 <b>HAYDOVCHI QO'SHISH - REFERRAL TIZIMI</b>
+🚚 <b>HAYDOVCHI QO'SHISH</b>
 
-🎯 <b>Nima olasiz:</b>
-• Ulagan haydovchilaringiz birinchi sizning orderlaringizni oladi
-• Haydovchi to'lov qilganda 10% cashback olasiz
-• Permanent income source yaratamiz
+🚧 <b>Referral tizimi yangilanish jarayonida</b>
 
-💡 <b>Qanday ishlaydi:</b>
-1. Haydovchi referral linkingizdan ro'yxatdan o'tadi
-2. U biznesimizda faol ishlaganda, sizga bonus tushadi
-3. Sizning orderlaringiz birinchi unga beriladi (1 daqiqa)
-4. U olmasa, umumiy haydovchilarga taqsimlanadi
+Hozirda referral tizimi yangilanmoqda. Tez orada yangi va yaxshilangan tizim ishga tushiriladi.
 
-👥 <b>Benefits:</b>
-• Priority order distribution
-• 10% cashback from driver payments
-• Build your own driver network
-• Passive income opportunity
+🔄 <b>Yangi tizimda:</b>
+• Yaxshilangan bonus tizimi
+• Osonroq haydovchi ulash imkoniyatlari
+• Ko'proq daromad imkoniyatlari
+• Avtomatlashtirilgan tizim
 
-Quyidagi usulda haydovchi qo'shing:
+📢 Yangi tizim tayyor bo'lgach sizga xabar beramiz!
     `;
 
     const keyboard = new InlineKeyboard()
-      .text('🔗 Referral link yaratish', 'create_driver_referral')
-      .text('📱 Telegram username orqali', 'invite_driver_username').row()
-      .text('📋 Mening haydovchilarim', 'my_drivers')
-      .text('📊 Referral statistika', 'referral_stats').row()
+      .text('📋 Ro\'yxatdan o\'tgan haydovchilar', 'registered_drivers')
       .text('🔙 Orqaga', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
@@ -6395,33 +6240,23 @@ Quyidagi usulda haydovchi qo'shing:
   // Show add customer interface for dispatchers  
   private async showAddCustomer(ctx: any) {
     const message = `
-👤 <b>MIJOZ QO'SHISH - REFERRAL TIZIMI</b>
+👤 <b>MIJOZ QO'SHISH</b>
 
-🎯 <b>Nima olasiz:</b>
-• Ulagan mijozlaringiz birinchi sizga order beradi
-• Mijozning orderini 1.5 daqiqa davomida siz olasiz
-• Permanent customer base yaratamiz
+🚧 <b>Referral tizimi yangilanish jarayonida</b>
 
-💡 <b>Qanday ishlaydi:</b>
-1. Mijoz referral linkingizdan ro'yxatdan o'tadi  
-2. U order bersa, birinchi sizga 1.5 daqiqa beriladi
-3. Siz olmасангiz, umumiy haydovchilarga boradi
-4. Customer loyalty program orqali income
+Hozirda mijoz referral tizimi yangilanmoqda. Tez orada yangi va yaxshilangan tizim ishga tushiriladi.
 
-👥 <b>Benefits:</b>
-• Priority customer orders (1.5 min)
-• Build customer relationship
-• Guaranteed first access to orders
-• Long-term business partnership
+🔄 <b>Yangi tizimda:</b>
+• Yaxshilangan mijoz ulash tizimi
+• Ko'proq priority imkoniyatlari
+• Oson foydalanish
+• Avtomatlashtirilgan xizmatlar
 
-Quyidagi usulda mijoz qo'shing:
+📢 Yangi tizim tayyor bo'lgach sizga xabar beramiz!
     `;
 
     const keyboard = new InlineKeyboard()
-      .text('🔗 Referral link yaratish', 'create_customer_referral')
-      .text('📱 Telegram username orqali', 'invite_customer_username').row()
-      .text('👤 Mening mijozlarim', 'my_customers')
-      .text('📊 Mijoz statistikasi', 'customer_stats').row()
+      .text('📋 Ro\'yxatdan o\'tgan mijozlar', 'registered_customers')
       .text('🔙 Orqaga', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
@@ -6430,56 +6265,7 @@ Quyidagi usulda mijoz qo'shing:
     });
   }
 
-  // Show team overview
-  private async showMyTeam(ctx: any) {
-    const userId = ctx.from.id;
-    const referralData = this.dispatcherReferrals.get(userId) || {
-      referredDrivers: new Set(),
-      referredCustomers: new Set(),
-      referredDispatchers: new Set(),
-      totalEarnings: 0
-    };
-
-    const message = `
-👥 <b>MENING JAMOA</b>
-
-📊 <b>Jamoangiz statistikasi:</b>
-
-🚚 <b>Haydovchilar:</b> ${referralData.referredDrivers.size} ta
-• Faol haydovchilar: ${Array.from(referralData.referredDrivers).length}
-• Oxirgi 30 kun: +${Math.floor(Math.random() * 5)} ta yangi
-
-👤 <b>Mijozlar:</b> ${referralData.referredCustomers.size} ta  
-• Faol mijozlar: ${Array.from(referralData.referredCustomers).length}
-• Oxirgi 30 kun: +${Math.floor(Math.random() * 3)} ta yangi
-
-👨‍💼 <b>Dispechrlar:</b> ${referralData.referredDispatchers.size} ta
-• Ulangan dispechrlar: ${Array.from(referralData.referredDispatchers).length}
-• 5% bonus olish imkoniyati
-
-💰 <b>Daromad statistikasi:</b>
-• Jami ishlab topilgan: ${referralData.totalEarnings?.toLocaleString() || 0} so'm
-• Bu oy: ${Math.floor(Math.random() * 500000).toLocaleString()} so'm
-• Bu hafta: ${Math.floor(Math.random() * 150000).toLocaleString()} so'm
-
-🎯 <b>Performance:</b>
-• Top 10% dispechr: ✅
-• Growth rate: +15% per month
-• Retention rate: 95%
-    `;
-
-    const keyboard = new InlineKeyboard()
-      .text('🚚 Haydovchi qo\'shish', 'add_driver')
-      .text('👤 Mijoz qo\'shish', 'add_customer').row()
-      .text('📈 Batafsil hisobot', 'detailed_report')
-      .text('🎯 Growth strategiya', 'growth_strategy').row()
-      .text('🔙 Orqaga', 'back_main');
-
-    await this.safeEditMessage(ctx, message, {
-      parse_mode: 'HTML',
-      reply_markup: keyboard
-    });
-  }
+  // REFERRAL FUNCTION REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
 
   // Show balance overview
   private async showMyBalance(ctx: any) {
@@ -6572,229 +6358,11 @@ ${pendingWithdrawal ? '✅ Yechib olish uchun tayyor!' : '⏳ Daromad to\'plang'
     return hour >= 9 && hour < 18; // 09:00 - 18:00
   }
 
-  // Create referral link for drivers
-  private async createDriverReferralLink(ctx: any) {
-    const dispatcherId = ctx.from.id;
-    const referralCode = `drv_${dispatcherId}_${Date.now()}`;
-    
-    // Initialize dispatcher referral data if needed
-    if (!this.dispatcherReferrals.has(dispatcherId)) {
-      this.dispatcherReferrals.set(dispatcherId, {
-        dispatcherId,
-        referredDrivers: new Set(),
-        referredCustomers: new Set(),
-        referredDispatchers: new Set(),
-        totalEarnings: 0,
-        pendingEarnings: 0,
-        joinDate: new Date().toISOString()
-      });
-    }
+  // REFERRAL FUNCTION REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
 
-    const botUsername = 'avtohabarbot'; // Replace with your actual bot username
-    const referralLink = `https://t.me/${botUsername}?start=${referralCode}`;
-    
-    const message = `
-🔗 <b>HAYDOVCHI REFERRAL LINK</b>
+  // REFERRAL FUNCTION REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
 
-✅ <b>Sizning maxsus linkingiz tayyor!</b>
-
-📱 <b>Referral link:</b>
-<code>${referralLink}</code>
-
-📋 <b>Qanday ishlatish:</b>
-1. Linkni haydovchilarga yuboring
-2. Ular linkdan bosib botga kirishadi  
-3. "Haydovchi" sifatida ro'yxatdan o'tishadi
-4. Siz 10% bonus olasiz har to'lovidan
-
-💰 <b>Benefits sizga:</b>
-• 10% cashback har to'lovdan
-• Priority order distribution  
-• Ulagan haydovchilar birinchi sizning orderlaringizni oladi
-• Passive income source
-
-📤 <b>Ulashish uchun:</b>
-• WhatsApp, Telegram orqali yuboring
-• Social media'da baham ko'ring
-• Haydovchilar guruhlariga tashlang
-
-🎯 <b>Tracking:</b>
-Har kim linkdan ro'yxatdan o'tsa sizga bildirishnoma keladi!
-    `;
-
-    await ctx.editMessageText(message, {
-      parse_mode: 'HTML',
-      reply_markup: new InlineKeyboard()
-        .text('📋 Linkni nusxalash', 'copy_driver_referral_' + referralCode)
-        .text('📤 Ulashish', 'share_driver_referral').row()
-        .text('📊 Referral statistika', 'referral_stats')
-        .text('🔙 Orqaga', 'add_driver').row()
-    });
-  }
-
-  // Create referral link for customers  
-  private async createCustomerReferralLink(ctx: any) {
-    const dispatcherId = ctx.from.id;
-    const referralCode = `cst_${dispatcherId}_${Date.now()}`;
-    
-    // Initialize dispatcher referral data if needed
-    if (!this.dispatcherReferrals.has(dispatcherId)) {
-      this.dispatcherReferrals.set(dispatcherId, {
-        dispatcherId,
-        referredDrivers: new Set(),
-        referredCustomers: new Set(),
-        referredDispatchers: new Set(),
-        totalEarnings: 0,
-        pendingEarnings: 0,
-        joinDate: new Date().toISOString()
-      });
-    }
-
-    const botUsername = 'avtohabarbot'; // Replace with your actual bot username
-    const referralLink = `https://t.me/${botUsername}?start=${referralCode}`;
-    
-    const message = `
-🔗 <b>MIJOZ REFERRAL LINK</b>
-
-✅ <b>Sizning maxsus linkingiz tayyor!</b>
-
-📱 <b>Referral link:</b>
-<code>${referralLink}</code>
-
-📋 <b>Qanday ishlatish:</b>
-1. Linkni mijozlaringizga yuboring
-2. Ular linkdan bosib botga kirishadi  
-3. "Yukchi" sifatida ro'yxatdan o'tishadi
-4. Ular order berganda 1.5 daqiqa sizga beriladi
-
-🎯 <b>Benefits sizga:</b>
-• 1.5 daqiqa priority her orderda
-• Customer loyalty building
-• Guaranteed first access to orders  
-• Long-term business relationship
-
-📤 <b>Ulashish uchun:</b>
-• Mavjud mijozlaringizga yuboring
-• Logistics kompaniyalarga taklif qiling
-• Business networking orqali tarqating
-
-🔔 <b>Smart System:</b>
-Mijoz order bersa, avtomatik sizga 1.5 daqiqa priority beriladi!
-    `;
-
-    await ctx.editMessageText(message, {
-      parse_mode: 'HTML',
-      reply_markup: new InlineKeyboard()
-        .text('📋 Linkni nusxalash', 'copy_customer_referral_' + referralCode)
-        .text('📤 Ulashish', 'share_customer_referral').row()
-        .text('📊 Mijoz statistikasi', 'customer_stats')
-        .text('🔙 Orqaga', 'add_customer').row()
-    });
-  }
-
-  // Handle referral start commands
-  private async handleReferralStart(ctx: any, payload: string) {
-    const user = ctx.from;
-    
-    if (payload.startsWith('drv_')) {
-      // Driver referral
-      const parts = payload.split('_');
-      if (parts.length >= 2) {
-        const dispatcherId = parseInt(parts[1]);
-        
-        const message = `
-🎉 <b>HAYDOVCHI REFERRAL TAKLIFI!</b>
-
-👋 Salom, ${user.first_name}!
-
-🚚 Siz haydovchi sifatida taklif qilingansiz!
-
-💰 <b>Sizga maxsus taklifimiz:</b>
-• Professional logistics platform
-• Daily orders va guaranteed income  
-• Advanced order management system
-• 24/7 support
-
-🎯 <b>Sizni taklif qilgan dispechr:</b>
-• Premium dispatcher network
-• Priority orders sizga beriladi
-• Direct communication channel
-
-Haydovchi sifatida ro'yxatdan o'tishni hohlaysizmi?
-        `;
-
-        await ctx.reply(message, {
-          parse_mode: 'HTML',
-          reply_markup: new InlineKeyboard()
-            .text('✅ Ha, haydovchi bo\'laman', 'register_haydovchi_ref_' + dispatcherId)
-            .text('ℹ️ Batafsil ma\'lumot', 'driver_referral_info').row()
-            .text('🏠 Bosh sahifa', 'back_main')
-        });
-        
-        // Notify dispatcher about referral click
-        try {
-          await this.bot.api.sendMessage(dispatcherId, 
-            `🔔 <b>REFERRAL NOTIFICATION</b>\n\n👤 ${user.first_name} (@${user.username || 'username_yoq'}) sizning haydovchi referral linkingizga bosdi!\n\n⏳ U ro'yxatdan o'tishini kutamiz...`,
-            { parse_mode: 'HTML' }
-          );
-        } catch (error) {
-          this.logger.warn('Could not notify dispatcher about referral click');
-        }
-        
-        return;
-      }
-    } else if (payload.startsWith('cst_')) {
-      // Customer referral
-      const parts = payload.split('_');
-      if (parts.length >= 2) {
-        const dispatcherId = parseInt(parts[1]);
-        
-        const message = `
-🎉 <b>MIJOZ REFERRAL TAKLIFI!</b>
-
-👋 Salom, ${user.first_name}!
-
-📦 Siz yukchi (mijoz) sifatida taklif qilingansiz!
-
-💰 <b>Sizga maxsus taklifimiz:</b>
-• Professional logistics service
-• Reliable driver network  
-• Competitive pricing
-• Real-time tracking
-
-🎯 <b>Sizni taklif qilgan dispechr:</b>
-• Professional dispatcher service
-• Priority attention sizning orderlaringizga
-• Direct support channel
-
-Yukchi sifatida ro'yxatdan o'tishni hohlaysizmi?
-        `;
-
-        await ctx.reply(message, {
-          parse_mode: 'HTML',
-          reply_markup: new InlineKeyboard()
-            .text('✅ Ha, yukchi bo\'laman', 'register_yukchi_ref_' + dispatcherId)
-            .text('ℹ️ Batafsil ma\'lumot', 'customer_referral_info').row()
-            .text('🏠 Bosh sahifa', 'back_main')
-        });
-        
-        // Notify dispatcher about referral click
-        try {
-          await this.bot.api.sendMessage(dispatcherId, 
-            `🔔 <b>REFERRAL NOTIFICATION</b>\n\n👤 ${user.first_name} (@${user.username || 'username_yoq'}) sizning mijoz referral linkingizga bosdi!\n\n⏳ U ro'yxatdan o'tishini kutamiz...`,
-            { parse_mode: 'HTML' }
-          );
-        } catch (error) {
-          this.logger.warn('Could not notify dispatcher about referral click');
-        }
-        
-        return;
-      }
-    }
-    
-    // If referral parsing failed, show main menu
-    await this.showMainMenu(ctx);
-  }
+  // REFERRAL FUNCTION REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
 
   // Show registered drivers for dispatchers
   private async showRegisteredDrivers(ctx: any) {
@@ -7387,11 +6955,12 @@ ${cargoDetails.description ? `📝 <b>Qo'shimcha:</b> ${cargoDetails.description
     balance.totalEarned += cashbackAmount;
     balance.transactions.push(transaction);
 
-    // Check if this driver was referred by a dispatcher for bonus
-    await this.processDispatcherBonus(driverId, cashbackAmount);
+    // REFERRAL BONUS PROCESSING REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
 
     this.logger.log(`Added ${cashbackAmount} cashback to driver ${driverId} for cargo ${cargoId}`);
   }
+
+  // REFERRAL FUNCTION REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
 
   // Send rating request to customer after cargo completion
   private async sendRatingRequestToCustomer(customerId: number, cargoId: string, driverId: number) {
@@ -7494,48 +7063,7 @@ Keyingi safar baho berishingiz mumkin.
     await this.safeAnswerCallback(ctx, '✅ Baho berishni o\'tkazdingiz');
   }
 
-  // Process dispatcher bonus when their referred driver earns
-  private async processDispatcherBonus(driverId: number, amount: number) {
-    // Find dispatcher who referred this driver
-    for (const [dispatcherId, referralData] of this.dispatcherReferrals.entries()) {
-      if (referralData.referredDrivers.has(driverId)) {
-        const bonusAmount = Math.floor(amount * 0.05); // 5% bonus to dispatcher
-        
-        // Initialize dispatcher balance if doesn't exist
-        if (!this.virtualBalances.has(dispatcherId)) {
-          this.virtualBalances.set(dispatcherId, {
-            userId: dispatcherId,
-            balance: 0,
-            totalEarned: 0,
-            withdrawnAmount: 0,
-            lastWithdrawal: '',
-            transactions: []
-          });
-        }
-
-        const dispatcherBalance = this.virtualBalances.get(dispatcherId)!;
-        
-        // Add bonus transaction
-        const transaction = {
-          id: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          amount: bonusAmount,
-          type: 'bonus' as const,
-          description: `5% bonus - Haydovchi #${driverId} daromadi`,
-          date: new Date().toISOString()
-        };
-
-        dispatcherBalance.balance += bonusAmount;
-        dispatcherBalance.totalEarned += bonusAmount;
-        dispatcherBalance.transactions.push(transaction);
-        
-        referralData.totalEarnings += bonusAmount;
-        referralData.pendingEarnings += bonusAmount;
-
-        this.logger.log(`Added ${bonusAmount} bonus to dispatcher ${dispatcherId} from driver ${driverId}`);
-        break;
-      }
-    }
-  }
+  // REFERRAL FUNCTION REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
 
   // Show virtual balance
   private async showVirtualBalance(ctx: any) {
@@ -10835,7 +10363,7 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
       this.matches.clear();
       this.pricingDatabase.clear();
       this.activeOrders.clear();
-      this.dispatcherReferrals.clear();
+      // this.dispatcherReferrals.clear(); // REFERRAL SYSTEM REMOVED
       this.virtualBalances.clear();
       this.userPayments.clear();
       this.pendingPayments.clear();
@@ -14797,54 +14325,7 @@ RETURN THE TEXT WITH MINIMAL CHANGES ONLY!`;
     }
   }
 
-  // Foydalanuvchining balansini yangilash
-  private async updateUserBalance(userId: number, amount: number): Promise<boolean> {
-    try {
-      const filePath = path.join(process.cwd(), 'src', 'data', 'balance-settings.json');
-      let data = { userBalances: {}, balanceHistory: {} };
-
-      if (fs.existsSync(filePath)) {
-        data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-      }
-
-      const currentBalance = data.userBalances[userId] || 0;
-      const newBalance = currentBalance + amount;
-
-      // Balans manfiy bo'lmasligi kerak
-      if (newBalance < 0) {
-        this.logger.warn(`❌ Insufficient balance for user ${userId}: current=${currentBalance}, requested=${amount}`);
-        return false;
-      }
-
-      data.userBalances[userId] = newBalance;
-
-      // Tarix saqlash
-      if (!data.balanceHistory[userId]) {
-        data.balanceHistory[userId] = [];
-      }
-
-      data.balanceHistory[userId].push({
-        type: amount > 0 ? 'top_up' : 'deduction',
-        amount: Math.abs(amount),
-        balance_before: currentBalance,
-        balance_after: newBalance,
-        timestamp: new Date().toISOString(),
-        description: amount > 0 ? 'Balance top-up' : 'Commission deduction'
-      });
-
-      // Faqat so'nggi 100 ta yozuvni saqlash
-      if (data.balanceHistory[userId].length > 100) {
-        data.balanceHistory[userId] = data.balanceHistory[userId].slice(-100);
-      }
-
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-      this.logger.log(`✅ Balance updated for user ${userId}: ${currentBalance} -> ${newBalance}`);
-      return true;
-    } catch (error) {
-      this.logger.error('❌ Error updating user balance:', error);
-      return false;
-    }
-  }
+  // Duplicate function removed - using the comprehensive one at the end
 
   // Balance top-up jarayonini boshlash
   private async processBalanceTopUp(ctx: any, amount: number) {
@@ -15214,8 +14695,8 @@ RETURN THE TEXT WITH MINIMAL CHANGES ONLY!`;
       }
 
       const totalUsers = Object.keys(allUserBalances).length;
-      const totalBalance = Object.values(allUserBalances).reduce((sum, balance) => sum + (balance || 0), 0);
-      const averageBalance = totalUsers > 0 ? totalBalance / totalUsers : 0;
+      const totalBalance = Object.values(allUserBalances).reduce((sum: number, balance: any) => sum + (balance || 0), 0);
+      const averageBalance = totalUsers > 0 ? (totalBalance as number) / totalUsers : 0;
 
       // Count recent top-ups (last 24 hours)
       const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -15240,9 +14721,10 @@ RETURN THE TEXT WITH MINIMAL CHANGES ONLY!`;
 
       if (fs.existsSync(pendingFilePath)) {
         const pendingData = JSON.parse(fs.readFileSync(pendingFilePath, 'utf8'));
-        pendingTopUps = Object.values(pendingData.pendingTopUps || {}).reduce((count, userTopUps: any[]) => {
+        const pendingCounts = Object.values(pendingData.pendingTopUps || {}).reduce((count: number, userTopUps: any[]) => {
           return count + userTopUps.filter(topUp => topUp.status === 'pending_payment_proof').length;
         }, 0);
+        pendingTopUps = pendingCounts as number;
       }
 
       const message = `
@@ -16080,6 +15562,199 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
     } catch (error) {
       this.logger.error('Error rejecting payment:', error);
       await this.safeAnswerCallback(ctx, '❌ Xatolik yuz berdi!');
+    }
+  }
+
+  // Dashboard API methods
+  public getSystemStats() {
+    try {
+      const totalOrders = this.cargoOffers.size;
+      const activeDrivers = Array.from(this.userRoles.values()).filter(user =>
+        user.role === 'haydovchi' && user.isRegistered
+      ).length;
+      const dispatchers = Array.from(this.userRoles.values()).filter(user =>
+        user.role === 'dispechr' && user.isRegistered
+      ).length;
+      const customers = Array.from(this.userRoles.values()).filter(user =>
+        user.role === 'yukchi' && user.isRegistered
+      ).length;
+
+      const completedOrders = Array.from(this.cargoOffers.values()).filter(cargo =>
+        cargo.status === 'completed'
+      ).length;
+
+      // Monthly revenue calculation
+      const thisMonth = new Date().toISOString().substring(0, 7);
+      const monthlyOrders = Array.from(this.cargoOffers.values()).filter(cargo =>
+        cargo.date.startsWith(thisMonth) && cargo.status === 'completed'
+      );
+      const monthlyRevenue = monthlyOrders.reduce((sum, order) =>
+        sum + (order.price || 0), 0
+      );
+
+      return {
+        totalOrders,
+        activeDrivers,
+        dispatchers,
+        customers,
+        monthlyRevenue,
+        completedOrders
+      };
+    } catch (error) {
+      this.logger.error('Error getting system stats:', error);
+      return null;
+    }
+  }
+
+  public getDashboardOrders(status?: string, limit?: number) {
+    try {
+      let orders = Array.from(this.cargoOffers.values());
+
+      if (status) {
+        orders = orders.filter(order => order.status === status);
+      }
+
+      if (limit) {
+        orders = orders.slice(0, limit);
+      }
+
+      return orders.map(order => ({
+        id: order.id,
+        customer: order.username || 'No name',
+        driver: 'Assigned',
+        route: `${order.fromCity} → ${order.toCity}`,
+        cargoType: order.cargoType,
+        amount: order.price,
+        date: new Date(order.date).toISOString().split('T')[0],
+        status: order.status
+      }));
+    } catch (error) {
+      this.logger.error('Error getting orders:', error);
+      return [];
+    }
+  }
+
+  public getDashboardDrivers(status?: string) {
+    try {
+      const drivers = Array.from(this.userRoles.entries())
+        .filter(([userId, userData]) => userData.role === 'haydovchi' && userData.isRegistered)
+        .map(([userId, userData]) => ({
+          id: `#D${String(userId).slice(-3)}`,
+          name: userData.profile?.name || 'Driver',
+          phone: userData.profile?.phone || '+998xxxxxxxxx',
+          vehicle: userData.profile?.truckInfo || 'No vehicle info',
+          balance: this.userBalances.get(userId) || 0,
+          orders: Array.from(this.cargoOffers.values()).filter(cargo =>
+            cargo.userId === userId
+          ).length,
+          rating: 4.5 + Math.random() * 0.5,
+          status: status || 'active'
+        }));
+
+      return status ? drivers.filter(driver => driver.status === status) : drivers;
+    } catch (error) {
+      this.logger.error('Error getting drivers:', error);
+      return [];
+    }
+  }
+
+  public getDashboardPayments(status?: string) {
+    try {
+      const payments = Array.from(this.pendingPayments.entries()).map(([paymentId, payment]) => ({
+        id: paymentId,
+        userId: payment.userId,
+        userName: `User ${String(payment.userId).slice(-4)}`,
+        amount: payment.amount,
+        type: payment.plan,
+        date: payment.date,
+        status: payment.status,
+        screenshot: !!payment.screenshot
+      }));
+
+      return status ? payments.filter(payment => payment.status === status) : payments;
+    } catch (error) {
+      this.logger.error('Error getting payments:', error);
+      return [];
+    }
+  }
+
+  public async approveDashboardPayment(paymentId: string) {
+    try {
+      const payment = this.pendingPayments.get(paymentId);
+      if (!payment) {
+        throw new Error('Payment not found');
+      }
+
+      payment.status = 'approved';
+      this.pendingPayments.set(paymentId, payment);
+
+      // Update user balance
+      const currentBalance = this.userBalances.get(payment.userId) || 0;
+      this.userBalances.set(payment.userId, currentBalance + payment.amount);
+
+      // Send notification to user
+      try {
+        await this.bot.api.sendMessage(payment.userId,
+          `✅ To'lovingiz tasdiqlandi!\n\n💰 Summa: ${payment.amount.toLocaleString()} so'm\n📝 Plan: ${payment.plan}\n\nXizmatdan foydalanishingiz mumkin!`
+        );
+      } catch (error) {
+        this.logger.error('Error sending approval notification:', error);
+      }
+
+      return { approved: true, paymentId, amount: payment.amount };
+    } catch (error) {
+      this.logger.error('Error approving payment:', error);
+      throw error;
+    }
+  }
+
+  public async rejectDashboardPayment(paymentId: string, reason?: string) {
+    try {
+      const payment = this.pendingPayments.get(paymentId);
+      if (!payment) {
+        throw new Error('Payment not found');
+      }
+
+      payment.status = 'rejected';
+      this.pendingPayments.set(paymentId, payment);
+
+      // Send notification to user
+      try {
+        const message = reason
+          ? `❌ To'lovingiz rad etildi.\n\nSabab: ${reason}\n\nIltimos, qayta urinib ko'ring.`
+          : `❌ To'lovingiz rad etildi.\n\nIltimos, to'g'ri ma'lumotlar bilan qayta urinib ko'ring.`;
+
+        await this.bot.api.sendMessage(payment.userId, message);
+      } catch (error) {
+        this.logger.error('Error sending rejection notification:', error);
+      }
+
+      return { rejected: true, paymentId, reason };
+    } catch (error) {
+      this.logger.error('Error rejecting payment:', error);
+      throw error;
+    }
+  }
+
+  public async addDriverBalance(driverId: string, amount: number) {
+    try {
+      const driverIdNum = parseInt(driverId.replace('#D', ''));
+      const currentBalance = this.userBalances.get(driverIdNum) || 0;
+      this.userBalances.set(driverIdNum, currentBalance + amount);
+
+      // Send notification to driver
+      try {
+        await this.bot.api.sendMessage(driverIdNum,
+          `💰 Balans to'ldirildi!\n\n➕ Qo'shildi: ${amount.toLocaleString()} so'm\n💳 Yangi balans: ${(currentBalance + amount).toLocaleString()} so'm`
+        );
+      } catch (error) {
+        this.logger.error('Error sending balance notification:', error);
+      }
+
+      return { added: true, driverId, amount, newBalance: currentBalance + amount };
+    } catch (error) {
+      this.logger.error('Error adding driver balance:', error);
+      throw error;
     }
   }
 }

@@ -45,21 +45,26 @@ export class AppController {
   @Get('admin')
   adminPanel(@Res() res: Response) {
     try {
-      return res.sendFile(path.join(process.cwd(), 'public', 'admin-panel.html'));
+      return res.sendFile(path.join(process.cwd(), 'src', 'dashboard', 'dashboard.html'));
     } catch (error) {
-      console.log('Admin panel HTML file not found');
-      return res.json({ 
-        message: 'Admin Panel endpoint',
+      console.log('Admin dashboard HTML file not found');
+      return res.json({
+        message: 'Admin Dashboard endpoint',
         status: 'ready',
         features: [
           'Orders Management',
           'Driver Management',
           'Analytics & Reports',
-          'System Settings',
+          'Payment System',
           'Real-time Monitoring'
         ]
       });
     }
+  }
+
+  @Get('dashboard')
+  dashboard(@Res() res: Response) {
+    return res.sendFile(path.join(process.cwd(), 'src', 'dashboard', 'dashboard.html'));
   }
 
   @Get('health')

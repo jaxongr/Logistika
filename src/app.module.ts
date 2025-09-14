@@ -5,7 +5,7 @@ import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { BotModule } from './bot/bot.module';
-// import { ApiController } from './api/api.controller';
+import { DashboardApiController } from './dashboard/api.controller';
 
 @Module({
   imports: [
@@ -15,9 +15,13 @@ import { BotModule } from './bot/bot.module';
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
     }),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, 'dashboard'),
+      serveRoot: '/dashboard',
+    }),
     BotModule
   ],
-  controllers: [AppController],
+  controllers: [AppController, DashboardApiController],
   providers: [AppService],
 })
 export class AppModule {}

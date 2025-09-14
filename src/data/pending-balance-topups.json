@@ -1,0 +1,12 @@
+{
+  "pendingTopUps": {
+    "6099086283": [
+      {
+        "amount": 20000,
+        "timestamp": "2025-09-14T18:47:22.202Z",
+        "status": "pending_payment_proof",
+        "id": "1757875642202"
+      }
+    ]
+  }
+}
