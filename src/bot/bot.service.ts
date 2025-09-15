@@ -15829,6 +15829,25 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
       });
 
       this.logger.log(`✅ Created ${demoOrders.length} demo orders`);
+
+      // Create demo drivers for testing balance functionality
+      const testDriverId = 1757939488;
+      this.userRoles.set(testDriverId, {
+        role: 'haydovchi',
+        isRegistered: true,
+        registrationDate: new Date().toISOString(),
+        profile: {
+          firstName: 'Test',
+          lastName: 'Haydovchi',
+          fullName: 'Test Haydovchi',
+          phone: '+998911234567',
+          truckInfo: 'Test Transport (10 tonna)'
+        }
+      } as any);
+      this.userBalances.set(testDriverId, 85000); // Initial balance
+
+      this.logger.log(`✅ Created test driver with ID: ${testDriverId}`);
+
     } catch (error) {
       this.logger.error('❌ Error initializing demo data:', error);
     }

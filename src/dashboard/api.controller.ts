@@ -98,12 +98,14 @@ export class DashboardApiController {
                 total: drivers.length
             };
         } catch (error) {
+            console.error('❌ Error getting drivers data:', error);
             return {
                 success: true,
                 data: [
                     {
                         id: '#D001',
-                        name: 'Bekzod Karimov',
+                        realId: 1757939001, // Test uchun haqiqiy ID
+                        name: 'Bekzod Karimov (Demo)',
                         phone: '+998 90 123 45 67',
                         vehicle: 'Isuzu (10 tonna)',
                         balance: 125000,
@@ -112,8 +114,9 @@ export class DashboardApiController {
                         status: 'active'
                     },
                     {
-                        id: '#D002',
-                        name: 'Aziz Toshev',
+                        id: '#D488',
+                        realId: 1757939488, // #D488 uchun test ID
+                        name: 'Test Haydovchi (Demo)',
                         phone: '+998 91 234 56 78',
                         vehicle: 'Mercedes (15 tonna)',
                         balance: 85000,
