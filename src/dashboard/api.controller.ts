@@ -114,6 +114,17 @@ export class DashboardApiController {
                         status: 'active'
                     },
                     {
+                        id: '#D102',
+                        realId: 1757939102, // #D102 uchun test ID
+                        name: 'Haydovchi #D102 (Demo)',
+                        phone: '+998 90 555 66 77',
+                        vehicle: 'Kamaz (12 tonna)',
+                        balance: 95000,
+                        orders: 25,
+                        rating: 4.8,
+                        status: 'active'
+                    },
+                    {
                         id: '#D488',
                         realId: 1757939488, // #D488 uchun test ID
                         name: 'Test Haydovchi (Demo)',
@@ -302,6 +313,28 @@ export class DashboardApiController {
             return {
                 success: false,
                 message: 'Balans to\'ldirishda xatolik',
+                error: error.message
+            };
+        }
+    }
+
+    @Post('drivers/:id/deduct-penalty')
+    async deductDriverPenalty(@Param('id') driverId: string, @Body() penaltyData: { amount: number, reason: string }) {
+        try {
+            console.log('⚠️ Deducting penalty from driver:', driverId, penaltyData.amount);
+
+            const result = await this.botService.addDriverBalanceFromDashboard(driverId, -penaltyData.amount);
+
+            return {
+                success: true,
+                message: 'Jarima yechildi',
+                data: result
+            };
+        } catch (error) {
+            console.error('❌ Error deducting driver penalty:', error);
+            return {
+                success: false,
+                message: 'Jarima yechishda xatolik',
                 error: error.message
             };
         }
