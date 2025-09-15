@@ -797,6 +797,48 @@
         ::-webkit-scrollbar-thumb:hover {
             background: linear-gradient(135deg, #2563eb, #7c3aed);
         }
+
+        /* Autocomplete styles */
+        .autocomplete-container {
+            position: relative;
+        }
+
+        .autocomplete-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-top: none;
+            border-radius: 0 0 0.5rem 0.5rem;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .autocomplete-suggestions.show {
+            display: block;
+        }
+
+        .autocomplete-suggestion {
+            padding: 0.75rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background-color 0.15s ease;
+        }
+
+        .autocomplete-suggestion:hover,
+        .autocomplete-suggestion.highlighted {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .autocomplete-suggestion:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body>
@@ -2037,13 +2079,35 @@
 
                         <form id="newOrderForm" style="display: flex; flex-direction: column; gap: 1.5rem;">
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                                <div>
+                                <div class="autocomplete-container">
                                     <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Qayerdan</label>
-                                    <input type="text" name="fromCity" required style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem;" placeholder="Masalan: Toshkent">
+                                    <input type="text" name="fromCity" id="fromCity" required style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem;" placeholder="Masalan: Toshkent" autocomplete="off">
+                                    <div class="autocomplete-suggestions" id="fromCitySuggestions"></div>
                                 </div>
-                                <div>
+                                <div class="autocomplete-container">
                                     <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Qayerga</label>
-                                    <input type="text" name="toCity" required style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem;" placeholder="Masalan: Samarqand">
+                                    <input type="text" name="toCity" id="toCity" required style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem;" placeholder="Masalan: Samarqand" autocomplete="off">
+                                    <div class="autocomplete-suggestions" id="toCitySuggestions"></div>
+                                </div>
+                            </div>
+
+                            <!-- Distance and Travel Time Display -->
+                            <div id="routeInfo" style="display: none; background: linear-gradient(135deg, #e0f2fe, #f3e8ff); border: 1px solid #bfdbfe; border-radius: 0.5rem; padding: 1rem; margin: 0.5rem 0;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    <i class="fas fa-route" style="color: #3b82f6;"></i>
+                                    <h4 style="margin: 0; color: #1e40af; font-size: 0.9rem;">Marshrut Ma'lumotlari</h4>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.875rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <i class="fas fa-road" style="color: #059669; width: 16px;"></i>
+                                        <span style="color: #374151;">Masofa:</span>
+                                        <strong id="routeDistance" style="color: #059669;">-- km</strong>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <i class="fas fa-clock" style="color: #d97706; width: 16px;"></i>
+                                        <span style="color: #374151;">Vaqt:</span>
+                                        <strong id="routeTime" style="color: #d97706;">-- soat</strong>
+                                    </div>
                                 </div>
                             </div>
 
@@ -2866,6 +2930,327 @@
 
         setInterval(updateTime, 1000);
         updateTime(); // Initial call
+
+        // Shaharlar orasidagi masofalar (km)
+        const cityDistances = {
+            'Toshkent': {
+                'Samarqand': 320, 'Buxoro': 465, 'Namangan': 230, 'Andijon': 280,
+                'Farg\'ona': 270, 'Nukus': 800, 'Qarshi': 390, 'Termez': 680,
+                'Urgench': 750, 'Navoiy': 360, 'Jizzax': 180, 'Gulistan': 120,
+                'Kokand': 250, 'Margilan': 275
+            },
+            'Samarqand': {
+                'Toshkent': 320, 'Buxoro': 280, 'Qarshi': 140, 'Termez': 360,
+                'Navoiy': 210, 'Jizzax': 150, 'Nukus': 520, 'Urgench': 470,
+                'Namangan': 380, 'Andijon': 430, 'Farg\'ona': 420
+            },
+            'Buxoro': {
+                'Toshkent': 465, 'Samarqand': 280, 'Nukus': 340, 'Urgench': 290,
+                'Navoiy': 150, 'Qarshi': 320, 'Termez': 480
+            },
+            'Namangan': {
+                'Toshkent': 230, 'Andijon': 60, 'Farg\'ona': 80, 'Kokand': 50,
+                'Margilan': 25, 'Samarqand': 380
+            },
+            'Andijon': {
+                'Toshkent': 280, 'Namangan': 60, 'Farg\'ona': 40, 'Kokand': 25,
+                'Margilan': 35, 'Samarqand': 430
+            },
+            'Farg\'ona': {
+                'Toshkent': 270, 'Namangan': 80, 'Andijon': 40, 'Kokand': 35,
+                'Margilan': 15, 'Samarqand': 420
+            },
+            'Nukus': {
+                'Toshkent': 800, 'Buxoro': 340, 'Urgench': 200, 'Samarqand': 520
+            },
+            'Urgench': {
+                'Toshkent': 750, 'Buxoro': 290, 'Nukus': 200, 'Samarqand': 470
+            },
+            'Qarshi': {
+                'Toshkent': 390, 'Samarqand': 140, 'Termez': 220, 'Buxoro': 320
+            },
+            'Termez': {
+                'Toshkent': 680, 'Samarqand': 360, 'Qarshi': 220, 'Buxoro': 480
+            },
+            'Navoiy': {
+                'Toshkent': 360, 'Samarqand': 210, 'Buxoro': 150
+            },
+            'Jizzax': {
+                'Toshkent': 180, 'Samarqand': 150
+            },
+            'Gulistan': {
+                'Toshkent': 120
+            },
+            'Kokand': {
+                'Toshkent': 250, 'Namangan': 50, 'Andijon': 25, 'Farg\'ona': 35,
+                'Margilan': 20
+            },
+            'Margilan': {
+                'Toshkent': 275, 'Namangan': 25, 'Andijon': 35, 'Farg\'ona': 15,
+                'Kokand': 20
+            }
+        };
+
+        // Masofa va vaqt hisoblash funksiyasi
+        function calculateRouteInfo(fromCity, toCity) {
+            if (!fromCity || !toCity || fromCity === toCity) {
+                return null;
+            }
+
+            // Normalize city names
+            fromCity = fromCity.trim();
+            toCity = toCity.trim();
+
+            let distance = null;
+
+            // Direct distance lookup
+            if (cityDistances[fromCity] && cityDistances[fromCity][toCity]) {
+                distance = cityDistances[fromCity][toCity];
+            } else if (cityDistances[toCity] && cityDistances[toCity][fromCity]) {
+                distance = cityDistances[toCity][fromCity];
+            }
+
+            if (distance) {
+                // Calculate approximate travel time (average speed 60 km/h)
+                const travelTimeHours = Math.round((distance / 60) * 10) / 10;
+
+                let timeString;
+                if (travelTimeHours < 1) {
+                    timeString = Math.round(travelTimeHours * 60) + ' daqiqa';
+                } else if (travelTimeHours < 24) {
+                    const hours = Math.floor(travelTimeHours);
+                    const minutes = Math.round((travelTimeHours - hours) * 60);
+                    timeString = hours + ' soat';
+                    if (minutes > 0) {
+                        timeString += ' ' + minutes + ' daqiqa';
+                    }
+                } else {
+                    const days = Math.floor(travelTimeHours / 24);
+                    const hours = Math.floor(travelTimeHours % 24);
+                    timeString = days + ' kun';
+                    if (hours > 0) {
+                        timeString += ' ' + hours + ' soat';
+                    }
+                }
+
+                return {
+                    distance: distance,
+                    time: timeString
+                };
+            }
+
+            return null;
+        }
+
+        // Route info update function
+        function updateRouteInfo() {
+            const fromCity = document.getElementById('fromCity').value;
+            const toCity = document.getElementById('toCity').value;
+            const routeInfo = document.getElementById('routeInfo');
+            const routeDistance = document.getElementById('routeDistance');
+            const routeTime = document.getElementById('routeTime');
+
+            const result = calculateRouteInfo(fromCity, toCity);
+
+            if (result) {
+                routeDistance.textContent = result.distance + ' km';
+                routeTime.textContent = result.time;
+                routeInfo.style.display = 'block';
+            } else {
+                routeInfo.style.display = 'none';
+            }
+        }
+
+        // O'zbekiston shaharlar va tumanlar ro'yxati (300+)
+        const uzbekistanCities = [
+            // TOSHKENT VILOYATI
+            'Toshkent', 'Tashkent', 'Bekabad', 'Chirchiq', 'Olmaliq', 'Angren', 'Yangiyul',
+            'Yangiobod', 'Ohangaron', 'Bektemir', 'Sergeli', 'Shayxontohur', 'Yunusobod',
+            'Uchtepa', 'Mirzo Ulug\'bek', 'Yakkasaroy', 'Mirobod', 'Chilonzor', 'Yashnobod',
+            'Qoraqamish', 'Parkent', 'Chinoz', 'Zangiota', 'Qibray', 'Yuqoritepa', 'Pastdarg\'om',
+            'Pskent', 'Quyichirchiq', 'O\'rtachirchiq', 'Bustonliq', 'Akhangaran', 'Bo\'ka',
+            'Chartak', 'Chirchiqsoy', 'Quyi Chirchiq', 'O\'rta Chirchiq', 'Yuqori Chirchiq',
+
+            // SAMARQAND VILOYATI
+            'Samarqand', 'Samarkand', 'Urgut', 'Ishtixon', 'Jomboy', 'Kattaqo\'rg\'on', 'Narpay',
+            'Nurobod', 'Payariq', 'Qarabuloq', 'Toyloq', 'Bulungur', 'Oqdaryo', 'Qo\'shrabot',
+            'Pastdarg\'om', 'Ziadin', 'Kattakurgan', 'Paxtachi', 'Samarqand tumani', 'Pakhtachi',
+
+            // BUXORO VILOYATI
+            'Buxoro', 'Bukhara', 'Gijduvon', 'Romitan', 'Vobkent', 'Shofirkon', 'Olot', 'Peshku',
+            'Qorako\'l', 'Qorovulbozor', 'Jondor', 'Kogon', 'G\'ijduvon', 'Buxoro tumani',
+            'Romitan tumani', 'Vobkent tumani', 'Shofirkon tumani', 'Jondor tumani',
+
+            // SURXONDARYO VILOYATI
+            'Termez', 'Denov', 'Boysun', 'Jarqo\'rg\'on', 'Sherobod', 'Sho\'rchi', 'Bandixon',
+            'Angor', 'Qiziriq', 'Qumqo\'rg\'on', 'Muzrabot', 'Oltinsoy', 'Sariosiyo', 'Uzun',
+            'Termez tumani', 'Denov tumani', 'Boysun tumani', 'Jarqo\'rg\'on tumani',
+
+            // QASHQADARYO VILOYATI
+            'Qarshi', 'Chiroqchi', 'Dehqonobod', 'G\'uzor', 'Qamashi', 'Kasbi', 'Kitob', 'Koson',
+            'Mirishkor', 'Muborak', 'Nishon', 'Shahrisabz', 'Yakkabog\'', 'Qarshi tumani',
+            'Chiroqchi tumani', 'Dehqonobod tumani', 'G\'uzor tumani', 'Kamashi tumani',
+
+            // FARG\'ONA VILOYATI
+            'Farg\'ona', 'Fergana', 'Oltiariq', 'Bag\'dod', 'Beshariq', 'Buvayda', 'Dang\'ara',
+            'Furqat', 'Qo\'qon', 'Kokand', 'Qo\'shtepa', 'Margilan', 'Rishton', 'So\'x', 'Toshloq',
+            'Uchko\'prik', 'Yozyovon', 'Qo\'qon tumani', 'Margilan tumani', 'Farg\'ona tumani',
+            'Oltiariq tumani', 'Bag\'dod tumani', 'Beshariq tumani', 'Buvayda tumani',
+
+            // NAMANGAN VILOYATI
+            'Namangan', 'Chortoq', 'Chust', 'Kosonsoy', 'Mingbuloq', 'Norin', 'Pop', 'To\'raqo\'rg\'on',
+            'Uchqo\'rg\'on', 'Uychi', 'Yangiqo\'rg\'on', 'Namangan tumani', 'Chortoq tumani',
+            'Chust tumani', 'Kosonsoy tumani', 'Mingbuloq tumani', 'Norin tumani', 'Pop tumani',
+
+            // ANDIJON VILOYATI
+            'Andijon', 'Andijan', 'Asaka', 'Baliqchi', 'Bo\'z', 'Buloqboshi', 'Izboskan', 'Jalaquduq',
+            'Marhamat', 'Oltinko\'l', 'Paxtaobod', 'Qo\'rg\'ontepa', 'Shahrixon', 'Ulug\'nor',
+            'Xo\'jaobod', 'Andijon tumani', 'Asaka tumani', 'Baliqchi tumani', 'Bo\'z tumani',
+
+            // NAVOIY VILOYATI
+            'Navoiy', 'Navoi', 'Karmana', 'Konimex', 'Navbahor', 'Nurota', 'Tomdi', 'Uchquduq',
+            'Xatirchi', 'Zarafshan', 'Navoiy tumani', 'Karmana tumani', 'Navbahor tumani',
+            'Nurota tumani', 'Tomdi tumani', 'Uchquduq tumani', 'Xatirchi tumani',
+
+            // XORAZM VILOYATI
+            'Urgench', 'Urganch', 'Bog\'ot', 'Gurlan', 'Xonqa', 'Xazorasp', 'Xiva', 'Khiva',
+            'Qo\'shko\'pir', 'Shovot', 'Yangiariq', 'Yangibozor', 'Urgench tumani', 'Bog\'ot tumani',
+            'Gurlan tumani', 'Xonqa tumani', 'Xazorasp tumani', 'Xiva tumani',
+
+            // QORAQALPOG\'ISTON RESPUBLIKASI
+            'Nukus', 'Amudaryo', 'Beruniy', 'Chimboy', 'Ellikqal\'a', 'Kegeyli', 'Qanliko\'l',
+            'Mo\'ynoq', 'Qo\'ng\'irot', 'Shumanay', 'Taxtako\'pir', 'To\'rtko\'l', 'Xo\'jayli',
+            'Nukus tumani', 'Amudaryo tumani', 'Beruniy tumani', 'Chimboy tumani',
+
+            // JIZZAX VILOYATI
+            'Jizzax', 'Arnasoy', 'Baxtiyor', 'Do\'stlik', 'Forish', 'G\'allaorol', 'Mirzacho\'l',
+            'Paxtakor', 'Yangiobod', 'Zafarobod', 'Zarbdor', 'Zomin', 'Jizzax tumani',
+            'Arnasoy tumani', 'Baxtiyor tumani', 'Do\'stlik tumani', 'Forish tumani',
+
+            // SIRDARYO VILOYATI
+            'Gulistan', 'Boyovut', 'Mirzaobod', 'Oqoltin', 'Sardoba', 'Sayxunobod', 'Xovos',
+            'Yangiyer', 'Shirin', 'Gulistan tumani', 'Boyovut tumani', 'Mirzaobod tumani',
+            'Oqoltin tumani', 'Sardoba tumani', 'Sayxunobod tumani', 'Xovos tumani',
+
+            // QISHLOQ VA SHAHARCHA NOMLARI
+            'Abdurahmonov', 'Abdulla Qodiriy', 'Afrosiyob', 'Agroservis', 'Ahmad Yassaviy',
+            'Akhunbabaev', 'Akmal Ikramov', 'Akramkul', 'Alisher Navoiy', 'Amir Temur',
+            'Andijan-1', 'Andijan-2', 'Arablar', 'Aral', 'Asadabad', 'Asakabank', 'Aydar',
+            'Aybek', 'Azamjon', 'Aztag', 'Badiyon', 'Baglan', 'Bahmal', 'Bakht', 'Baliqchi',
+            'Baxt', 'Bektemir', 'Beruni', 'Besharik', 'Beshtog', 'Birlik', 'Bobur', 'Bodom',
+            'Bogcha', 'Bogiston', 'Boqijon', 'Boyobod', 'Boyqurg\'on', 'Bozchilik', 'Bozor',
+            'Bunyodkor', 'Buston', 'Charvak', 'Chilonzor', 'Chinobod', 'Chirchiq', 'Chorsu',
+            'Davlatobod', 'Dehqonobod', 'Dekhkanabad', 'Denov', 'Dostlik', 'Dug\'oba',
+            'Eshonguzar', 'Farhod', 'Farish', 'Gazli', 'Gazalkent', 'Gijduvan', 'Gishtkoron',
+            'Gulbahor', 'Guliston', 'Gulshan', 'Gulzor', 'Hazarasp', 'Haqiqat', 'Hoshimjon',
+            'Hovliguzar', 'Ibrohim Mominov', 'Ibrohimjon', 'Ilovasikhon', 'Ilon', 'Ingliz',
+            'Iqbol', 'Islomobod', 'Istiqlol', 'Janubiy', 'Jarqurghon', 'Jomboy', 'Jumabozor',
+            'Kagan', 'Kamalak', 'Kamalik', 'Kamchiq', 'Kapchugay', 'Karmana', 'Kasansay',
+            'Kattakorgan', 'Kavat', 'Kayragach', 'Kibray', 'Kitob', 'Kogon', 'Korako\'l',
+            'Koshtepa', 'Krasnogorsk', 'Kuva', 'Langar', 'Latif', 'Madaniyat', 'Madrasa',
+            'Margilon', 'Mashrab', 'Mehnat', 'Mingchinor', 'Mirobot', 'Moliya', 'Mubarak',
+            'Mustaqillik', 'Namangancha', 'Nasaf', 'Navkar', 'Navoi', 'Nazarobod', 'Neftchilar',
+            'Nukus', 'Nurlik', 'Nurota', 'Okhangaron', 'Olmaliq', 'Oltiariq', 'Oltinsoy',
+            'Oqoltin', 'Orzu', 'Osh', 'Oydin', 'Ozodlik', 'Pahtakor', 'Pakhtakor', 'Pamir',
+            'Parkent', 'Pastdargom', 'Paxtaobod', 'Paxtakor', 'Pogbon', 'Pop', 'Poytaxt',
+            'Quyi Chirchiq', 'Qayragach', 'Qibla', 'Qizil Tepa', 'Qorabag', 'Qorako\'l',
+            'Qorovulbozor', 'Qoshtepa', 'Quva', 'Ravot', 'Rayhon', 'Registon', 'Rishovut',
+            'Romitan', 'Samarkand', 'Sardoba', 'Sariosiyo', 'Shabboz', 'Shahrisabz', 'Shakhristan',
+            'Sharaf Rashidov', 'Sherabad', 'Sheroz', 'Shovot', 'Shurchi', 'Sobir Rakhimov',
+            'Soldatskiy', 'Sovetobod', 'Sughd', 'Surxondaryo', 'Taboshar', 'Talimarzhan',
+            'Tashkent', 'Termez', 'Teshiktosh', 'Tinchlik', 'Toshloq', 'Turtkul', 'Tuzel',
+            'Uchkurgan', 'Uchtepa', 'Ulugbek', 'Urtasaroy', 'Usmat', 'Uzun', 'Vahdat',
+            'Varzob', 'Vodil', 'Yangiarik', 'Yangibazar', 'Yangiobod', 'Yangiyo\'l',
+            'Yarim', 'Yassavul', 'Yaypan', 'Yoshlik', 'Yulduz', 'Zafar', 'Zafarabad',
+            'Zamin', 'Zarkainar', 'Zaynabobod', 'Ziadin', 'Zomin', 'Zukhra'
+        ];
+
+        // Autocomplete funksiyasi
+        function setupAutocomplete(inputId, suggestionsId) {
+            const input = document.getElementById(inputId);
+            const suggestions = document.getElementById(suggestionsId);
+            let currentHighlight = -1;
+
+            input.addEventListener('input', function() {
+                const value = this.value.toLowerCase().trim();
+                suggestions.innerHTML = '';
+                currentHighlight = -1;
+
+                if (value.length < 2) {
+                    suggestions.classList.remove('show');
+                    return;
+                }
+
+                const filtered = uzbekistanCities.filter(city =>
+                    city.toLowerCase().includes(value)
+                ).slice(0, 8); // Faqat 8 ta natija ko'rsatish
+
+                if (filtered.length > 0) {
+                    filtered.forEach((city, index) => {
+                        const div = document.createElement('div');
+                        div.className = 'autocomplete-suggestion';
+                        div.textContent = city;
+                        div.addEventListener('click', function() {
+                            input.value = city;
+                            suggestions.classList.remove('show');
+                            updateRouteInfo(); // Update route info when city is selected
+                        });
+                        suggestions.appendChild(div);
+                    });
+                    suggestions.classList.add('show');
+                } else {
+                    suggestions.classList.remove('show');
+                }
+            });
+
+            // Keyboard navigation
+            input.addEventListener('keydown', function(e) {
+                const items = suggestions.querySelectorAll('.autocomplete-suggestion');
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    currentHighlight = Math.min(currentHighlight + 1, items.length - 1);
+                    updateHighlight(items);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    currentHighlight = Math.max(currentHighlight - 1, -1);
+                    updateHighlight(items);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (currentHighlight >= 0 && items[currentHighlight]) {
+                        input.value = items[currentHighlight].textContent;
+                        suggestions.classList.remove('show');
+                        updateRouteInfo(); // Update route info when city is selected via keyboard
+                    }
+                } else if (e.key === 'Escape') {
+                    suggestions.classList.remove('show');
+                    currentHighlight = -1;
+                }
+            });
+
+            function updateHighlight(items) {
+                items.forEach((item, index) => {
+                    item.classList.toggle('highlighted', index === currentHighlight);
+                });
+            }
+
+            // Click outside to close
+            document.addEventListener('click', function(e) {
+                if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+                    suggestions.classList.remove('show');
+                }
+            });
+        }
+
+        // Initialize autocomplete for both fields
+        setupAutocomplete('fromCity', 'fromCitySuggestions');
+        setupAutocomplete('toCity', 'toCitySuggestions');
+
+        // Add event listeners for route calculation
+        document.getElementById('fromCity').addEventListener('input', updateRouteInfo);
+        document.getElementById('toCity').addEventListener('input', updateRouteInfo);
+        document.getElementById('fromCity').addEventListener('blur', updateRouteInfo);
+        document.getElementById('toCity').addEventListener('blur', updateRouteInfo);
     </script>
 </body>
 </html>

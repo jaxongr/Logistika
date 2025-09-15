@@ -170,23 +170,44 @@
   },
   "driverOffers": {},
   "cargoOffers": {
-    "cargo_1757933196218_8098211117": {
-      "id": "cargo_1757933196218_8098211117",
+    "cargo_1757936326631_dashboard": {
+      "id": "cargo_1757936326631_dashboard",
+      "userId": 0,
+      "username": "Admin Dashboard",
+      "fromCity": "Toshkentdan",
+      "toCity": "Fargona",
+      "cargoType": "10 tonna taxta bor",
+      "truckInfo": "Gazel",
+      "price": 2000000,
+      "description": "scsc [Vazn: 10 tonna]",
+      "phone": "Admin",
+      "date": "2025-09-15",
+      "status": "completed",
+      "loadingDate": "2025-12-15",
+      "adminCreated": true,
+      "resentAt": "2025-09-15T11:39:09.816Z",
+      "resentBy": "admin_dashboard",
+      "assignedDriverId": 5968018488,
+      "acceptedDate": "2025-09-15T11:39:35.261Z",
+      "completedDate": "2025-09-15T11:39:48.534Z"
+    },
+    "cargo_1757936581494_8098211117": {
+      "id": "cargo_1757936581494_8098211117",
       "userId": 8098211117,
       "username": "Abdujalol oken",
-      "fromCity": "Andijon",
-      "toCity": "Toshkent",
-      "cargoType": "10tonna bugdoy bor . katta",
+      "fromCity": "Nukus",
+      "toCity": "Qashqadaryo",
+      "cargoType": "10 tonna tarvur bor. . 1000000 bera",
       "truckInfo": "Isuzuu",
-      "price": 2000000,
-      "loadingDate": "Ertaga",
+      "price": 1000000,
+      "loadingDate": "Ertalab",
       "phone": "+998901234567",
       "status": "active",
-      "date": "2025-09-15T10:46:36.218Z",
+      "date": "2025-09-15T11:43:01.494Z",
       "description": "",
       "photo": "",
       "completedAt": null
     }
   },
-  "timestamp": "2025-09-15T11:25:29.246Z"
+  "timestamp": "2025-09-15T11:43:01.494Z"
 }

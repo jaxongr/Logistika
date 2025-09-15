@@ -15644,16 +15644,49 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
         orders = orders.slice(0, limit);
       }
 
-      return orders.map(order => ({
-        id: order.id,
-        customer: order.username || 'No name',
-        driver: 'Assigned',
-        route: `${order.fromCity} → ${order.toCity}`,
-        cargoType: order.cargoType,
-        amount: order.price,
-        date: new Date(order.date).toISOString().split('T')[0],
-        status: order.status
-      }));
+      return orders.map(order => {
+        // Get driver information if assigned
+        let driverName = 'Tayinlanmagan';
+        const orderAny = order as any;
+
+        if (orderAny.assignedDriverId) {
+          const driverData = this.userRoles.get(orderAny.assignedDriverId);
+          const driverOffer = Array.from(this.driverOffers.values())
+            .find(offer => offer.userId === orderAny.assignedDriverId);
+
+          driverName = driverData?.profile?.fullName ||
+                      driverData?.profile?.name ||
+                      driverOffer?.driverName ||
+                      `Haydovchi #${String(orderAny.assignedDriverId).slice(-3)}`;
+        }
+
+        // Determine order source
+        let orderSource = 'yukchi'; // default
+        if (orderAny.adminCreated) {
+          orderSource = 'admin';
+        } else if (order.userId === 0 || order.username === 'Admin Dashboard') {
+          orderSource = 'admin';
+        }
+
+        return {
+          id: order.id,
+          customer: order.username || 'Noma\'lum',
+          driver: driverName,
+          route: `${order.fromCity} → ${order.toCity}`,
+          cargoType: order.cargoType,
+          amount: order.price,
+          date: order.date,
+          status: order.status,
+          phone: order.phone,
+          loadingDate: order.loadingDate,
+          description: order.description,
+          source: orderSource,
+          acceptedAt: order.acceptedDate || orderAny.acceptedAt,
+          completedAt: order.completedDate || orderAny.completedAt,
+          cancelledAt: orderAny.cancelledAt,
+          resentAt: orderAny.resentAt
+        };
+      });
     } catch (error) {
       this.logger.error('Error getting orders:', error);
       return [];
@@ -15664,18 +15697,30 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
     try {
       const drivers = Array.from(this.userRoles.entries())
         .filter(([userId, userData]) => userData.role === 'haydovchi' && userData.isRegistered)
-        .map(([userId, userData]) => ({
-          id: `#D${String(userId).slice(-3)}`,
-          name: userData.profile?.name || 'Driver',
-          phone: userData.profile?.phone || '+998xxxxxxxxx',
-          vehicle: userData.profile?.truckInfo || 'No vehicle info',
-          balance: this.userBalances.get(userId) || 0,
-          orders: Array.from(this.cargoOffers.values()).filter(cargo =>
-            cargo.userId === userId
-          ).length,
-          rating: 4.5 + Math.random() * 0.5,
-          status: status || 'active'
-        }));
+        .map(([userId, userData]) => {
+          // Get driver offer for additional info
+          const driverOffer = Array.from(this.driverOffers.values())
+            .find(offer => offer.userId === userId);
+
+          // Get full name from multiple sources
+          const fullName = userData.profile?.fullName ||
+                          userData.profile?.name ||
+                          driverOffer?.driverName ||
+                          `Haydovchi #${String(userId).slice(-3)}`;
+
+          return {
+            id: `#D${String(userId).slice(-3)}`,
+            name: fullName,
+            phone: userData.profile?.phone || driverOffer?.phone || '+998xxxxxxxxx',
+            vehicle: userData.profile?.truckInfo || driverOffer?.truckType || 'Ma\'lumot yo\'q',
+            balance: this.userBalances.get(userId) || 0,
+            orders: Array.from(this.cargoOffers.values()).filter(cargo =>
+              cargo.userId === userId || (cargo as any).assignedDriverId === userId
+            ).length,
+            rating: 4.5 + Math.random() * 0.5,
+            status: status || 'active'
+          };
+        });
 
       return status ? drivers.filter(driver => driver.status === status) : drivers;
     } catch (error) {
@@ -15913,8 +15958,7 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
 
       this.logger.log(`📢 Notifying ${drivers.length} drivers about new cargo`);
 
-      const message = `
-🆕 **YANGI YUK BUYURTMASI** 📦
+      const message = `🆕 **YANGI YUK BUYURTMASI** 📦
 
 🛣️ **Marshrut:** ${cargoOffer.fromCity} → ${cargoOffer.toCity}
 📦 **Yuk turi:** ${cargoOffer.cargoType}
@@ -15924,15 +15968,25 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
 ${cargoOffer.loadingDate ? `📅 **Yuklanish:** ${cargoOffer.loadingDate}` : ''}
 ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''}
 
-👨‍💼 **Admin tomonidan yaratildi**
+👨‍💼 **Admin tomonidan yaratildi**`;
 
-Buyurtmani qabul qilish uchun /start buyrug'ini yuboring va "Yuklar" bo'limini tanlang.
-      `;
+      // Create inline keyboard for accepting the order
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: '✅ Qabul qilish', callback_data: `accept_cargo_${cargoOffer.id}` },
+            { text: '❌ Rad etish', callback_data: `reject_cargo_${cargoOffer.id}` }
+          ]
+        ]
+      };
 
       let notifiedCount = 0;
       for (const [userId] of drivers) {
         try {
-          await this.bot.api.sendMessage(userId, message);
+          await this.bot.api.sendMessage(userId, message, {
+            reply_markup: keyboard,
+            parse_mode: 'Markdown'
+          });
           notifiedCount++;
           // Small delay to avoid rate limiting
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -16207,6 +16261,60 @@ Buyurtmani qabul qilish uchun /start buyrug'ini yuboring va "Yuklar" bo'limini t
 
     } catch (error) {
       this.logger.error('❌ Error getting driver details from dashboard:', error);
+      throw error;
+    }
+  }
+
+  async addDriverBalanceFromDashboard(driverId: string, amount: number) {
+    try {
+      this.logger.log(`💰 Adding balance to driver from dashboard: ${driverId}, amount: ${amount}`);
+
+      // Parse driver ID if it's a string
+      const driverIdNum = parseInt(driverId.replace(/[^0-9]/g, ''), 10);
+
+      // Find the driver
+      const driverData = this.userRoles.get(driverIdNum);
+      if (!driverData || driverData.role !== 'haydovchi') {
+        throw new Error('Haydovchi topilmadi');
+      }
+
+      // Get current balance
+      const currentBalance = this.userBalances.get(driverIdNum) || 0;
+      const newBalance = currentBalance + amount;
+
+      // Update balance
+      this.userBalances.set(driverIdNum, newBalance);
+
+      // Send notification to driver
+      const message = `💰 BALANS TO'LDIRILDI\n\n` +
+        `📊 Oldingi balans: ${currentBalance.toLocaleString()} so'm\n` +
+        `➕ Qo'shilgan: ${amount.toLocaleString()} so'm\n` +
+        `💳 Yangi balans: ${newBalance.toLocaleString()} so'm\n\n` +
+        `✅ Dashboard orqali to'ldirildi`;
+
+      try {
+        await this.bot.api.sendMessage(driverIdNum, message);
+        this.logger.log(`✅ Balance update notification sent to driver ${driverIdNum}`);
+      } catch (error) {
+        this.logger.warn(`Failed to send balance notification to driver ${driverIdNum}:`, error);
+      }
+
+      // Broadcast real-time update to dashboard
+      this.dashboardGateway.broadcastDriverBalanceUpdate(driverIdNum, newBalance, amount);
+
+      this.logger.log(`✅ Driver ${driverIdNum} balance updated: ${currentBalance} -> ${newBalance}`);
+
+      return {
+        success: true,
+        driverId: driverIdNum,
+        previousBalance: currentBalance,
+        addedAmount: amount,
+        newBalance: newBalance,
+        notificationSent: true
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Error adding driver balance from dashboard:', error);
       throw error;
     }
   }

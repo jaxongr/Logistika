@@ -285,7 +285,9 @@ export class DashboardApiController {
     @Post('drivers/:id/add-balance')
     async addDriverBalance(@Param('id') driverId: string, @Body('amount') amount: number) {
         try {
-            const result = await this.addBalanceToDriver(driverId, amount);
+            console.log('💰 Adding balance to driver from dashboard:', driverId, amount);
+
+            const result = await this.botService.addDriverBalanceFromDashboard(driverId, amount);
 
             return {
                 success: true,
@@ -293,6 +295,7 @@ export class DashboardApiController {
                 data: result
             };
         } catch (error) {
+            console.error('❌ Error adding driver balance:', error);
             return {
                 success: false,
                 message: 'Balans to\'ldirishda xatolik',

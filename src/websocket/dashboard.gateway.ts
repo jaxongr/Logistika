@@ -77,6 +77,16 @@ export class DashboardGateway implements OnGatewayConnection, OnGatewayDisconnec
     this.server.emit('stats-update', stats);
   }
 
+  broadcastDriverBalanceUpdate(driverId: number, newBalance: number, addedAmount: number) {
+    this.logger.log(`💰 Broadcasting driver balance update: Driver ${driverId} -> ${newBalance}`);
+    this.server.emit('driver-balance-update', {
+      driverId,
+      newBalance,
+      addedAmount,
+      timestamp: new Date().toISOString()
+    });
+  }
+
   private emitDashboardStats() {
     // Bu method'da real statistikalarni yuborish kerak
     // Hozircha demo data

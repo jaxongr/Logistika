@@ -54,7 +54,8 @@
       "Bash(tasklist:*)",
       "Bash(dir distdashboard)",
       "Bash(dir srcservices)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
