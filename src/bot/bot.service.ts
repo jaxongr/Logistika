@@ -15851,6 +15851,7 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
 
           return {
             id: `#D${String(userId).slice(-3)}`,
+            realId: userId, // Haqiqiy ID qo'shamiz
             name: fullName,
             phone: userData.profile?.phone || driverOffer?.phone || '+998xxxxxxxxx',
             vehicle: userData.profile?.truckInfo || driverOffer?.truckType || 'Ma\'lumot yo\'q',
@@ -16412,12 +16413,33 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
     try {
       this.logger.log(`💰 Adding balance to driver from dashboard: ${driverId}, amount: ${amount}`);
 
-      // Parse driver ID if it's a string
-      const driverIdNum = parseInt(driverId.replace(/[^0-9]/g, ''), 10);
+      // Parse driver ID - handle both string IDs like "#D488" and numeric IDs
+      let driverIdNum: number;
+      if (typeof driverId === 'string' && driverId.startsWith('#')) {
+        // If it's a display ID like "#D488", try to match with registered drivers
+        const suffix = driverId.replace(/[^0-9]/g, '');
+        const possibleDrivers = Array.from(this.userRoles.entries())
+          .filter(([id, data]) => data.role === 'haydovchi' && String(id).endsWith(suffix));
+
+        if (possibleDrivers.length === 1) {
+          driverIdNum = possibleDrivers[0][0];
+        } else {
+          this.logger.error(`❌ Cannot uniquely identify driver with suffix ${suffix}. Found ${possibleDrivers.length} matches`);
+          throw new Error('Haydovchini aniq tanlab bo\'lmadi');
+        }
+      } else {
+        // If it's a numeric ID, parse it directly
+        driverIdNum = typeof driverId === 'number' ? driverId : parseInt(String(driverId).replace(/[^0-9]/g, ''), 10);
+      }
+
+      this.logger.log(`🔍 Driver ID: ${driverId} -> ${driverIdNum}, all registered drivers: ${Array.from(this.userRoles.keys()).filter(id => this.userRoles.get(id)?.role === 'haydovchi')}`);
 
       // Find the driver
       const driverData = this.userRoles.get(driverIdNum);
+      this.logger.log(`👤 Driver data found: ${JSON.stringify(driverData)}`);
+
       if (!driverData || driverData.role !== 'haydovchi') {
+        this.logger.error(`❌ Driver not found or not haydovchi. Available drivers: ${Array.from(this.userRoles.entries()).filter(([id, data]) => data.role === 'haydovchi').map(([id, data]) => `${id}:${data.profile?.firstName || 'unknown'}`).join(', ')}`);
         throw new Error('Haydovchi topilmadi');
       }
 
