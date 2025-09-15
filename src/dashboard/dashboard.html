@@ -1037,13 +1037,20 @@
                 console.log('Found nav items:', navItems.length);
 
                 navItems.forEach((item, index) => {
-                    console.log('Setting up listener for nav item:', item.getAttribute('data-page'));
+                    const page = item.getAttribute('data-page');
+                    console.log('Setting up listener for nav item:', page);
                     item.addEventListener('click', (e) => {
                         e.preventDefault();
-                        const page = item.getAttribute('data-page');
                         console.log('🖱️ Clicked navigation item:', page);
+
+                        // Immediately update active state for visual feedback
                         this.setActivePage(page);
+
+                        // Load the page content
                         this.loadPage(page);
+
+                        // Show notification for user feedback
+                        this.showNotification(`${this.getPageDisplayName(page)} sahifasi yuklanmoqda...`, 'info');
                     });
                 });
 
@@ -1072,13 +1079,19 @@
 
             setActivePage(page) {
                 console.log('🎯 Setting active page:', page);
+
+                // Remove active class from all nav items
                 document.querySelectorAll('.nav-item').forEach(item => {
                     item.classList.remove('active');
                 });
 
+                // Add active class to current page
                 const activeItem = document.querySelector('[data-page="' + page + '"]');
                 if (activeItem) {
                     activeItem.classList.add('active');
+                    console.log('✅ Active class added to:', page);
+                } else {
+                    console.error('❌ Nav item not found for page:', page);
                 }
 
                 this.currentPage = page;
@@ -1092,30 +1105,53 @@
                     return;
                 }
 
+                // Show loading state
+                contentArea.innerHTML = `
+                    <div style="display: flex; justify-content: center; align-items: center; height: 200px; color: #6b7280;">
+                        <div style="text-align: center;">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                            <p>Ma'lumotlar yuklanmoqda...</p>
+                        </div>
+                    </div>
+                `;
+
                 let content = '';
 
                 switch(page) {
                     case 'dashboard':
+                        console.log('🏠 Rendering dashboard...');
                         content = this.renderDashboard();
                         break;
                     case 'orders':
+                        console.log('📦 Rendering orders...');
                         content = this.renderOrders();
                         break;
                     case 'drivers':
+                        console.log('🚗 Rendering drivers...');
                         content = this.renderDrivers();
                         break;
                     case 'dispatchers':
+                        console.log('🎧 Rendering dispatchers...');
                         content = this.renderDispatchers();
                         break;
                     case 'customers':
+                        console.log('👥 Rendering customers...');
                         content = this.renderCustomers();
                         break;
+                    case 'history':
+                        console.log('📚 Rendering order history...');
+                        content = this.renderOrderHistory();
+                        break;
                     default:
+                        console.log('🔧 Rendering coming soon for:', page);
                         content = this.renderComingSoon(page);
                 }
 
-                contentArea.innerHTML = content;
-                console.log('✅ Page content loaded');
+                // Small delay to show loading state
+                setTimeout(() => {
+                    contentArea.innerHTML = content;
+                    console.log('✅ Page content loaded for:', page);
+                }, 100);
             }
 
             renderDashboard() {
@@ -1186,23 +1222,474 @@
             }
 
             renderOrders() {
+                // Faqat faol buyurtmalarni ko'rsatish (active, matched, pending)
+                const allOrders = this.apiData.orders || [];
+                const orders = allOrders.filter(order =>
+                    order.status === 'active' ||
+                    order.status === 'matched' ||
+                    order.status === 'pending'
+                );
+                console.log('📦 Rendering orders:', orders.length);
+
+                if (orders.length === 0) {
+                    return `
+                        <div class="content-card">
+                            <div class="content-header">
+                                <h2 class="content-title">Buyurtmalar nazorati</h2>
+                                <div class="content-actions">
+                                    <button class="btn-primary" onclick="dashboard.openNewOrderModal()">
+                                        <i class="fas fa-plus"></i>
+                                        <span>Yangi buyurtma</span>
+                                    </button>
+                                    <button class="btn-secondary" onclick="dashboard.refreshOrders()">
+                                        <i class="fas fa-refresh"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div style="padding: 2rem; text-align: center;">
+                                <div style="width: 5rem; height: 5rem; border-radius: 1rem; background: #f3f4f6; color: #9ca3af; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+                                    <i class="fas fa-box" style="font-size: 2rem;"></i>
+                                </div>
+                                <h3 style="color: #374151; margin-bottom: 0.5rem;">Buyurtmalar topilmadi</h3>
+                                <p style="color: #6b7280;">Hali hech qanday buyurtma berilmagan</p>
+                                <button class="btn-primary" onclick="dashboard.openNewOrderModal()" style="margin-top: 1rem;">
+                                    <i class="fas fa-plus"></i>
+                                    Birinchi buyurtmani yarating
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const getStatusBadge = (status) => {
+                    const statusMap = {
+                        'active': { color: '#3b82f6', bg: '#dbeafe', text: 'Faol' },
+                        'matched': { color: '#10b981', bg: '#d1fae5', text: 'Haydovchi topildi' },
+                        'pending': { color: '#f59e0b', bg: '#fef3c7', text: 'Kutilmoqda' }
+                    };
+                    const s = statusMap[status] || statusMap['active'];
+                    return `<span style="padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: ${s.bg}; color: ${s.color};">${s.text}</span>`;
+                };
+
+                const ordersTable = orders.map(order => `
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 1rem;">
+                            <div style="font-weight: 600; color: #111827; margin-bottom: 0.25rem;">${order.id}</div>
+                            <div style="font-size: 0.875rem; color: #6b7280;">${order.date}</div>
+                        </td>
+                        <td style="padding: 1rem;">
+                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${order.customer}</div>
+                            <div style="font-size: 0.875rem; color: #6b7280;">Mijoz</div>
+                        </td>
+                        <td style="padding: 1rem;">
+                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${order.route}</div>
+                            <div style="font-size: 0.875rem; color: #6b7280;">${order.cargoType}</div>
+                        </td>
+                        <td style="padding: 1rem;">
+                            <div style="font-weight: 600; color: #111827;">${this.formatCurrency(order.amount)}</div>
+                        </td>
+                        <td style="padding: 1rem;">
+                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${order.driver}</div>
+                            <div style="font-size: 0.875rem; color: #6b7280;">Haydovchi</div>
+                        </td>
+                        <td style="padding: 1rem;">
+                            ${getStatusBadge(order.status)}
+                        </td>
+                        <td style="padding: 1rem;">
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn-secondary" onclick="dashboard.viewOrderDetails('${order.id}')" style="padding: 0.5rem; font-size: 0.875rem;">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn-secondary" onclick="dashboard.editOrder('${order.id}')" style="padding: 0.5rem; font-size: 0.875rem;">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+
+                const statusCounts = orders.reduce((acc, order) => {
+                    acc[order.status] = (acc[order.status] || 0) + 1;
+                    return acc;
+                }, {});
+
                 return `
                     <div class="content-card">
                         <div class="content-header">
                             <h2 class="content-title">Buyurtmalar nazorati</h2>
                             <div class="content-actions">
-                                <button class="btn-primary" onclick="dashboard.openModal('order')">
+                                <button class="btn-primary" onclick="dashboard.openNewOrderModal()">
                                     <i class="fas fa-plus"></i>
                                     <span>Yangi buyurtma</span>
                                 </button>
                                 <button class="btn-secondary" onclick="dashboard.refreshOrders()">
-                                    <i class="fas fa-filter"></i>
+                                    <i class="fas fa-refresh"></i>
+                                    <span>Yangilash</span>
                                 </button>
                             </div>
                         </div>
-                        <div style="padding: 2rem;">
-                            <p>Buyurtmalar ma'lumotlari yuklanmoqda...</p>
-                            <div style="margin-top: 1rem;">
+                        <div style="padding: 1.5rem;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                                <div style="background: #dbeafe; padding: 1rem; border-radius: 0.5rem; text-align: center;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #3b82f6; margin-bottom: 0.25rem;">${statusCounts.active || 0}</div>
+                                    <div style="font-size: 0.875rem; color: #1e40af; font-weight: 500;">Faol buyurtmalar</div>
+                                </div>
+                                <div style="background: #d1fae5; padding: 1rem; border-radius: 0.5rem; text-align: center;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #10b981; margin-bottom: 0.25rem;">${statusCounts.matched || 0}</div>
+                                    <div style="font-size: 0.875rem; color: #065f46; font-weight: 500;">Haydovchi topildi</div>
+                                </div>
+                                <div style="background: #fef3c7; padding: 1rem; border-radius: 0.5rem; text-align: center;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #f59e0b; margin-bottom: 0.25rem;">${statusCounts.pending || 0}</div>
+                                    <div style="font-size: 0.875rem; color: #92400e; font-weight: 500;">Kutilmoqda</div>
+                                </div>
+                                <div style="background: #f3f4f6; padding: 1rem; border-radius: 0.5rem; text-align: center;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #6b7280; margin-bottom: 0.25rem;">${allOrders.length}</div>
+                                    <div style="font-size: 0.875rem; color: #374151; font-weight: 500;">Jami buyurtmalar</div>
+                                </div>
+                            </div>
+
+                            <div style="overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 0.5rem; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                    <thead>
+                                        <tr style="background: #f9fafb;">
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Buyurtma ID</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Mijoz</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Marshrut va Yuk</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Summa</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Haydovchi</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Holat</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Amallar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${ordersTable}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                                <button class="btn-secondary" onclick="dashboard.loadPage('dashboard')">
+                                    <i class="fas fa-arrow-left"></i>
+                                    Bosh sahifaga qaytish
+                                </button>
+                                <div style="color: #6b7280; font-size: 0.875rem;">
+                                    Jami: ${orders.length} ta buyurtma
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderOrderHistory() {
+                // Faqat yakunlangan va bekor qilingan buyurtmalarni ko'rsatish
+                const allOrders = this.apiData.orders || [];
+                const orders = allOrders.filter(order =>
+                    order.status === 'completed' ||
+                    order.status === 'cancelled'
+                );
+                console.log('📚 Rendering order history:', orders.length);
+
+                if (orders.length === 0) {
+                    return `
+                        <div class="content-card">
+                            <div class="content-header">
+                                <h2 class="content-title">Buyurtmalar tarixi</h2>
+                            </div>
+                            <div style="padding: 2rem; text-align: center;">
+                                <div style="width: 5rem; height: 5rem; border-radius: 1rem; background: #f3f4f6; color: #9ca3af; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+                                    <i class="fas fa-history" style="font-size: 2rem;"></i>
+                                </div>
+                                <h3 style="color: #374151; margin-bottom: 0.5rem;">Tarix topilmadi</h3>
+                                <p style="color: #6b7280;">Hali hech qanday buyurtma yakunlanmagan</p>
+                                <button class="btn-secondary" onclick="dashboard.loadPage('dashboard')" style="margin-top: 1rem;">
+                                    <i class="fas fa-arrow-left"></i>
+                                    Bosh sahifaga qaytish
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const getHistoryStatusBadge = (status) => {
+                    const statusMap = {
+                        'completed': { color: '#059669', bg: '#a7f3d0', text: 'Yakunlandi' },
+                        'cancelled': { color: '#ef4444', bg: '#fee2e2', text: 'Bekor qilindi' }
+                    };
+                    const s = statusMap[status] || statusMap['completed'];
+                    return `<span style="padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: ${s.bg}; color: ${s.color};">${s.text}</span>`;
+                };
+
+                const historyTable = orders.map(order => `
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                        <td style="padding: 1rem;">
+                            <div style="font-weight: 600; color: #111827; margin-bottom: 0.25rem;">${order.id}</div>
+                            <div style="font-size: 0.875rem; color: #6b7280;">${order.date}</div>
+                        </td>
+                        <td style="padding: 1rem;">
+                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${order.customer}</div>
+                            <div style="font-size: 0.875rem; color: #6b7280;">Mijoz</div>
+                        </td>
+                        <td style="padding: 1rem;">
+                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${order.route}</div>
+                            <div style="font-size: 0.875rem; color: #6b7280;">${order.cargoType}</div>
+                        </td>
+                        <td style="padding: 1rem;">
+                            <div style="font-weight: 600; color: #111827;">${this.formatCurrency(order.amount)}</div>
+                        </td>
+                        <td style="padding: 1rem;">
+                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${order.driver}</div>
+                            <div style="font-size: 0.875rem; color: #6b7280;">Haydovchi</div>
+                        </td>
+                        <td style="padding: 1rem;">
+                            ${getHistoryStatusBadge(order.status)}
+                        </td>
+                        <td style="padding: 1rem;">
+                            <button class="btn-secondary" onclick="dashboard.viewOrderDetails('${order.id}')" style="padding: 0.5rem; font-size: 0.875rem;">
+                                <i class="fas fa-info-circle"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                const statusCounts = orders.reduce((acc, order) => {
+                    acc[order.status] = (acc[order.status] || 0) + 1;
+                    return acc;
+                }, {});
+
+                return `
+                    <div class="content-card">
+                        <div class="content-header">
+                            <h2 class="content-title">Buyurtmalar tarixi</h2>
+                            <div class="content-actions">
+                                <button class="btn-secondary" onclick="dashboard.refreshOrderHistory()">
+                                    <i class="fas fa-refresh"></i>
+                                    <span>Yangilash</span>
+                                </button>
+                                <button class="btn-secondary" onclick="dashboard.loadPage('orders')">
+                                    <i class="fas fa-arrow-left"></i>
+                                    <span>Faol buyurtmalarga</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div style="padding: 1.5rem;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                                <div style="background: #a7f3d0; padding: 1rem; border-radius: 0.5rem; text-align: center;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #059669; margin-bottom: 0.25rem;">${statusCounts.completed || 0}</div>
+                                    <div style="font-size: 0.875rem; color: #065f46; font-weight: 500;">Yakunlangan</div>
+                                </div>
+                                <div style="background: #fee2e2; padding: 1rem; border-radius: 0.5rem; text-align: center;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #ef4444; margin-bottom: 0.25rem;">${statusCounts.cancelled || 0}</div>
+                                    <div style="font-size: 0.875rem; color: #dc2626; font-weight: 500;">Bekor qilingan</div>
+                                </div>
+                                <div style="background: #f3f4f6; padding: 1rem; border-radius: 0.5rem; text-align: center;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #6b7280; margin-bottom: 0.25rem;">${orders.length}</div>
+                                    <div style="font-size: 0.875rem; color: #374151; font-weight: 500;">Jami</div>
+                                </div>
+                                <div style="background: #e0f2fe; padding: 1rem; border-radius: 0.5rem; text-align: center;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #0277bd; margin-bottom: 0.25rem;">${allOrders.length}</div>
+                                    <div style="font-size: 0.875rem; color: #01579b; font-weight: 500;">Barcha buyurtmalar</div>
+                                </div>
+                            </div>
+
+                            <div style="overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 0.5rem; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                    <thead>
+                                        <tr style="background: #f9fafb;">
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Buyurtma ID</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Mijoz</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Marshrut va Yuk</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Summa</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Haydovchi</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Natija</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Tafsilot</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${historyTable}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                                <button class="btn-secondary" onclick="dashboard.loadPage('dashboard')">
+                                    <i class="fas fa-arrow-left"></i>
+                                    Bosh sahifaga qaytish
+                                </button>
+                                <div style="color: #6b7280; font-size: 0.875rem;">
+                                    Jami: ${orders.length} ta yakunlangan buyurtma
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderDrivers() {
+                const drivers = this.apiData.drivers || [];
+                console.log('📊 Rendering drivers:', drivers);
+
+                if (drivers.length === 0) {
+                    return `
+                        <div class="content-card">
+                            <div class="content-header">
+                                <h2 class="content-title">Haydovchilar boshqaruvi</h2>
+                            </div>
+                            <div style="padding: 2rem; text-align: center;">
+                                <div style="width: 5rem; height: 5rem; border-radius: 1rem; background: #f3f4f6; color: #9ca3af; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+                                    <i class="fas fa-users" style="font-size: 2rem;"></i>
+                                </div>
+                                <h3 style="color: #374151; margin-bottom: 0.5rem;">Haydovchilar topilmadi</h3>
+                                <p style="color: #6b7280;">Hali hech qanday haydovchi ro'yxatdan o'tmagan</p>
+                                <button class="btn-secondary" onclick="dashboard.loadPage('dashboard')" style="margin-top: 1rem;">
+                                    <i class="fas fa-arrow-left"></i>
+                                    Bosh sahifaga qaytish
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const driversTable = drivers.map(driver => `
+                    <tr>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
+                            <div style="display: flex; align-items: center;">
+                                <div style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; display: flex; align-items: center; justify-content: center; margin-right: 0.75rem;">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 600; color: #111827;">${driver.name}</div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">${driver.id}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${driver.phone}</td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${driver.vehicle}</td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${this.formatCurrency(driver.balance)}</td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${driver.orders}</td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
+                            <div style="display: flex; align-items: center;">
+                                <i class="fas fa-star" style="color: #fbbf24; margin-right: 0.25rem;"></i>
+                                <span style="color: #374151;">${driver.rating.toFixed(1)}</span>
+                            </div>
+                        </td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
+                            <span style="padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: #dcfce7; color: #166534;">
+                                Faol
+                            </span>
+                        </td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
+                            <button class="btn-secondary" onclick="dashboard.showNotification('Haydovchi ma\\'lumotlari: ${driver.name}', 'info')" style="padding: 0.5rem; font-size: 0.875rem;">
+                                <i class="fas fa-info"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                return `
+                    <div class="content-card">
+                        <div class="content-header">
+                            <h2 class="content-title">Haydovchilar boshqaruvi</h2>
+                            <div class="content-actions">
+                                <button class="btn-secondary" onclick="dashboard.refreshDrivers()">
+                                    <i class="fas fa-refresh"></i>
+                                    <span>Yangilash</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div style="padding: 1.5rem;">
+                            <div style="background: #f8fafc; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <h4 style="color: #1f2937; margin: 0 0 0.25rem 0;">Bot'dan ro'yxatdan o'tgan haydovchilar</h4>
+                                        <p style="color: #6b7280; margin: 0; font-size: 0.875rem;">Real foydalanuvchilar ma'lumotlari</p>
+                                    </div>
+                                    <div style="font-size: 2rem; font-weight: 700; color: #3b82f6;">${drivers.length}</div>
+                                </div>
+                            </div>
+
+                            <div style="overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: #f9fafb;">
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Haydovchi</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Telefon</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Transport</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Balans</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Buyurtmalar</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Reyting</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Holat</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Amallar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${driversTable}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                                <button class="btn-secondary" onclick="dashboard.loadPage('dashboard')">
+                                    <i class="fas fa-arrow-left"></i>
+                                    Bosh sahifaga qaytish
+                                </button>
+                                <div style="color: #6b7280; font-size: 0.875rem;">
+                                    Jami: ${drivers.length} ta haydovchi
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderDispatchers() {
+                const dispatchers = this.apiData.dispatchers || [];
+                console.log('📊 Rendering dispatchers:', dispatchers);
+
+                if (dispatchers.length === 0) {
+                    return `
+                        <div class="content-card">
+                            <div class="content-header">
+                                <h2 class="content-title">Dispecherlar boshqaruvi</h2>
+                            </div>
+                            <div style="padding: 2rem; text-align: center;">
+                                <div style="width: 5rem; height: 5rem; border-radius: 1rem; background: #f3f4f6; color: #9ca3af; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+                                    <i class="fas fa-headset" style="font-size: 2rem;"></i>
+                                </div>
+                                <h3 style="color: #374151; margin-bottom: 0.5rem;">Dispecherlar topilmadi</h3>
+                                <p style="color: #6b7280;">Hali hech qanday dispecher ro'yxatdan o'tmagan</p>
+                                <button class="btn-secondary" onclick="dashboard.loadPage('dashboard')" style="margin-top: 1rem;">
+                                    <i class="fas fa-arrow-left"></i>
+                                    Bosh sahifaga qaytish
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="content-card">
+                        <div class="content-header">
+                            <h2 class="content-title">Dispecherlar boshqaruvi</h2>
+                            <div class="content-actions">
+                                <button class="btn-secondary" onclick="dashboard.refreshDispatchers()">
+                                    <i class="fas fa-refresh"></i>
+                                    <span>Yangilash</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div style="padding: 1.5rem;">
+                            <div style="background: #f8fafc; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <h4 style="color: #1f2937; margin: 0 0 0.25rem 0;">Bot'dan ro'yxatdan o'tgan dispecherlar</h4>
+                                        <p style="color: #6b7280; margin: 0; font-size: 0.875rem;">Real foydalanuvchilar ma'lumotlari</p>
+                                    </div>
+                                    <div style="font-size: 2rem; font-weight: 700; color: #10b981;">${dispatchers.length}</div>
+                                </div>
+                            </div>
+                            <p style="color: #6b7280; text-align: center;">Dispecherlar ma'lumotlari yuklanmoqda...</p>
+                            <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
                                 <button class="btn-secondary" onclick="dashboard.loadPage('dashboard')">
                                     <i class="fas fa-arrow-left"></i>
                                     Bosh sahifaga qaytish
@@ -1213,25 +1700,105 @@
                 `;
             }
 
-            renderDrivers() {
-                return `
-                    <div class="content-card">
-                        <div class="content-header">
-                            <h2 class="content-title">Haydovchilar boshqaruvi</h2>
-                            <div class="content-actions">
-                                <button class="btn-primary" onclick="dashboard.openModal('driver')">
-                                    <i class="fas fa-user-plus"></i>
-                                    <span>Yangi haydovchi</span>
+            renderCustomers() {
+                const customers = this.apiData.customers || [];
+                console.log('📊 Rendering customers:', customers);
+
+                if (customers.length === 0) {
+                    return `
+                        <div class="content-card">
+                            <div class="content-header">
+                                <h2 class="content-title">Mijozlar boshqaruvi</h2>
+                            </div>
+                            <div style="padding: 2rem; text-align: center;">
+                                <div style="width: 5rem; height: 5rem; border-radius: 1rem; background: #f3f4f6; color: #9ca3af; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
+                                    <i class="fas fa-users" style="font-size: 2rem;"></i>
+                                </div>
+                                <h3 style="color: #374151; margin-bottom: 0.5rem;">Mijozlar topilmadi</h3>
+                                <p style="color: #6b7280;">Hali hech qanday mijoz ro'yxatdan o'tmagan</p>
+                                <button class="btn-secondary" onclick="dashboard.loadPage('dashboard')" style="margin-top: 1rem;">
+                                    <i class="fas fa-arrow-left"></i>
+                                    Bosh sahifaga qaytish
                                 </button>
                             </div>
                         </div>
-                        <div style="padding: 2rem;">
-                            <p>Haydovchilar ma'lumotlari yuklanmoqda...</p>
-                            <div style="margin-top: 1rem;">
+                    `;
+                }
+
+                const customersTable = customers.map(customer => `
+                    <tr>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
+                            <div style="display: flex; align-items: center;">
+                                <div style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); color: white; display: flex; align-items: center; justify-content: center; margin-right: 0.75rem;">
+                                    <i class="fas fa-user-tie"></i>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 600; color: #111827;">${customer.name}</div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">${customer.id}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${customer.phone}</td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${customer.company}</td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${customer.totalOrders}</td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${this.formatCurrency(customer.totalSpent)}</td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
+                            <div style="display: flex; align-items: center;">
+                                <i class="fas fa-star" style="color: #fbbf24; margin-right: 0.25rem;"></i>
+                                <span style="color: #374151;">${customer.rating.toFixed(1)}</span>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+
+                return `
+                    <div class="content-card">
+                        <div class="content-header">
+                            <h2 class="content-title">Mijozlar boshqaruvi</h2>
+                            <div class="content-actions">
+                                <button class="btn-secondary" onclick="dashboard.refreshCustomers()">
+                                    <i class="fas fa-refresh"></i>
+                                    <span>Yangilash</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div style="padding: 1.5rem;">
+                            <div style="background: #f8fafc; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <h4 style="color: #1f2937; margin: 0 0 0.25rem 0;">Bot'dan ro'yxatdan o'tgan mijozlar</h4>
+                                        <p style="color: #6b7280; margin: 0; font-size: 0.875rem;">Real foydalanuvchilar ma'lumotlari</p>
+                                    </div>
+                                    <div style="font-size: 2rem; font-weight: 700; color: #10b981;">${customers.length}</div>
+                                </div>
+                            </div>
+
+                            <div style="overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: #f9fafb;">
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Mijoz</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Telefon</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Kompaniya</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Buyurtmalar</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Umumiy xarajat</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Reyting</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${customersTable}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
                                 <button class="btn-secondary" onclick="dashboard.loadPage('dashboard')">
                                     <i class="fas fa-arrow-left"></i>
                                     Bosh sahifaga qaytish
                                 </button>
+                                <div style="color: #6b7280; font-size: 0.875rem;">
+                                    Jami: ${customers.length} ta mijoz
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1240,8 +1807,6 @@
 
             renderComingSoon(page) {
                 const pageNames = {
-                    dispatchers: 'Dispecherlar',
-                    customers: 'Mijozlar',
                     finance: 'Moliyaviy hisobotlar',
                     history: 'Buyurtmalar tarixi',
                     analytics: 'Analitika',
@@ -1278,6 +1843,24 @@
                 }).format(amount).replace('UZS', 'so\'m');
             }
 
+            getPageDisplayName(page) {
+                const pageNames = {
+                    dashboard: 'Bosh sahifa',
+                    orders: 'Buyurtmalar nazorati',
+                    drivers: 'Haydovchilar',
+                    dispatchers: 'Dispecherlar',
+                    customers: 'Mijozlar',
+                    finance: 'Moliyaviy hisobotlar',
+                    history: 'Buyurtmalar tarixi',
+                    analytics: 'Analitika',
+                    employees: 'Xodimlar',
+                    roles: 'Rollar va huquqlar',
+                    support: 'Qo\'llab-quvvatlash',
+                    settings: 'Sozlamalar'
+                };
+                return pageNames[page] || page;
+            }
+
             // Action methods
             async refreshActivity() {
                 console.log('🔄 Refreshing activity...');
@@ -1293,9 +1876,221 @@
                 this.showNotification('Buyurtmalar yangilandi', 'success');
             }
 
+            async refreshDrivers() {
+                console.log('🔄 Refreshing drivers...');
+                await this.loadApiData();
+                this.loadPage('drivers');
+                this.showNotification('Haydovchilar ma\'lumotlari yangilandi', 'success');
+            }
+
+            async refreshDispatchers() {
+                console.log('🔄 Refreshing dispatchers...');
+                await this.loadApiData();
+                this.loadPage('dispatchers');
+                this.showNotification('Dispecherlar ma\'lumotlari yangilandi', 'success');
+            }
+
+            async refreshCustomers() {
+                console.log('🔄 Refreshing customers...');
+                await this.loadApiData();
+                this.loadPage('customers');
+                this.showNotification('Mijozlar ma\'lumotlari yangilandi', 'success');
+            }
+
+            async refreshOrderHistory() {
+                console.log('🔄 Refreshing order history...');
+                await this.loadApiData();
+                this.loadPage('history');
+                this.showNotification('Buyurtmalar tarixi yangilandi', 'success');
+            }
+
             openModal(type) {
                 console.log('📝 Opening modal:', type);
                 this.showNotification('Modal oynasi qo\'shilmoqda...', 'info');
+            }
+
+            openNewOrderModal() {
+                console.log('📝 Opening new order modal...');
+
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1000;
+                    backdrop-filter: blur(4px);
+                `;
+
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 1rem; padding: 2rem; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                            <h2 style="color: #111827; margin: 0; font-size: 1.5rem; font-weight: 700;">Yangi buyurtma yaratish</h2>
+                            <button onclick="dashboard.closeModal()" style="background: none; border: none; font-size: 1.5rem; color: #6b7280; cursor: pointer; padding: 0.5rem;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <form id="newOrderForm" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Qayerdan</label>
+                                    <input type="text" name="fromCity" required style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem;" placeholder="Masalan: Toshkent">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Qayerga</label>
+                                    <input type="text" name="toCity" required style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem;" placeholder="Masalan: Samarqand">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Yuk turi</label>
+                                <input type="text" name="cargoType" required style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem;" placeholder="Masalan: 10 tonna meva">
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Yuk hajmi/vazni</label>
+                                <input type="text" name="weight" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem;" placeholder="Masalan: 10 tonna">
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Transport turi</label>
+                                <select name="truckType" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem;">
+                                    <option value="">Transport turini tanlang</option>
+                                    <option value="Yengil">Yengil transport</option>
+                                    <option value="Gazel">Gazel</option>
+                                    <option value="Kamaz">Kamaz</option>
+                                    <option value="Fura">Fura</option>
+                                    <option value="Tentli">Tentli</option>
+                                    <option value="Refrigerator">Refrigerator</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Buyurtma narxi (so'm)</label>
+                                <input type="number" name="price" required style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem;" placeholder="Masalan: 2000000">
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Yuklanish sanasi</label>
+                                <input type="date" name="loadingDate" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem;">
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Qo'shimcha ma'lumot</label>
+                                <textarea name="description" rows="3" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; resize: vertical;" placeholder="Qo'shimcha talablar yoki izohlar..."></textarea>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+                                <button type="button" onclick="dashboard.closeModal()" style="padding: 0.75rem 1.5rem; background: #f3f4f6; color: #374151; border: none; border-radius: 0.5rem; font-weight: 500; cursor: pointer;">
+                                    Bekor qilish
+                                </button>
+                                <button type="submit" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; border: none; border-radius: 0.5rem; font-weight: 500; cursor: pointer;">
+                                    <i class="fas fa-plus" style="margin-right: 0.5rem;"></i>
+                                    Buyurtma yaratish
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+                this.currentModal = modal;
+
+                // Form submit handler
+                document.getElementById('newOrderForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.createNewOrder(e.target);
+                });
+
+                // Close on backdrop click
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        this.closeModal();
+                    }
+                });
+            }
+
+            closeModal() {
+                if (this.currentModal) {
+                    document.body.removeChild(this.currentModal);
+                    this.currentModal = null;
+                }
+            }
+
+            async createNewOrder(form) {
+                console.log('🚀 Creating new order...');
+
+                const formData = new FormData(form);
+                const orderData = {
+                    fromCity: formData.get('fromCity'),
+                    toCity: formData.get('toCity'),
+                    cargoType: formData.get('cargoType'),
+                    weight: formData.get('weight'),
+                    truckType: formData.get('truckType'),
+                    price: parseInt(formData.get('price')),
+                    loadingDate: formData.get('loadingDate'),
+                    description: formData.get('description'),
+                    adminCreated: true
+                };
+
+                console.log('📝 Order data:', orderData);
+
+                try {
+                    // Create loading state
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    const originalText = submitBtn.innerHTML;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 0.5rem;"></i>Yaratilmoqda...';
+                    submitBtn.disabled = true;
+
+                    // Simulate API call (replace with actual API endpoint)
+                    const response = await fetch('/api/dashboard/orders', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(orderData)
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        console.log('✅ Order created successfully:', result);
+
+                        this.showNotification('Buyurtma muvaffaqiyatli yaratildi! Haydovchilarga yuborilmoqda...', 'success');
+                        this.closeModal();
+
+                        // Refresh orders list
+                        await this.loadApiData();
+                        this.loadPage('orders');
+
+                    } else {
+                        throw new Error('Server xatosi');
+                    }
+
+                } catch (error) {
+                    console.error('❌ Error creating order:', error);
+                    this.showNotification('Buyurtma yaratishda xatolik yuz berdi. Iltimos qaytadan urinib ko\'ring.', 'error');
+
+                    // Restore button
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            }
+
+            viewOrderDetails(orderId) {
+                console.log('👁️ Viewing order details:', orderId);
+                this.showNotification(`Buyurtma ${orderId} tafsilotlari ko'rsatilmoqda...`, 'info');
+            }
+
+            editOrder(orderId) {
+                console.log('✏️ Editing order:', orderId);
+                this.showNotification(`Buyurtma ${orderId} tahrirlash oynasi ochilmoqda...`, 'info');
             }
 
             showNotification(message, type = 'info') {

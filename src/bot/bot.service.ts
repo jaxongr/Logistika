@@ -15685,7 +15685,7 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
   public getDashboardDispatchers(status?: string) {
     try {
       const dispatchers = Array.from(this.userRoles.entries())
-        .filter(([userId, userData]) => userData.role === 'dispesher' && userData.isRegistered)
+        .filter(([userId, userData]) => userData.role === 'dispechr' && userData.isRegistered)
         .map(([userId, userData]) => ({
           id: `#DIS${String(userId).slice(-3)}`,
           name: userData.profile?.name || 'Dispatcher',
@@ -15710,7 +15710,7 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
   public getDashboardCustomers(status?: string) {
     try {
       const customers = Array.from(this.userRoles.entries())
-        .filter(([userId, userData]) => userData.role === 'yukachi' && userData.isRegistered)
+        .filter(([userId, userData]) => userData.role === 'yukchi' && userData.isRegistered)
         .map(([userId, userData]) => ({
           id: `#C${String(userId).slice(-3)}`,
           name: userData.profile?.name || 'Customer',
@@ -15748,9 +15748,9 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
   private getLastOrderDate(userId: number): string {
     const orders = Array.from(this.cargoOffers.values())
       .filter(cargo => cargo.userId === userId)
-      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
 
-    return orders.length > 0 ? orders[0].createdAt || new Date().toISOString() : 'Hech qachon';
+    return orders.length > 0 ? orders[0].date || new Date().toISOString() : 'Hech qachon';
   }
 
   public getDashboardPayments(status?: string) {
@@ -15850,6 +15850,99 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
     } catch (error) {
       this.logger.error('Error adding driver balance:', error);
       throw error;
+    }
+  }
+
+  // Create order from dashboard
+  public async createOrderFromDashboard(orderData: any) {
+    try {
+      this.logger.log('🆕 Creating order from dashboard:', orderData);
+
+      // Generate cargo ID
+      const cargoId = `cargo_${Date.now()}_dashboard`;
+
+      // Create cargo offer from dashboard data
+      const cargoOffer = {
+        id: cargoId,
+        userId: 0, // Admin dashboard user ID
+        username: 'Admin Dashboard',
+        fromCity: orderData.fromCity,
+        toCity: orderData.toCity,
+        cargoType: orderData.cargoType,
+        truckInfo: orderData.truckType || 'Any truck type',
+        price: Number(orderData.price),
+        description: `${orderData.description || ''} ${orderData.weight ? `[Vazn: ${orderData.weight}]` : ''}`.trim(),
+        phone: 'Admin',
+        date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+        status: 'active' as const,
+        loadingDate: orderData.loadingDate,
+        adminCreated: true
+      };
+
+      // Add to cargo offers
+      this.cargoOffers.set(cargoId, cargoOffer);
+
+      // Save to file (remove this line as method doesn't exist)
+      // this.saveCargoOffers();
+
+      // Notify all drivers about new cargo
+      await this.notifyDriversAboutNewCargo(cargoOffer);
+
+      this.logger.log('✅ Order created from dashboard successfully:', cargoId);
+
+      return {
+        success: true,
+        cargoId,
+        message: 'Buyurtma yaratildi va haydovchilarga yuborildi',
+        cargo: cargoOffer
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Error creating order from dashboard:', error);
+      throw error;
+    }
+  }
+
+  // Notify all drivers about new cargo
+  private async notifyDriversAboutNewCargo(cargoOffer: any) {
+    try {
+      const drivers = Array.from(this.userRoles.entries())
+        .filter(([userId, userData]) => userData.role === 'haydovchi' && userData.isRegistered);
+
+      this.logger.log(`📢 Notifying ${drivers.length} drivers about new cargo`);
+
+      const message = `
+🆕 **YANGI YUK BUYURTMASI** 📦
+
+🛣️ **Marshrut:** ${cargoOffer.fromCity} → ${cargoOffer.toCity}
+📦 **Yuk turi:** ${cargoOffer.cargoType}
+🚛 **Transport:** ${cargoOffer.truckInfo}
+💰 **Narx:** ${cargoOffer.price.toLocaleString()} so'm
+📅 **Sana:** ${cargoOffer.date}
+${cargoOffer.loadingDate ? `📅 **Yuklanish:** ${cargoOffer.loadingDate}` : ''}
+${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''}
+
+👨‍💼 **Admin tomonidan yaratildi**
+
+Buyurtmani qabul qilish uchun /start buyrug'ini yuboring va "Yuklar" bo'limini tanlang.
+      `;
+
+      let notifiedCount = 0;
+      for (const [userId] of drivers) {
+        try {
+          await this.bot.api.sendMessage(userId, message);
+          notifiedCount++;
+          // Small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+          this.logger.error(`Error notifying driver ${userId}:`, error);
+        }
+      }
+
+      this.logger.log(`✅ Successfully notified ${notifiedCount}/${drivers.length} drivers`);
+
+    } catch (error) {
+      this.logger.error('Error notifying drivers about new cargo:', error);
     }
   }
 }

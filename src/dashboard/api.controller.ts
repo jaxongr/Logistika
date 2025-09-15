@@ -301,6 +301,29 @@ export class DashboardApiController {
         }
     }
 
+    @Post('orders')
+    async createOrder(@Body() orderData: any) {
+        try {
+            console.log('📝 Creating new order via dashboard:', orderData);
+
+            // BotService orqali yangi buyurtma yaratish
+            const result = await this.botService.createOrderFromDashboard(orderData);
+
+            return {
+                success: true,
+                message: 'Buyurtma muvaffaqiyatli yaratildi va haydovchilarga yuborildi',
+                data: result
+            };
+        } catch (error) {
+            console.error('❌ Error creating order from dashboard:', error);
+            return {
+                success: false,
+                message: 'Buyurtma yaratishda xatolik yuz berdi',
+                error: error.message
+            };
+        }
+    }
+
     @Get('reports/revenue')
     async getRevenueReport(@Query('period') period: string = '7days') {
         try {
