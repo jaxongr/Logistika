@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, Res } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { BotService } from '../bot/bot.service';
 import { DataService } from '../services/data.service';
@@ -319,6 +319,29 @@ export class DashboardApiController {
             return {
                 success: false,
                 message: 'Buyurtma yaratishda xatolik yuz berdi',
+                error: error.message
+            };
+        }
+    }
+
+    @Delete('orders/clear-demo')
+    async clearDemoOrders() {
+        try {
+            console.log('🗑️ Clearing demo orders...');
+
+            // Demo buyurtmalarni tozalash
+            const result = await this.botService.clearDemoOrders();
+
+            return {
+                success: true,
+                message: 'Demo buyurtmalar tozalandi',
+                data: result
+            };
+        } catch (error) {
+            console.error('❌ Error clearing demo orders:', error);
+            return {
+                success: false,
+                message: 'Demo buyurtmalarni tozalashda xatolik',
                 error: error.message
             };
         }

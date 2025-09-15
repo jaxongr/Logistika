@@ -15872,7 +15872,7 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
         truckInfo: orderData.truckType || 'Any truck type',
         price: Number(orderData.price),
         description: `${orderData.description || ''} ${orderData.weight ? `[Vazn: ${orderData.weight}]` : ''}`.trim(),
-        phone: 'Admin',
+        phone: orderData.phone || 'Admin',
         date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
         status: 'active' as const,
         loadingDate: orderData.loadingDate,
@@ -15943,6 +15943,44 @@ Buyurtmani qabul qilish uchun /start buyrug'ini yuboring va "Yuklar" bo'limini t
 
     } catch (error) {
       this.logger.error('Error notifying drivers about new cargo:', error);
+    }
+  }
+
+  // Clear demo orders
+  public async clearDemoOrders() {
+    try {
+      this.logger.log('🗑️ Clearing demo orders...');
+
+      // Get all cargo offers
+      const allOffers = Array.from(this.cargoOffers.entries());
+      const demoOrders = allOffers.filter(([id, cargo]) => {
+        // Demo orderlar - real userID bo'lmaganlar yoki test ma'lumotlari
+        return !cargo.adminCreated && (
+          cargo.userId === 8098211117 || // Demo user ID
+          cargo.customer === 'unknown' ||
+          cargo.route === 'Noma\'lum → Noma\'lum' ||
+          cargo.customer === 'Abdujalol oken' // Demo customer
+        );
+      });
+
+      this.logger.log(`Found ${demoOrders.length} demo orders to clear`);
+
+      // Remove demo orders
+      demoOrders.forEach(([id]) => {
+        this.cargoOffers.delete(id);
+      });
+
+      this.logger.log(`✅ Cleared ${demoOrders.length} demo orders`);
+
+      return {
+        success: true,
+        cleared: demoOrders.length,
+        remaining: this.cargoOffers.size
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Error clearing demo orders:', error);
+      throw error;
     }
   }
 }

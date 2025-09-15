@@ -53,7 +53,8 @@
       "Bash(git log:*)",
       "Bash(tasklist:*)",
       "Bash(dir distdashboard)",
-      "Bash(dir srcservices)"
+      "Bash(dir srcservices)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []
