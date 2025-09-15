@@ -44,6 +44,7 @@ export class BotService implements OnModuleInit {
   ) {
     this.logger.log('🏗️ BotService constructor chaqirildi');
     // TypeScript xatolari tuzatish uchun
+    this.initDemoData();
   }
   private bot: Bot;
   private openai: OpenAI;
@@ -64,6 +65,7 @@ export class BotService implements OnModuleInit {
   private driverContactWarnings = new Map<string, {driverId: number, warnings: number, timerId?: NodeJS.Timeout}>();
   private acceptedCargos = new Map<number, Set<string>>(); // driverId -> Set of accepted cargo IDs
   private completedCargos = new Map<number, Set<string>>(); // driverId -> Set of completed cargo IDs
+  private demoDrivers: any[] = []; // Demo drivers array for dashboard display
   private customerOrderHistory = new Map<number, any[]>(); // customerId -> Array of completed orders
   private driverWarningTimers = new Map<string, NodeJS.Timeout[]>(); // Legacy timers for compatibility
   private recentCargos: any[] = []; // Recent cargo offers
@@ -15636,13 +15638,41 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
     try {
       let orders = Array.from(this.cargoOffers.values());
 
-      if (status) {
+      // Sort by completion date for completed orders, creation date for others (newest first)
+      orders = orders.sort((a, b) => {
+        const orderA = a as any;
+        const orderB = b as any;
+
+        // For completed/cancelled orders, use completion/cancellation date
+        let dateA: Date;
+        let dateB: Date;
+
+        if (orderA.status === 'completed' && orderA.completedAt) {
+          dateA = new Date(orderA.completedAt);
+        } else if (orderA.status === 'cancelled' && orderA.cancelledAt) {
+          dateA = new Date(orderA.cancelledAt);
+        } else {
+          dateA = new Date(orderA.createdAt || orderA.date || Date.now());
+        }
+
+        if (orderB.status === 'completed' && orderB.completedAt) {
+          dateB = new Date(orderB.completedAt);
+        } else if (orderB.status === 'cancelled' && orderB.cancelledAt) {
+          dateB = new Date(orderB.cancelledAt);
+        } else {
+          dateB = new Date(orderB.createdAt || orderB.date || Date.now());
+        }
+
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      if (status && status !== 'all') {
         orders = orders.filter(order => order.status === status);
       }
 
-      if (limit) {
-        orders = orders.slice(0, limit);
-      }
+      // Default limit to 100 if not specified
+      const finalLimit = limit || 100;
+      orders = orders.slice(0, finalLimit);
 
       return orders.map(order => {
         // Get driver information if assigned
@@ -15668,6 +15698,26 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
           orderSource = 'admin';
         }
 
+        // Format dates properly - use completion date for completed/cancelled orders
+        let displayDate: Date;
+        if (order.status === 'completed' && orderAny.completedAt) {
+          displayDate = new Date(orderAny.completedAt);
+        } else if (order.status === 'cancelled' && orderAny.cancelledAt) {
+          displayDate = new Date(orderAny.cancelledAt);
+        } else {
+          displayDate = new Date((orderAny.createdAt || order.date || Date.now()));
+        }
+
+        const formattedDate = displayDate.toLocaleDateString('uz-UZ', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+        const formattedTime = displayDate.toLocaleTimeString('uz-UZ', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+
         return {
           id: order.id,
           customer: order.username || 'Noma\'lum',
@@ -15675,7 +15725,9 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
           route: `${order.fromCity} → ${order.toCity}`,
           cargoType: order.cargoType,
           amount: order.price,
-          date: order.date,
+          date: formattedDate,
+          time: formattedTime,
+          dateTime: displayDate.toISOString(),
           status: order.status,
           phone: order.phone,
           loadingDate: order.loadingDate,
@@ -15690,6 +15742,95 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
     } catch (error) {
       this.logger.error('Error getting orders:', error);
       return [];
+    }
+  }
+
+  // Initialize demo data for testing
+  private initDemoData() {
+    try {
+      this.logger.log('🎭 Initializing demo data...');
+
+      // Create demo completed orders
+      const demoOrders = [
+        {
+          id: 'cargo_demo_completed_1',
+          userId: 8098211117,
+          username: 'Demo Customer',
+          fromCity: 'Toshkent',
+          toCity: 'Samarqand',
+          cargoType: 'Oziq-ovqat mahsulotlari',
+          truckInfo: 'Yengil yuk mashinasi',
+          price: 500000,
+          description: 'Demo completed order',
+          phone: '+998901234567',
+          date: '2025-09-15',
+          status: 'completed' as const,
+          loadingDate: '2025-09-15',
+          createdAt: '2025-09-15T08:00:00Z',
+          completedAt: '2025-09-15T12:00:00Z',
+          assignedDriverId: 123456
+        },
+        {
+          id: 'cargo_demo_completed_2',
+          userId: 8098211118,
+          username: 'Test Yukchi',
+          fromCity: 'Buxoro',
+          toCity: 'Navoi',
+          cargoType: 'Qurilish materiallari',
+          truckInfo: 'Kamaz',
+          price: 800000,
+          description: 'Demo order 2',
+          phone: '+998907654321',
+          date: '2025-09-14',
+          status: 'completed' as const,
+          loadingDate: '2025-09-14',
+          createdAt: '2025-09-14T10:00:00Z',
+          completedAt: '2025-09-14T16:00:00Z',
+          assignedDriverId: 123457
+        },
+        {
+          id: 'cargo_demo_cancelled_1',
+          userId: 8098211119,
+          username: 'Demo Customer 3',
+          fromCity: 'Andijon',
+          toCity: 'Namangan',
+          cargoType: 'Maishiy texnika',
+          truckInfo: 'Gazel',
+          price: 300000,
+          description: 'Demo cancelled order',
+          phone: '+998905555555',
+          date: '2025-09-13',
+          status: 'cancelled' as const,
+          loadingDate: '2025-09-13',
+          createdAt: '2025-09-13T14:00:00Z',
+          cancelledAt: '2025-09-13T15:00:00Z'
+        },
+        {
+          id: 'cargo_demo_active_1',
+          userId: 8098211120,
+          username: 'Active Customer',
+          fromCity: 'Qarshi',
+          toCity: 'Shahrisabz',
+          cargoType: 'Paxta',
+          truckInfo: 'Fura',
+          price: 1200000,
+          description: 'Demo active order',
+          phone: '+998909999999',
+          date: '2025-09-15',
+          status: 'active' as const,
+          loadingDate: '2025-09-16',
+          createdAt: '2025-09-15T11:00:00Z'
+        }
+      ];
+
+      // Add demo orders to cargo offers
+      demoOrders.forEach(order => {
+        this.cargoOffers.set(order.id, order as any);
+      });
+
+      this.logger.log(`✅ Created ${demoOrders.length} demo orders`);
+    } catch (error) {
+      this.logger.error('❌ Error initializing demo data:', error);
     }
   }
 
@@ -15923,8 +16064,9 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
         date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
         status: 'active' as const,
         loadingDate: orderData.loadingDate,
-        adminCreated: true
-      };
+        adminCreated: true,
+        createdAt: new Date().toISOString() // Add creation timestamp
+      } as any;
 
       // Add to cargo offers
       this.cargoOffers.set(cargoId, cargoOffer);
@@ -15968,7 +16110,8 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
 ${cargoOffer.loadingDate ? `📅 **Yuklanish:** ${cargoOffer.loadingDate}` : ''}
 ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''}
 
-👨‍💼 **Admin tomonidan yaratildi**`;
+👨‍💼 **Admin tomonidan yaratildi**
+💡 **Qabul qilgandan keyin mijoz raqamini ko'rasiz**`;
 
       // Create inline keyboard for accepting the order
       const keyboard = {
@@ -16315,6 +16458,115 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
 
     } catch (error) {
       this.logger.error('❌ Error adding driver balance from dashboard:', error);
+      throw error;
+    }
+  }
+
+  async addDriverFromDashboard(driverData: any) {
+    try {
+      this.logger.log('👨‍💼 Adding new driver from dashboard:', driverData);
+
+      // Generate new driver ID (using timestamp + random)
+      const newDriverId = Date.now() + Math.floor(Math.random() * 1000);
+
+      // Validate required fields
+      if (!driverData.firstName || !driverData.lastName || !driverData.phone) {
+        throw new Error('Majburiy maydonlar to\'ldirilmagan');
+      }
+
+      // Format phone number
+      let phoneNumber = driverData.phone.replace(/[^\d+]/g, '');
+      if (!phoneNumber.startsWith('+')) {
+        if (phoneNumber.startsWith('998')) {
+          phoneNumber = '+' + phoneNumber;
+        } else if (phoneNumber.startsWith('90') || phoneNumber.startsWith('91') ||
+                   phoneNumber.startsWith('93') || phoneNumber.startsWith('94') ||
+                   phoneNumber.startsWith('95') || phoneNumber.startsWith('97') ||
+                   phoneNumber.startsWith('98') || phoneNumber.startsWith('99')) {
+          phoneNumber = '+998' + phoneNumber;
+        } else {
+          throw new Error('Telefon raqami noto\'g\'ri formatda');
+        }
+      }
+
+      // Create driver profile
+      const driverProfile = {
+        id: newDriverId,
+        firstName: driverData.firstName.trim(),
+        lastName: driverData.lastName.trim(),
+        fullName: `${driverData.firstName.trim()} ${driverData.lastName.trim()}`,
+        phone: phoneNumber,
+        telegramUsername: driverData.telegramUsername ? driverData.telegramUsername.replace('@', '') : '',
+        vehicleType: driverData.vehicleType || 'Yuk mashinasi',
+        loadCapacity: parseFloat(driverData.loadCapacity) || 0,
+        vehicleNumber: driverData.vehicleNumber || '',
+        notes: driverData.notes || '',
+        status: 'active',
+        balance: parseFloat(driverData.initialBalance) || 0,
+        rating: 5.0,
+        totalOrders: 0,
+        joinDate: new Date().toISOString(),
+        createdVia: 'dashboard',
+        isManuallyAdded: true
+      };
+
+      // Add to user roles
+      this.userRoles.set(newDriverId, {
+        role: 'haydovchi',
+        isRegistered: true,
+        registrationDate: driverProfile.joinDate,
+        profile: {
+          firstName: driverProfile.firstName,
+          lastName: driverProfile.lastName,
+          phone: driverProfile.phone,
+          telegramUsername: driverProfile.telegramUsername,
+          vehicleType: driverProfile.vehicleType,
+          loadCapacity: driverProfile.loadCapacity,
+          vehicleNumber: driverProfile.vehicleNumber,
+          status: 'active',
+          isManuallyAdded: true
+        }
+      } as any);
+
+      // Set initial balance
+      if (driverProfile.balance > 0) {
+        this.userBalances.set(newDriverId, driverProfile.balance);
+      }
+
+      // Add to demo drivers for display
+      const demoDrivers = this.demoDrivers || [];
+      demoDrivers.push({
+        id: `#D${String(newDriverId).slice(-3)}`,
+        name: driverProfile.fullName,
+        phone: driverProfile.phone,
+        vehicle: `${driverProfile.vehicleType} (${driverProfile.loadCapacity} tonna)`,
+        balance: driverProfile.balance,
+        orders: 0,
+        rating: 5.0,
+        status: 'active',
+        vehicleNumber: driverProfile.vehicleNumber,
+        telegramUsername: driverProfile.telegramUsername,
+        joinDate: driverProfile.joinDate,
+        notes: driverProfile.notes
+      });
+      this.demoDrivers = demoDrivers;
+
+      this.logger.log(`✅ New driver added: ${driverProfile.fullName} (ID: ${newDriverId})`);
+
+      // Broadcast real-time update to dashboard
+      this.dashboardGateway.server.emit('driver-added', {
+        driver: demoDrivers[demoDrivers.length - 1],
+        timestamp: new Date().toISOString()
+      });
+
+      return {
+        success: true,
+        driver: driverProfile,
+        message: 'Haydovchi muvaffaqiyatli qo\'shildi'
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Error adding driver from dashboard:', error);
       throw error;
     }
   }

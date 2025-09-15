@@ -621,4 +621,27 @@ export class DashboardApiController {
             };
         }
     }
+
+    @Post('drivers')
+    async addDriver(@Body() driverData: any) {
+        try {
+            console.log('👨‍💼 Adding new driver from dashboard:', driverData);
+
+            // Bot service orqali yangi haydovchi qo'shish
+            const result = await this.botService.addDriverFromDashboard(driverData);
+
+            return {
+                success: true,
+                message: 'Haydovchi muvaffaqiyatli qo\'shildi',
+                data: result
+            };
+        } catch (error) {
+            console.error('❌ Error adding driver:', error);
+            return {
+                success: false,
+                message: 'Haydovchi qo\'shishda xatolik yuz berdi',
+                error: error.message
+            };
+        }
+    }
 }

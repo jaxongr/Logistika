@@ -1038,6 +1038,9 @@
                     dateRange: 'all' // 'all', 'today', 'week', 'month'
                 };
 
+                // Initialize WebSocket connection
+                this.initializeWebSocket();
+
                 this.init();
             }
 
@@ -1058,7 +1061,7 @@
                     const statsData = await statsResponse.json();
                     console.log('Stats response:', statsData);
 
-                    const ordersResponse = await fetch('/api/dashboard/orders');
+                    const ordersResponse = await fetch('/api/dashboard/orders?limit=1000');
                     const ordersData = await ordersResponse.json();
 
                     const driversResponse = await fetch('/api/dashboard/drivers');
@@ -1470,11 +1473,14 @@
             }
 
             renderOrderHistory() {
-                // Get all orders for history
+                // Get all orders for history - only completed and cancelled orders
                 const allOrders = this.apiData.orders || [];
+                const historyOrders = allOrders.filter(order =>
+                    order.status === 'completed' || order.status === 'cancelled'
+                );
 
                 // Apply current filters
-                let orders = this.applyOrderHistoryFilters(allOrders);
+                let orders = this.applyOrderHistoryFilters(historyOrders);
 
                 console.log('📚 Rendering order history:', orders.length);
 
@@ -1526,7 +1532,14 @@
                             <div style="font-size: 0.875rem; color: #6b7280;">Haydovchi</div>
                         </td>
                         <td style="padding: 1rem;">
+                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${this.formatPhoneNumber(order.phone)}</div>
+                            <div style="font-size: 0.875rem; color: #6b7280;">Telefon</div>
+                        </td>
+                        <td style="padding: 1rem;">
                             <div style="font-size: 0.875rem; color: #6b7280;">${order.date}</div>
+                        </td>
+                        <td style="padding: 1rem;">
+                            <div style="font-size: 0.875rem; color: #6b7280;">${order.time || '00:00'}</div>
                         </td>
                         <td style="padding: 1rem;">
                             ${getHistoryStatusBadge(order.status)}
@@ -1622,7 +1635,9 @@
                                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Marshrut va Yuk</th>
                                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Summa</th>
                                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Haydovchi</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Telefon</th>
                                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Sana</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Vaqt</th>
                                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Holat</th>
                                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Buyurtma ID</th>
                                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Amallar</th>
@@ -1688,7 +1703,7 @@
                             </div>
                         </td>
                         <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
-                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${driver.phone}</div>
+                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${this.formatPhoneNumber(driver.phone)}</div>
                             <div style="font-size: 0.75rem; color: #6b7280;">📞 Telefon</div>
                         </td>
                         <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
@@ -1733,6 +1748,10 @@
                         <div class="content-header">
                             <h2 class="content-title">Haydovchilar boshqaruvi</h2>
                             <div class="content-actions">
+                                <button class="btn-primary" onclick="dashboard.openAddDriverModal()">
+                                    <i class="fas fa-plus"></i>
+                                    <span>Haydovchi qo'shish</span>
+                                </button>
                                 <button class="btn-secondary" onclick="dashboard.refreshDrivers()">
                                     <i class="fas fa-refresh"></i>
                                     <span>Yangilash</span>
@@ -1879,7 +1898,7 @@
                                 </div>
                             </div>
                         </td>
-                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${customer.phone}</td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${this.formatPhoneNumber(customer.phone)}</td>
                         <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${customer.company}</td>
                         <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${customer.totalOrders}</td>
                         <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${this.formatCurrency(customer.totalSpent)}</td>
@@ -2202,6 +2221,7 @@
                     weight: formData.get('weight'),
                     truckType: formData.get('truckType'),
                     price: parseInt(formData.get('price')),
+                    phone: formData.get('phone'),
                     loadingDate: formData.get('loadingDate'),
                     description: formData.get('description'),
                     adminCreated: true
@@ -2503,7 +2523,39 @@
                     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
                     filtered = filtered.filter(order => {
-                        const orderDate = new Date(order.date);
+                        // Use dateTime field if available, otherwise parse date field
+                        let orderDate;
+                        if (order.dateTime) {
+                            orderDate = new Date(order.dateTime);
+                        } else {
+                            // Handle different date formats
+                            let dateStr = order.date;
+                            if (typeof dateStr === 'string') {
+                                // Convert DD.MM.YYYY to YYYY-MM-DD format
+                                if (dateStr.includes('.')) {
+                                    const parts = dateStr.split('.');
+                                    if (parts.length === 3) {
+                                        dateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                                    }
+                                }
+                            }
+                            orderDate = new Date(dateStr);
+                        }
+
+                        // Debug log
+                        console.log('Date filter debug:', {
+                            orderDate: order.date,
+                            orderDateTime: order.dateTime,
+                            parsedDate: orderDate,
+                            today: today,
+                            filter: this.orderHistoryFilters.dateRange
+                        });
+
+                        // Check if date is valid
+                        if (isNaN(orderDate.getTime())) {
+                            console.warn('Invalid order date:', order.date, order.dateTime);
+                            return false;
+                        }
 
                         switch (this.orderHistoryFilters.dateRange) {
                             case 'today':
@@ -2745,6 +2797,169 @@
                 }, 100);
             }
 
+            openAddDriverModal() {
+                console.log('➕ Opening add driver modal...');
+
+                const modalContent = `
+                    <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 1rem; padding: 2rem; box-shadow: 0 20px 25px rgba(0,0,0,0.1); max-height: 90vh; overflow-y: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 1rem;">
+                            <h2 style="font-size: 1.5rem; font-weight: 700; color: #1f2937; margin: 0;">👨‍💼 Yangi haydovchi qo'shish</h2>
+                            <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; font-size: 1.5rem; color: #6b7280; cursor: pointer; padding: 0.5rem;">×</button>
+                        </div>
+
+                        <form id="addDriverForm" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Ism</label>
+                                    <input type="text" name="firstName" required style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; box-sizing: border-box;" placeholder="Masalan: Alisher">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Familiya</label>
+                                    <input type="text" name="lastName" required style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; box-sizing: border-box;" placeholder="Masalan: Karimov">
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Telefon raqami</label>
+                                    <input type="tel" name="phone" required style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; box-sizing: border-box;" placeholder="+998901234567">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Telegram username</label>
+                                    <input type="text" name="username" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; box-sizing: border-box;" placeholder="@username (ixtiyoriy)">
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Mashina turi</label>
+                                    <select name="vehicleType" required style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; box-sizing: border-box;">
+                                        <option value="">Mashina turini tanlang</option>
+                                        <option value="Gazel">Gazel</option>
+                                        <option value="Kamaz">Kamaz</option>
+                                        <option value="Fura">Fura</option>
+                                        <option value="Man">Man</option>
+                                        <option value="Yengil mashina">Yengil mashina</option>
+                                        <option value="Boshqa">Boshqa</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Yuk ko'tarish qobiliyati</label>
+                                    <input type="text" name="capacity" required style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; box-sizing: border-box;" placeholder="Masalan: 3 tonna">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Mashina davlat raqami</label>
+                                <input type="text" name="vehicleNumber" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; box-sizing: border-box;" placeholder="Masalan: 01A001AA">
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Boshlang'ich balans (so'm)</label>
+                                <input type="number" name="initialBalance" value="0" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; box-sizing: border-box;" placeholder="0">
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Qo'shimcha ma'lumot</label>
+                                <textarea name="notes" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; resize: vertical; height: 80px; box-sizing: border-box;" placeholder="Qo'shimcha ma'lumotlar (ixtiyoriy)"></textarea>
+                            </div>
+
+                            <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+                                <button type="button" onclick="this.parentElement.parentElement.parentElement.parentElement.remove()" style="padding: 0.75rem 1.5rem; background: #6b7280; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">Bekor qilish</button>
+                                <button type="submit" style="padding: 0.75rem 1.5rem; background: #3b82f6; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">👨‍💼 Qo'shish</button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+
+                // Create overlay
+                const overlay = document.createElement('div');
+                overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 2rem;';
+                overlay.innerHTML = modalContent;
+                document.body.appendChild(overlay);
+
+                // Set up form submission
+                const form = document.getElementById('addDriverForm');
+                if (form) {
+                    form.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        this.processAddDriver(form, overlay);
+                    });
+                }
+
+                // Close on overlay click
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        overlay.remove();
+                    }
+                });
+
+                // Focus first input
+                setTimeout(() => {
+                    const firstInput = form.querySelector('input[name="firstName"]');
+                    if (firstInput) firstInput.focus();
+                }, 100);
+            }
+
+            async processAddDriver(form, overlay) {
+                try {
+                    const formData = new FormData(form);
+                    const driverData = {
+                        firstName: formData.get('firstName'),
+                        lastName: formData.get('lastName'),
+                        fullName: `${formData.get('firstName')} ${formData.get('lastName')}`,
+                        phone: formData.get('phone'),
+                        username: formData.get('username') || '',
+                        vehicleType: formData.get('vehicleType'),
+                        capacity: formData.get('capacity'),
+                        vehicleNumber: formData.get('vehicleNumber') || '',
+                        initialBalance: parseInt(formData.get('initialBalance')) || 0,
+                        notes: formData.get('notes') || ''
+                    };
+
+                    console.log('📝 Adding new driver:', driverData);
+
+                    // Create loading state
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    const originalText = submitBtn.innerHTML;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 0.5rem;"></i>Qo\'shilmoqda...';
+                    submitBtn.disabled = true;
+
+                    // API call to add driver
+                    const response = await fetch('/api/dashboard/drivers', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(driverData)
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        console.log('✅ Driver added successfully:', result);
+
+                        this.showNotification('Haydovchi muvaffaqiyatli qo\'shildi!', 'success');
+                        overlay.remove();
+
+                        // Refresh drivers list
+                        await this.loadApiData();
+                        this.loadPage('drivers');
+                    } else {
+                        throw new Error('Server xatosi');
+                    }
+                } catch (error) {
+                    console.error('❌ Error adding driver:', error);
+                    this.showNotification('Haydovchi qo\'shishda xatolik yuz berdi', 'error');
+
+                    // Restore button
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.innerHTML = '👨‍💼 Qo\'shish';
+                        submitBtn.disabled = false;
+                    }
+                }
+            }
+
             async processBalanceTopUp(driverId, driverName, button) {
                 try {
                     const amountInput = document.getElementById('topUpAmount');
@@ -2830,7 +3045,7 @@
                                             </div>
                                             <div style="margin-bottom: 1rem;">
                                                 <strong style="color: #374151;">Telefon raqam:</strong>
-                                                <div style="color: #6b7280; margin-top: 0.25rem;">${driver?.phone || 'Ma\'lumot yo\'q'}</div>
+                                                <div style="color: #6b7280; margin-top: 0.25rem;">${this.formatPhoneNumber(driver?.phone) || 'Ma\'lumot yo\'q'}</div>
                                             </div>
                                             <div style="margin-bottom: 1rem;">
                                                 <strong style="color: #374151;">Transport:</strong>
@@ -2896,6 +3111,98 @@
                     this.showNotification(`${phoneNumber} raqamiga qo'ng'iroq qilish...`, 'info');
                 } else {
                     this.showNotification('Telefon raqam mavjud emas', 'error');
+                }
+            }
+
+            // WebSocket initialization and handlers
+            initializeWebSocket() {
+                try {
+                    this.socket = io();
+                    console.log('🔌 WebSocket attempting to connect...');
+
+                    this.socket.on('connect', () => {
+                        console.log('✅ WebSocket connected successfully');
+                        this.showNotification('Real-time ulanish faol', 'success');
+                    });
+
+                    this.socket.on('disconnect', () => {
+                        console.log('❌ WebSocket disconnected');
+                        this.showNotification('Real-time ulanish uzildi', 'warning');
+                    });
+
+                    // Listen for new orders
+                    this.socket.on('new-order', (data) => {
+                        console.log('📦 New order received:', data);
+                        this.showNotification(`Yangi buyurtma: ${data.fromCity} → ${data.toCity}`, 'info');
+                        if (this.currentPage === 'orders' || this.currentPage === 'dashboard' || this.currentPage === 'history') {
+                            this.loadApiData().then(() => {
+                                this.loadPage(this.currentPage);
+                            });
+                        }
+                    });
+
+                    // Listen for order updates
+                    this.socket.on('order-update', (data) => {
+                        console.log('🔄 Order updated:', data);
+                        this.showNotification(`Buyurtma yangilandi: ${data.orderId}`, 'info');
+                        if (this.currentPage === 'orders' || this.currentPage === 'dashboard' || this.currentPage === 'history') {
+                            this.loadApiData().then(() => {
+                                this.loadPage(this.currentPage);
+                            });
+                        }
+                    });
+
+                    // Listen for driver balance updates
+                    this.socket.on('driver-balance-update', (data) => {
+                        console.log('💰 Driver balance updated:', data);
+                        this.showNotification(`Haydovchi balansi yangilandi: +${data.addedAmount} so'm`, 'success');
+                        if (this.currentPage === 'drivers') {
+                            this.loadApiData().then(() => {
+                                this.loadPage(this.currentPage);
+                            });
+                        }
+                    });
+
+                    // Listen for driver status updates
+                    this.socket.on('driver-status-update', (data) => {
+                        console.log('👨‍💼 Driver status updated:', data);
+                        this.showNotification(`Haydovchi holati o'zgarti: ${data.status}`, 'info');
+                        if (this.currentPage === 'drivers') {
+                            this.loadApiData().then(() => {
+                                this.loadPage(this.currentPage);
+                            });
+                        }
+                    });
+
+                } catch (error) {
+                    console.error('❌ WebSocket initialization error:', error);
+                    this.showNotification('Real-time ulanishda xatolik', 'error');
+                }
+            }
+
+            // Phone number formatting utility function
+            formatPhoneNumber(phone) {
+                if (!phone) return 'Noma\'lum';
+
+                // Remove all non-digit characters except +
+                let cleaned = phone.replace(/[^\d+]/g, '');
+
+                // Handle different phone number formats
+                if (cleaned.startsWith('+998')) {
+                    // Already in correct format: +998901234567
+                    return cleaned.replace(/(\+998)(\d{2})(\d{3})(\d{2})(\d{2})/, '$1 $2 $3-$4-$5');
+                } else if (cleaned.startsWith('998')) {
+                    // Missing +: 998901234567
+                    return cleaned.replace(/^998(\d{2})(\d{3})(\d{2})(\d{2})/, '+998 $1 $2-$3-$4');
+                } else if (cleaned.length === 9 && /^(90|91|93|94|95|97|98|99)/.test(cleaned)) {
+                    // Local format: 901234567
+                    return cleaned.replace(/^(\d{2})(\d{3})(\d{2})(\d{2})/, '+998 $1 $2-$3-$4');
+                } else if (cleaned.startsWith('+')) {
+                    // Other international format
+                    return phone;
+                } else {
+                    // Unknown format, return as is but clean
+                    return cleaned || 'Noma\'lum';
                 }
             }
         }
@@ -3171,8 +3478,16 @@
             const suggestions = document.getElementById(suggestionsId);
             let currentHighlight = -1;
 
+            console.log('Autocomplete setup for:', inputId, input, suggestions);
+
+            if (!input || !suggestions) {
+                console.error('Input or suggestions element not found:', inputId, suggestionsId);
+                return;
+            }
+
             input.addEventListener('input', function() {
                 const value = this.value.toLowerCase().trim();
+                console.log('Input value:', value, 'Length:', value.length);
                 suggestions.innerHTML = '';
                 currentHighlight = -1;
 
@@ -3184,6 +3499,8 @@
                 const filtered = uzbekistanCities.filter(city =>
                     city.toLowerCase().includes(value)
                 ).slice(0, 8); // Faqat 8 ta natija ko'rsatish
+
+                console.log('Filtered cities:', filtered);
 
                 if (filtered.length > 0) {
                     filtered.forEach((city, index) => {
@@ -3198,8 +3515,10 @@
                         suggestions.appendChild(div);
                     });
                     suggestions.classList.add('show');
+                    console.log('Suggestions shown, count:', filtered.length);
                 } else {
                     suggestions.classList.remove('show');
+                    console.log('No suggestions found');
                 }
             });
 
@@ -3243,14 +3562,18 @@
         }
 
         // Initialize autocomplete for both fields
-        setupAutocomplete('fromCity', 'fromCitySuggestions');
-        setupAutocomplete('toCity', 'toCitySuggestions');
+        console.log('Initializing autocomplete...');
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, setting up autocomplete');
+            setupAutocomplete('fromCity', 'fromCitySuggestions');
+            setupAutocomplete('toCity', 'toCitySuggestions');
 
-        // Add event listeners for route calculation
-        document.getElementById('fromCity').addEventListener('input', updateRouteInfo);
-        document.getElementById('toCity').addEventListener('input', updateRouteInfo);
-        document.getElementById('fromCity').addEventListener('blur', updateRouteInfo);
-        document.getElementById('toCity').addEventListener('blur', updateRouteInfo);
+            // Add event listeners for route calculation
+            const fromCityInput = document.getElementById('fromCity');
+            const toCityInput = document.getElementById('toCity');
+            if (fromCityInput) fromCityInput.addEventListener('input', updateRouteInfo);
+            if (toCityInput) toCityInput.addEventListener('input', updateRouteInfo);
+        });
     </script>
 </body>
 </html>
