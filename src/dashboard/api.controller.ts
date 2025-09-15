@@ -1,10 +1,16 @@
 import { Controller, Get, Post, Body, Param, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { BotService } from '../bot/bot.service';
+import { DataService } from '../services/data.service';
+import { PerformanceService } from '../services/performance.service';
 
 @Controller('api/dashboard')
 export class DashboardApiController {
-    constructor(private readonly botService: BotService) {}
+    constructor(
+        private readonly botService: BotService,
+        private readonly dataService: DataService,
+        private readonly performanceService: PerformanceService
+    ) {}
 
     @Get('stats')
     async getDashboardStats() {
@@ -114,6 +120,92 @@ export class DashboardApiController {
                         orders: 18,
                         rating: 4.6,
                         status: 'available'
+                    }
+                ],
+                total: 2
+            };
+        }
+    }
+
+    @Get('dispatchers')
+    async getDispatchers(@Query('status') status?: string) {
+        try {
+            const dispatchers = await this.getDispatchersData(status);
+
+            return {
+                success: true,
+                data: dispatchers,
+                total: dispatchers.length
+            };
+        } catch (error) {
+            return {
+                success: true,
+                data: [
+                    {
+                        id: '#DIS001',
+                        name: 'Oybek Salimov',
+                        phone: '+998 90 555 12 34',
+                        balance: 75000,
+                        orders: 45,
+                        commission: 225000,
+                        rating: 4.7,
+                        status: 'active',
+                        joinDate: '2024-01-10'
+                    },
+                    {
+                        id: '#DIS002',
+                        name: 'Dilshod Umarov',
+                        phone: '+998 91 666 23 45',
+                        balance: 120000,
+                        orders: 67,
+                        commission: 335000,
+                        rating: 4.9,
+                        status: 'active',
+                        joinDate: '2024-02-15'
+                    }
+                ],
+                total: 2
+            };
+        }
+    }
+
+    @Get('customers')
+    async getCustomers(@Query('status') status?: string) {
+        try {
+            const customers = await this.getCustomersData(status);
+
+            return {
+                success: true,
+                data: customers,
+                total: customers.length
+            };
+        } catch (error) {
+            return {
+                success: true,
+                data: [
+                    {
+                        id: '#C001',
+                        name: 'Sardor Rahimov',
+                        phone: '+998 90 777 34 56',
+                        company: 'Uzbek Logistics LLC',
+                        totalOrders: 28,
+                        totalSpent: 1420000,
+                        rating: 4.6,
+                        status: 'active',
+                        joinDate: '2024-01-05',
+                        lastOrder: '2024-01-14'
+                    },
+                    {
+                        id: '#C002',
+                        name: 'Gulnora Karimova',
+                        phone: '+998 91 888 45 67',
+                        company: 'Individual',
+                        totalOrders: 15,
+                        totalSpent: 750000,
+                        rating: 4.4,
+                        status: 'active',
+                        joinDate: '2024-01-20',
+                        lastOrder: '2024-01-13'
                     }
                 ],
                 total: 2
@@ -279,6 +371,16 @@ export class DashboardApiController {
         return this.botService.getDashboardDrivers(status);
     }
 
+    private async getDispatchersData(status?: string) {
+        // Bot service orqali real dispecherlarni olish
+        return this.botService.getDashboardDispatchers(status);
+    }
+
+    private async getCustomersData(status?: string) {
+        // Bot service orqali real mijozlarni olish
+        return this.botService.getDashboardCustomers(status);
+    }
+
     private async getPaymentsData(status?: string) {
         // Bot service orqali real to'lovlarni olish
         return this.botService.getDashboardPayments(status);
@@ -315,5 +417,71 @@ export class DashboardApiController {
             values: [45, 177, 12, 8],
             colors: ['#059669', '#2563eb', '#d97706', '#dc2626']
         };
+    }
+
+    @Get('performance')
+    async getPerformanceStats() {
+        try {
+            const performance = this.performanceService.getDashboardMetrics();
+            const dataStats = await this.dataService.getPerformanceStats();
+
+            return {
+                success: true,
+                data: {
+                    system: performance.system,
+                    performance: performance.performance,
+                    memory: performance.memory,
+                    database: dataStats,
+                    timestamp: performance.timestamp
+                }
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: 'Performance ma\'lumotlarni olishda xatolik',
+                data: null
+            };
+        }
+    }
+
+    @Post('performance/test-load')
+    async testSystemLoad(@Body('operations') operations: number = 1000) {
+        try {
+            const loadTestResult = await this.performanceService.simulateLoad(operations);
+
+            return {
+                success: true,
+                message: 'Load test yakunlandi',
+                data: loadTestResult
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: 'Load testda xatolik',
+                error: error.message
+            };
+        }
+    }
+
+    @Get('system-health')
+    async getSystemHealth() {
+        try {
+            const health = this.performanceService.getSystemHealth();
+            const cacheStats = this.dataService.getCacheStats();
+
+            return {
+                success: true,
+                data: {
+                    ...health,
+                    cache: cacheStats
+                }
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: 'Sistem sog\'ligini tekshirishda xatolik',
+                data: null
+            };
+        }
     }
 }

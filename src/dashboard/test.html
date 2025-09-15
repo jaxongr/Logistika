@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .debug { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Dashboard Debug Test</h1>
+
+    <div class="debug">
+        <h3>Debug Log</h3>
+        <div id="debugLog"></div>
+    </div>
+
+    <div>
+        <button onclick="testNavigation()">Test Navigation</button>
+        <button onclick="testApiCall()">Test API Call</button>
+        <button onclick="testDashboard()">Test Dashboard Object</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const debugLog = document.getElementById('debugLog');
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            debugLog.appendChild(div);
+            console.log(message);
+        }
+
+        function clearLog() {
+            document.getElementById('debugLog').innerHTML = '';
+        }
+
+        function testNavigation() {
+            log('🔍 Testing navigation elements...', 'info');
+            const navItems = document.querySelectorAll('.nav-item');
+            log(`Found ${navItems.length} nav items`, navItems.length > 0 ? 'success' : 'error');
+        }
+
+        function testApiCall() {
+            log('📡 Testing API call...', 'info');
+            fetch('/api/dashboard/stats')
+                .then(response => {
+                    log(`API response status: ${response.status}`, response.ok ? 'success' : 'error');
+                    return response.json();
+                })
+                .then(data => {
+                    log(`API data: ${JSON.stringify(data)}`, 'success');
+                })
+                .catch(error => {
+                    log(`API error: ${error.message}`, 'error');
+                });
+        }
+
+        function testDashboard() {
+            log('🎯 Testing dashboard object...', 'info');
+            if (window.dashboard) {
+                log('Dashboard object exists', 'success');
+                log(`Current page: ${window.dashboard.currentPage}`, 'info');
+
+                // Test method calls
+                try {
+                    window.dashboard.loadPage('orders');
+                    log('loadPage method called successfully', 'success');
+                } catch (error) {
+                    log(`loadPage error: ${error.message}`, 'error');
+                }
+            } else {
+                log('Dashboard object not found!', 'error');
+            }
+        }
+
+        // Auto test when page loads
+        window.addEventListener('load', () => {
+            log('🚀 Page loaded, running auto tests...', 'info');
+            testApiCall();
+            testDashboard();
+        });
+    </script>
+</body>
+</html>

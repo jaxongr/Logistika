@@ -7,6 +7,8 @@ import * as path from 'path';
 import OpenAI from 'openai';
 import axios from 'axios';
 import * as uzbekCargoDict from '../dictionaries/uzbek-cargo-dictionary.json';
+import { DataService } from '../services/data.service';
+import { PerformanceService } from '../services/performance.service';
 
 // Type definitions for cargo posting steps
 type CargoPostingStep = 'from' | 'to' | 'type' | 'truck_info' | 'budget' | 'description' | 'locationFrom' | 'locationTo' | 'cargoType' | 'route_and_cargo' | 'truck_needed' | 'price_offer' | 'loading_date' | 'complete';
@@ -34,7 +36,10 @@ interface CargoPostingData {
 export class BotService implements OnModuleInit {
   private readonly logger = new Logger(BotService.name);
 
-  constructor() {
+  constructor(
+    private readonly dataService: DataService,
+    private readonly performanceService: PerformanceService
+  ) {
     this.logger.log('🏗️ BotService constructor chaqirildi');
     // TypeScript xatolari tuzatish uchun
   }
@@ -377,6 +382,9 @@ export class BotService implements OnModuleInit {
     
     // Demo data qo'shish (test uchun)
     await this.initializeDemoData();
+
+    // Optimized data loading through DataService
+    await this.initializeOptimizedServices();
 
     // Payment settings'ni yuklash
     await this.loadPaymentSettings();
@@ -4981,10 +4989,26 @@ Endi bosh menyuga o'ting va platformaning barcha funksiyalaridan foydalaning!
     }
   }
 
+  private async initializeOptimizedServices() {
+    try {
+      this.performanceService.startTimer('service_initialization');
+
+      // Cache commission and balance settings through DataService
+      await this.dataService.getCommissionSettings();
+      await this.dataService.getReferralSystem();
+      await this.dataService.getPendingPayments();
+
+      this.logger.log('✅ Optimized services initialized successfully');
+      this.performanceService.endTimer('service_initialization');
+    } catch (error) {
+      this.logger.error('❌ Error initializing optimized services:', error);
+    }
+  }
+
   private async initializeDemoData() {
     // Demo cargo creation disabled by user request
     this.logger.log('Demo cargo creation is disabled - running in production mode');
-    
+
     // Faqat asosiy narx bazasini initsializatsiya qilamiz (pricing database)
     this.initializePricingDatabase([]);
     
@@ -15656,6 +15680,77 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
       this.logger.error('Error getting drivers:', error);
       return [];
     }
+  }
+
+  public getDashboardDispatchers(status?: string) {
+    try {
+      const dispatchers = Array.from(this.userRoles.entries())
+        .filter(([userId, userData]) => userData.role === 'dispesher' && userData.isRegistered)
+        .map(([userId, userData]) => ({
+          id: `#DIS${String(userId).slice(-3)}`,
+          name: userData.profile?.name || 'Dispatcher',
+          phone: userData.profile?.phone || '+998xxxxxxxxx',
+          balance: this.userBalances.get(userId) || 0,
+          orders: Array.from(this.cargoOffers.values()).filter(cargo =>
+            cargo.userId === userId
+          ).length,
+          commission: this.calculateDispatcherCommission(userId),
+          rating: 4.2 + Math.random() * 0.8,
+          status: status || 'active',
+          joinDate: userData.registrationDate || new Date().toISOString()
+        }));
+
+      return status ? dispatchers.filter(dispatcher => dispatcher.status === status) : dispatchers;
+    } catch (error) {
+      this.logger.error('Error getting dispatchers:', error);
+      return [];
+    }
+  }
+
+  public getDashboardCustomers(status?: string) {
+    try {
+      const customers = Array.from(this.userRoles.entries())
+        .filter(([userId, userData]) => userData.role === 'yukachi' && userData.isRegistered)
+        .map(([userId, userData]) => ({
+          id: `#C${String(userId).slice(-3)}`,
+          name: userData.profile?.name || 'Customer',
+          phone: userData.profile?.phone || '+998xxxxxxxxx',
+          company: userData.profile?.companyName || 'Individual',
+          totalOrders: Array.from(this.cargoOffers.values()).filter(cargo =>
+            cargo.userId === userId
+          ).length,
+          totalSpent: this.calculateCustomerSpent(userId),
+          rating: 4.0 + Math.random() * 1.0,
+          status: status || 'active',
+          joinDate: userData.registrationDate || new Date().toISOString(),
+          lastOrder: this.getLastOrderDate(userId)
+        }));
+
+      return status ? customers.filter(customer => customer.status === status) : customers;
+    } catch (error) {
+      this.logger.error('Error getting customers:', error);
+      return [];
+    }
+  }
+
+  private calculateDispatcherCommission(userId: number): number {
+    // Calculate total commission from orders
+    const orders = Array.from(this.cargoOffers.values()).filter(cargo => cargo.userId === userId);
+    return orders.reduce((total, order) => total + (order.price * 0.05), 0); // 5% commission
+  }
+
+  private calculateCustomerSpent(userId: number): number {
+    // Calculate total amount spent by customer
+    const orders = Array.from(this.cargoOffers.values()).filter(cargo => cargo.userId === userId);
+    return orders.reduce((total, order) => total + (order.price || 0), 0);
+  }
+
+  private getLastOrderDate(userId: number): string {
+    const orders = Array.from(this.cargoOffers.values())
+      .filter(cargo => cargo.userId === userId)
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+    return orders.length > 0 ? orders[0].createdAt || new Date().toISOString() : 'Hech qachon';
   }
 
   public getDashboardPayments(status?: string) {

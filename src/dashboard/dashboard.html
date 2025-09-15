@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LogiMaster Pro | Professional Logistika Boshqaruv Tizimi</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/chart.js/4.3.0/chart.min.css" rel="stylesheet">
     <style>
         :root {
             --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
@@ -34,53 +32,70 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: var(--gray-50);
+            background: linear-gradient(135deg, #f9fafb 0%, #e0f2fe 50%, #f3e8ff 100%);
+            min-height: 100vh;
             color: var(--gray-900);
-            line-height: 1.6;
         }
 
-        /* Header */
+        /* Enhanced Header */
         .header {
-            background: white;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-            border-bottom: 1px solid var(--gray-200);
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
             position: sticky;
             top: 0;
             z-index: 1000;
-            padding: 1rem 1.5rem;
         }
 
         .header-content {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            padding: 1rem 2rem;
             max-width: 100%;
         }
 
         .logo-section {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 1rem;
         }
 
         .logo-icon {
-            width: 2.5rem;
-            height: 2.5rem;
+            position: relative;
+            width: 3rem;
+            height: 3rem;
             background: var(--primary-gradient);
-            border-radius: 0.75rem;
+            border-radius: 1rem;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
         }
 
-        .logo-text {
-            display: flex;
-            flex-direction: column;
+        .logo-icon::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 1rem;
+            height: 1rem;
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            border-radius: 50%;
+            border: 2px solid white;
+            animation: pulse 2s infinite;
         }
 
-        .logo-title {
-            font-size: 1.5rem;
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .logo-text h1 {
+            font-size: 1.75rem;
             font-weight: 700;
             background: var(--primary-gradient);
             -webkit-background-clip: text;
@@ -89,10 +104,13 @@
             margin: 0;
         }
 
-        .logo-subtitle {
+        .logo-text p {
             font-size: 0.75rem;
             color: var(--gray-500);
             margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
         }
 
         .header-actions {
@@ -101,29 +119,32 @@
             gap: 1rem;
         }
 
-        .search-box {
+        .search-container {
             position: relative;
             width: 320px;
         }
 
         .search-input {
             width: 100%;
-            padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+            padding: 0.75rem 1rem 0.75rem 3rem;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
             border: 1px solid var(--gray-200);
-            border-radius: 0.5rem;
+            border-radius: 1rem;
             font-size: 0.875rem;
-            transition: all 0.2s;
+            transition: all 0.3s ease;
         }
 
         .search-input:focus {
             outline: none;
             border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+            background: rgba(255, 255, 255, 0.8);
         }
 
         .search-icon {
             position: absolute;
-            left: 0.75rem;
+            left: 1rem;
             top: 50%;
             transform: translateY(-50%);
             color: var(--gray-400);
@@ -131,27 +152,36 @@
 
         .notification-btn {
             position: relative;
-            padding: 0.5rem;
-            color: var(--gray-600);
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
             border: none;
-            background: none;
-            border-radius: 0.5rem;
-            transition: all 0.2s;
+            border-radius: 1rem;
+            color: var(--gray-600);
+            transition: all 0.3s ease;
+            cursor: pointer;
         }
 
         .notification-btn:hover {
-            background-color: var(--gray-100);
+            background: rgba(255, 255, 255, 0.8);
             color: var(--gray-900);
+            transform: translateY(-1px);
         }
 
         .notification-badge {
             position: absolute;
             top: -0.25rem;
             right: -0.25rem;
-            width: 0.75rem;
-            height: 0.75rem;
-            background-color: #ef4444;
+            width: 1.25rem;
+            height: 1.25rem;
+            background: linear-gradient(135deg, #ef4444, #f97316);
+            color: white;
             border-radius: 50%;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             animation: pulse 2s infinite;
         }
 
@@ -159,6 +189,11 @@
             display: flex;
             align-items: center;
             gap: 0.75rem;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .user-details {
@@ -167,7 +202,7 @@
 
         .user-name {
             font-size: 0.875rem;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--gray-900);
             margin: 0;
         }
@@ -176,37 +211,68 @@
             font-size: 0.75rem;
             color: var(--gray-500);
             margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
         }
 
         .user-avatar {
-            width: 2.5rem;
-            height: 2.5rem;
-            background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
-            border-radius: 50%;
+            position: relative;
+            width: 3rem;
+            height: 3rem;
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            border-radius: 1rem;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
             font-weight: 600;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
         }
 
-        /* Layout */
+        .user-avatar::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 1rem;
+            height: 1rem;
+            background: #10b981;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .time-display {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--gray-700);
+        }
+
+        /* Main Layout */
         .main-layout {
             display: flex;
             min-height: calc(100vh - 80px);
         }
 
-        /* Sidebar */
+        /* Enhanced Sidebar */
         .sidebar {
-            width: 288px;
-            background: white;
-            box-shadow: 1px 0 3px 0 rgba(0, 0, 0, 0.1);
-            border-right: 1px solid var(--gray-200);
-            min-height: 100%;
+            width: 320px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.08);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
         }
 
         .sidebar-content {
-            padding: 1.5rem;
+            padding: 2rem;
         }
 
         .nav-menu {
@@ -216,122 +282,145 @@
         }
 
         .nav-item {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: none;
-            background: none;
-            border-radius: 0.75rem;
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 1rem;
+            padding: 1rem;
+            border: none;
+            background: none;
+            border-radius: 1rem;
             text-align: left;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--gray-600);
             transition: all 0.3s ease;
             cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .nav-item:hover::before {
+            opacity: 0.1;
+        }
+
+        .nav-item.active::before {
+            opacity: 1;
         }
 
         .nav-item:hover {
-            background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
             color: var(--gray-900);
-            transform: scale(1.02);
+            transform: translateX(4px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
         }
 
         .nav-item.active {
-            background: var(--primary-gradient);
             color: white;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            transform: scale(1.05);
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
+            transform: scale(1.02);
         }
 
         .nav-icon {
-            width: 1.25rem;
-            height: 1.25rem;
+            width: 1.5rem;
+            height: 1.5rem;
+            position: relative;
+            z-index: 1;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
         }
 
-        .live-stats {
-            margin-top: 2rem;
-            padding: 1rem;
-            background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
-            border-radius: 0.75rem;
-            border: 1px solid #bfdbfe;
+        .nav-item.active .nav-icon {
+            background: rgba(255, 255, 255, 0.2);
         }
 
-        .live-stats-title {
-            font-weight: 600;
-            color: var(--gray-900);
-            margin-bottom: 0.75rem;
-        }
-
-        .live-stat-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.75rem;
-        }
-
-        .live-stat-label {
+        .nav-label {
+            position: relative;
+            z-index: 1;
             font-size: 0.875rem;
-            color: var(--gray-600);
         }
 
-        .live-stat-value {
-            font-size: 0.875rem;
-            font-weight: 600;
-        }
-
-        .live-stat-value.green { color: #059669; }
-        .live-stat-value.blue { color: #2563eb; }
-        .live-stat-value.purple { color: #7c3aed; }
-
-        /* Main Content */
+        /* Enhanced Stats Cards */
         .main-content {
             flex: 1;
-            padding: 1.5rem;
+            padding: 2rem;
             overflow-y: auto;
         }
 
-        /* Stats Cards */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
             margin-bottom: 2rem;
         }
 
         .stat-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 0.75rem;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-            border: 1px solid var(--gray-100);
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 2rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, transparent, rgba(59, 130, 246, 0.05));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
         }
 
         .stat-card:hover {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            transform: scale(1.05);
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
         }
 
         .stat-header {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: between;
             margin-bottom: 1rem;
+            position: relative;
+            z-index: 1;
         }
 
         .stat-info h3 {
             font-size: 0.875rem;
             font-weight: 500;
             color: var(--gray-600);
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.5rem;
         }
 
-        .stat-info .stat-value {
-            font-size: 1.875rem;
+        .stat-value {
+            font-size: 2.5rem;
             font-weight: 700;
-            color: var(--gray-900);
-            margin-bottom: 0.25rem;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
         }
 
         .stat-change {
@@ -342,55 +431,63 @@
             gap: 0.25rem;
         }
 
-        .stat-change.positive { color: #059669; }
-        .stat-change.negative { color: #dc2626; }
+        .stat-change.positive {
+            color: #059669;
+            background: rgba(16, 185, 129, 0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.5rem;
+        }
 
         .stat-icon {
             width: 4rem;
             height: 4rem;
-            border-radius: 0.75rem;
+            border-radius: 1rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: transform 0.3s ease;
-        }
-
-        .stat-icon:hover {
-            transform: scale(1.1);
+            margin-left: auto;
+            position: relative;
+            z-index: 1;
         }
 
         .stat-icon.blue {
-            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe);
             color: #2563eb;
+            box-shadow: 0 8px 32px rgba(37, 99, 235, 0.3);
         }
 
         .stat-icon.green {
-            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
             color: #059669;
+            box-shadow: 0 8px 32px rgba(5, 150, 105, 0.3);
         }
 
         .stat-icon.purple {
-            background: linear-gradient(135deg, #e9d5ff 0%, #ddd6fe 100%);
+            background: linear-gradient(135deg, #e9d5ff, #ddd6fe);
             color: #7c3aed;
+            box-shadow: 0 8px 32px rgba(124, 58, 237, 0.3);
         }
 
         .stat-icon.orange {
-            background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+            background: linear-gradient(135deg, #fed7aa, #fdba74);
             color: #d97706;
+            box-shadow: 0 8px 32px rgba(217, 119, 6, 0.3);
         }
 
         /* Content Cards */
         .content-card {
-            background: white;
-            border-radius: 0.75rem;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-            border: 1px solid var(--gray-100);
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             overflow: hidden;
+            margin-bottom: 2rem;
         }
 
         .content-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--gray-100);
+            padding: 2rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             display: flex;
             align-items: center;
             justify-content: between;
@@ -399,66 +496,56 @@
         .content-title {
             font-size: 1.5rem;
             font-weight: 700;
-            color: var(--gray-900);
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .content-actions {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 1rem;
             margin-left: auto;
         }
 
         .btn-primary {
-            padding: 0.5rem 1rem;
+            padding: 0.75rem 1.5rem;
             background: var(--primary-gradient);
             color: white;
             border: none;
-            border-radius: 0.5rem;
-            font-weight: 500;
+            border-radius: 0.75rem;
+            font-weight: 600;
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            transition: all 0.2s;
+            transition: all 0.3s ease;
             cursor: pointer;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
         }
 
         .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.4);
         }
 
         .btn-secondary {
-            padding: 0.5rem 1rem;
-            background: var(--gray-100);
+            padding: 0.75rem 1.5rem;
+            background: rgba(255, 255, 255, 0.5);
             color: var(--gray-700);
-            border: none;
-            border-radius: 0.5rem;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 0.75rem;
             font-weight: 500;
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            transition: all 0.2s;
+            transition: all 0.3s ease;
             cursor: pointer;
         }
 
         .btn-secondary:hover {
-            background: var(--gray-200);
-        }
-
-        .btn-icon {
-            padding: 0.5rem;
-            background: none;
-            border: none;
-            color: var(--gray-400);
-            border-radius: 0.5rem;
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-
-        .btn-icon:hover {
-            background: var(--gray-100);
-            color: var(--gray-600);
+            background: rgba(255, 255, 255, 0.8);
+            transform: translateY(-1px);
         }
 
         /* Tables */
@@ -472,192 +559,132 @@
         }
 
         .custom-table thead th {
-            background-color: var(--gray-50);
-            padding: 1rem 1.5rem;
+            background: rgba(0, 0, 0, 0.02);
+            padding: 1.5rem;
             text-align: left;
             font-size: 0.75rem;
-            font-weight: 500;
+            font-weight: 600;
             color: var(--gray-500);
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
 
         .custom-table tbody td {
-            padding: 1rem 1.5rem;
-            border-top: 1px solid var(--gray-200);
+            padding: 1.5rem;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
             vertical-align: middle;
         }
 
         .custom-table tbody tr {
-            transition: background-color 0.2s;
+            transition: all 0.3s ease;
         }
 
         .custom-table tbody tr:hover {
-            background-color: var(--gray-50);
+            background: rgba(59, 130, 246, 0.05);
         }
 
         /* Status Badges */
         .status-badge {
             display: inline-flex;
-            padding: 0.25rem 0.75rem;
+            padding: 0.5rem 1rem;
             border-radius: 9999px;
             font-size: 0.75rem;
-            font-weight: 500;
+            font-weight: 600;
+            border: 1px solid rgba(0, 0, 0, 0.1);
         }
 
         .status-active {
-            background-color: #d1fae5;
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
             color: #065f46;
+            border-color: #10b981;
         }
 
         .status-pending {
-            background-color: #fef3c7;
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
             color: #92400e;
+            border-color: #f59e0b;
         }
 
         .status-completed {
-            background-color: #dbeafe;
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe);
             color: #1e40af;
+            border-color: #3b82f6;
         }
 
-        .status-cancelled {
-            background-color: #fee2e2;
-            color: #991b1b;
+        /* Live Activity */
+        .live-activity {
+            margin-top: 2rem;
+            padding: 2rem;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+            backdrop-filter: blur(20px);
+            border-radius: 1.5rem;
+            border: 1px solid rgba(59, 130, 246, 0.2);
         }
 
-        .status-offline {
-            background-color: #f3f4f6;
-            color: #374151;
-        }
-
-        /* Avatar */
-        .avatar {
-            width: 2.5rem;
-            height: 2.5rem;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 0.875rem;
-        }
-
-        .avatar.blue {
-            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-        }
-
-        .avatar.green {
-            background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
-        }
-
-        .avatar.purple {
-            background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
-        }
-
-        .avatar.orange {
-            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
-        }
-
-        /* Action Buttons */
-        .action-buttons {
+        .live-activity-title {
+            font-weight: 700;
+            font-size: 1.125rem;
+            color: var(--gray-900);
+            margin-bottom: 1rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
 
-        .action-btn {
-            padding: 0.25rem;
-            border: none;
-            background: none;
-            border-radius: 0.25rem;
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-
-        .action-btn.blue {
-            color: #2563eb;
-        }
-
-        .action-btn.blue:hover {
-            background-color: #dbeafe;
-        }
-
-        .action-btn.green {
-            color: #059669;
-        }
-
-        .action-btn.green:hover {
-            background-color: #d1fae5;
-        }
-
-        .action-btn.red {
-            color: #dc2626;
-        }
-
-        .action-btn.red:hover {
-            background-color: #fee2e2;
-        }
-
-        .action-btn.purple {
-            color: #7c3aed;
-        }
-
-        .action-btn.purple:hover {
-            background-color: #e9d5ff;
-        }
-
-        /* Loading States */
-        .loading {
+        .activity-item {
             display: flex;
             align-items: center;
-            justify-content: center;
-            padding: 3rem;
-            color: var(--gray-500);
+            gap: 1rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 1rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.3s ease;
         }
 
-        .spinner {
-            width: 1.5rem;
-            height: 1.5rem;
-            border: 2px solid var(--gray-200);
-            border-top-color: #3b82f6;
+        .activity-item:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateX(4px);
+        }
+
+        .activity-indicator {
+            width: 0.5rem;
+            height: 0.5rem;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 0.5rem;
+            animation: pulse 2s infinite;
         }
 
-        /* Animations */
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
+        .activity-indicator.green { background: #10b981; }
+        .activity-indicator.blue { background: #3b82f6; }
+        .activity-indicator.yellow { background: #f59e0b; }
 
         /* Responsive */
         @media (max-width: 1024px) {
             .sidebar {
                 width: 0;
                 transform: translateX(-100%);
-                transition: all 0.3s ease;
                 position: fixed;
                 height: 100vh;
                 z-index: 1001;
             }
 
             .sidebar.open {
-                width: 288px;
+                width: 320px;
                 transform: translateX(0);
             }
 
             .main-content {
                 margin-left: 0;
+                padding: 1rem;
             }
 
-            .search-box {
+            .search-container {
                 width: 200px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
             }
         }
 
@@ -665,18 +692,27 @@
             .header-content {
                 flex-wrap: wrap;
                 gap: 1rem;
+                padding: 1rem;
             }
 
-            .search-box {
+            .search-container {
                 width: 100%;
                 order: 3;
             }
 
-            .stats-grid {
-                grid-template-columns: 1fr;
+            .logo-text h1 {
+                font-size: 1.5rem;
             }
 
-            .logo-text .logo-subtitle {
+            .logo-text p {
+                display: none;
+            }
+
+            .user-details {
+                display: none;
+            }
+
+            .time-display {
                 display: none;
             }
         }
@@ -695,35 +731,48 @@
                 --gray-800: #f9fafb;
                 --gray-900: #ffffff;
             }
+
+            body {
+                background: linear-gradient(135deg, #1f2937 0%, #111827 50%, #1e1b4b 100%);
+            }
         }
 
-        /* Empty State */
-        .empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 4rem 2rem;
-            color: var(--gray-500);
+        /* Animations */
+        @keyframes slideInFromLeft {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
 
-        .empty-icon {
-            width: 4rem;
-            height: 4rem;
-            margin-bottom: 1rem;
-            opacity: 0.5;
+        @keyframes fadeInUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
 
-        .empty-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--gray-700);
+        .stat-card {
+            animation: fadeInUp 0.6s ease-out;
         }
 
-        .empty-description {
-            text-align: center;
-            max-width: 400px;
+        .nav-item {
+            animation: slideInFromLeft 0.3s ease-out;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
         }
     </style>
 </head>
@@ -736,29 +785,40 @@
                     <i class="fas fa-truck"></i>
                 </div>
                 <div class="logo-text">
-                    <h1 class="logo-title">LogiMaster Pro</h1>
-                    <p class="logo-subtitle">Professional logistika boshqaruv tizimi</p>
+                    <h1>LogiMaster Pro</h1>
+                    <p>
+                        <i class="fas fa-wifi" style="font-size: 0.7rem;"></i>
+                        Professional logistika boshqaruv tizimi
+                    </p>
                 </div>
             </div>
 
             <div class="header-actions">
-                <div class="search-box">
-                    <input type="text" class="search-input" placeholder="Qidirish..." id="globalSearch">
+                <div class="search-container">
+                    <input type="text" class="search-input" placeholder="Qidirish... (Ctrl+K)" id="globalSearch">
                     <i class="fas fa-search search-icon"></i>
                 </div>
 
-                <button class="notification-btn">
+                <div class="time-display">
+                    <i class="fas fa-clock"></i>
+                    <span id="currentTime">--:--</span>
+                </div>
+
+                <button class="notification-btn" id="notificationBtn">
                     <i class="fas fa-bell"></i>
-                    <span class="notification-badge"></span>
+                    <span class="notification-badge">3</span>
                 </button>
 
                 <div class="user-info">
                     <div class="user-details">
-                        <p class="user-name">Admin Panel</p>
-                        <p class="user-role">Boshqaruvchi</p>
+                        <p class="user-name">Super Admin</p>
+                        <p class="user-role">
+                            <i class="fas fa-shield-alt"></i>
+                            Barcha huquqlar
+                        </p>
                     </div>
                     <div class="user-avatar">
-                        AP
+                        SA
                     </div>
                 </div>
             </div>
@@ -771,58 +831,106 @@
         <nav class="sidebar" id="sidebar">
             <div class="sidebar-content">
                 <div class="nav-menu">
-                    <button class="nav-item active" data-page="orders">
-                        <i class="fas fa-box nav-icon"></i>
-                        <span>Buyurtmalar nazorati</span>
+                    <button class="nav-item active" data-page="dashboard">
+                        <div class="nav-icon">
+                            <i class="fas fa-home"></i>
+                        </div>
+                        <span class="nav-label">Bosh sahifa</span>
+                    </button>
+                    <button class="nav-item" data-page="orders">
+                        <div class="nav-icon">
+                            <i class="fas fa-box"></i>
+                        </div>
+                        <span class="nav-label">Buyurtmalar nazorati</span>
                     </button>
                     <button class="nav-item" data-page="drivers">
-                        <i class="fas fa-car nav-icon"></i>
-                        <span>Haydovchilar boshqaruvi</span>
+                        <div class="nav-icon">
+                            <i class="fas fa-car"></i>
+                        </div>
+                        <span class="nav-label">Haydovchilar</span>
                     </button>
                     <button class="nav-item" data-page="dispatchers">
-                        <i class="fas fa-headphones nav-icon"></i>
-                        <span>Dispecherlar</span>
+                        <div class="nav-icon">
+                            <i class="fas fa-headphones"></i>
+                        </div>
+                        <span class="nav-label">Dispecherlar</span>
                     </button>
                     <button class="nav-item" data-page="customers">
-                        <i class="fas fa-users nav-icon"></i>
-                        <span>Mijozlar</span>
+                        <div class="nav-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <span class="nav-label">Mijozlar</span>
                     </button>
                     <button class="nav-item" data-page="finance">
-                        <i class="fas fa-dollar-sign nav-icon"></i>
-                        <span>Moliyaviy hisobotlar</span>
+                        <div class="nav-icon">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <span class="nav-label">Moliyaviy hisobotlar</span>
                     </button>
                     <button class="nav-item" data-page="history">
-                        <i class="fas fa-history nav-icon"></i>
-                        <span>Buyurtmalar tarixi</span>
+                        <div class="nav-icon">
+                            <i class="fas fa-history"></i>
+                        </div>
+                        <span class="nav-label">Buyurtmalar tarixi</span>
                     </button>
                     <button class="nav-item" data-page="analytics">
-                        <i class="fas fa-chart-bar nav-icon"></i>
-                        <span>Analitika va statistika</span>
+                        <div class="nav-icon">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <span class="nav-label">Analitika</span>
+                    </button>
+                    <button class="nav-item" data-page="employees">
+                        <div class="nav-icon">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <span class="nav-label">Xodimlar</span>
+                    </button>
+                    <button class="nav-item" data-page="roles">
+                        <div class="nav-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <span class="nav-label">Rollar va huquqlar</span>
                     </button>
                     <button class="nav-item" data-page="support">
-                        <i class="fas fa-comments nav-icon"></i>
-                        <span>Qo'llab-quvvatlash</span>
+                        <div class="nav-icon">
+                            <i class="fas fa-comments"></i>
+                        </div>
+                        <span class="nav-label">Qo'llab-quvvatlash</span>
                     </button>
                     <button class="nav-item" data-page="settings">
-                        <i class="fas fa-cog nav-icon"></i>
-                        <span>Sozlamalar</span>
+                        <div class="nav-icon">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <span class="nav-label">Sozlamalar</span>
                     </button>
                 </div>
 
-                <!-- Live Stats -->
-                <div class="live-stats">
-                    <h4 class="live-stats-title">Jonli statistika</h4>
-                    <div class="live-stat-item">
-                        <span class="live-stat-label">Faol haydovchilar</span>
-                        <span class="live-stat-value green" id="liveDrivers">89</span>
+                <!-- Live Activity -->
+                <div class="live-activity">
+                    <h4 class="live-activity-title">
+                        <i class="fas fa-bolt"></i>
+                        Jonli faollik
+                    </h4>
+                    <div class="activity-item">
+                        <div class="activity-indicator green"></div>
+                        <div>
+                            <p style="font-weight: 600; font-size: 0.875rem; margin: 0;">Faol haydovchilar</p>
+                            <p style="font-size: 0.75rem; color: var(--gray-600); margin: 0;" id="liveDrivers">89</p>
+                        </div>
                     </div>
-                    <div class="live-stat-item">
-                        <span class="live-stat-label">Bugungi buyurtmalar</span>
-                        <span class="live-stat-value blue" id="liveOrders">247</span>
+                    <div class="activity-item">
+                        <div class="activity-indicator blue"></div>
+                        <div>
+                            <p style="font-weight: 600; font-size: 0.875rem; margin: 0;">Bugungi buyurtmalar</p>
+                            <p style="font-size: 0.75rem; color: var(--gray-600); margin: 0;" id="liveOrders">247</p>
+                        </div>
                     </div>
-                    <div class="live-stat-item">
-                        <span class="live-stat-label">Bugungi daromad</span>
-                        <span class="live-stat-value purple" id="liveRevenue">₽24,567</span>
+                    <div class="activity-item">
+                        <div class="activity-indicator yellow"></div>
+                        <div>
+                            <p style="font-weight: 600; font-size: 0.875rem; margin: 0;">Bugungi daromad</p>
+                            <p style="font-size: 0.75rem; color: var(--gray-600); margin: 0;" id="liveRevenue">₽24,567</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -830,73 +938,6 @@
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Stats Cards -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-header">
-                        <div class="stat-info">
-                            <h3>Faol buyurtmalar</h3>
-                            <div class="stat-value" id="totalOrders">247</div>
-                            <div class="stat-change positive">
-                                <i class="fas fa-arrow-up"></i>
-                                <span>+18% so'nggi oyga nisbatan</span>
-                            </div>
-                        </div>
-                        <div class="stat-icon blue">
-                            <i class="fas fa-box"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="stat-card">
-                    <div class="stat-header">
-                        <div class="stat-info">
-                            <h3>Faol haydovchilar</h3>
-                            <div class="stat-value" id="totalDrivers">89</div>
-                            <div class="stat-change positive">
-                                <i class="fas fa-arrow-up"></i>
-                                <span>+12% so'nggi oyga nisbatan</span>
-                            </div>
-                        </div>
-                        <div class="stat-icon green">
-                            <i class="fas fa-car"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="stat-card">
-                    <div class="stat-header">
-                        <div class="stat-info">
-                            <h3>Bugungi daromad</h3>
-                            <div class="stat-value" id="totalRevenue">₽24,567</div>
-                            <div class="stat-change positive">
-                                <i class="fas fa-arrow-up"></i>
-                                <span>+24% so'nggi oyga nisbatan</span>
-                            </div>
-                        </div>
-                        <div class="stat-icon purple">
-                            <i class="fas fa-dollar-sign"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="stat-card">
-                    <div class="stat-header">
-                        <div class="stat-info">
-                            <h3>Muvaffaqiyat darajasi</h3>
-                            <div class="stat-value" id="successRate">96.8%</div>
-                            <div class="stat-change positive">
-                                <i class="fas fa-arrow-up"></i>
-                                <span>+3% so'nggi oyga nisbatan</span>
-                            </div>
-                        </div>
-                        <div class="stat-icon orange">
-                            <i class="fas fa-chart-line"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Dynamic Content Area -->
             <div id="contentArea">
                 <!-- Content will be loaded here -->
@@ -905,8 +946,442 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/4.3.0/chart.min.js"></script>
-    <script src="/dashboard/js/dashboard.js"></script>
+    <script>
+        // LogiMaster Pro Enhanced Dashboard - Inline version
+        class LogiMasterDashboard {
+            constructor() {
+                this.currentPage = 'dashboard';
+                this.searchTerm = '';
+                this.sidebarCollapsed = false;
+                this.currentTime = new Date();
+                this.showModal = false;
+                this.modalType = '';
+                this.selectedItem = null;
+                this.formData = {};
+                this.callActive = false;
+                this.currentCall = null;
+                this.apiData = {};
+                this.init();
+            }
+
+            async init() {
+                console.log('🚀 Dashboard initializing...');
+                await this.loadApiData();
+                this.setupEventListeners();
+                this.loadPage(this.currentPage);
+                this.updateLiveStats();
+                this.startRealTimeUpdates();
+                this.updateTime();
+            }
+
+            async loadApiData() {
+                console.log('🔄 Loading API data...');
+                try {
+                    const statsResponse = await fetch('/api/dashboard/stats');
+                    const statsData = await statsResponse.json();
+                    console.log('Stats response:', statsData);
+
+                    const ordersResponse = await fetch('/api/dashboard/orders');
+                    const ordersData = await ordersResponse.json();
+
+                    const driversResponse = await fetch('/api/dashboard/drivers');
+                    const driversData = await driversResponse.json();
+
+                    const dispatchersResponse = await fetch('/api/dashboard/dispatchers');
+                    const dispatchersData = await dispatchersResponse.json();
+
+                    const customersResponse = await fetch('/api/dashboard/customers');
+                    const customersData = await customersResponse.json();
+
+                    const paymentsResponse = await fetch('/api/dashboard/payments');
+                    const paymentsData = await paymentsResponse.json();
+
+                    this.apiData = {
+                        stats: statsData.success ? statsData.data : this.getDefaultStats(),
+                        orders: ordersData.success ? ordersData.data : [],
+                        drivers: driversData.success ? driversData.data : [],
+                        dispatchers: dispatchersData.success ? dispatchersData.data : [],
+                        customers: customersData.success ? customersData.data : [],
+                        payments: paymentsData.success ? paymentsData.data : []
+                    };
+
+                    console.log('✅ API data loaded successfully', this.apiData);
+                } catch (error) {
+                    console.error('❌ Error loading API data:', error);
+                    this.apiData = {
+                        stats: this.getDefaultStats(),
+                        orders: [],
+                        drivers: [],
+                        dispatchers: [],
+                        customers: [],
+                        payments: []
+                    };
+                }
+            }
+
+            getDefaultStats() {
+                return {
+                    orders: 247,
+                    drivers: 89,
+                    dispatchers: 8,
+                    customers: 156,
+                    revenue: 2400000,
+                    completedOrders: 177
+                };
+            }
+
+            setupEventListeners() {
+                console.log('🔧 Setting up event listeners...');
+
+                const navItems = document.querySelectorAll('.nav-item');
+                console.log('Found nav items:', navItems.length);
+
+                navItems.forEach((item, index) => {
+                    console.log('Setting up listener for nav item:', item.getAttribute('data-page'));
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const page = item.getAttribute('data-page');
+                        console.log('🖱️ Clicked navigation item:', page);
+                        this.setActivePage(page);
+                        this.loadPage(page);
+                    });
+                });
+
+                const searchInput = document.getElementById('globalSearch');
+                if (searchInput) {
+                    searchInput.addEventListener('input', (e) => {
+                        this.searchTerm = e.target.value;
+                        this.handleSearch();
+                    });
+
+                    document.addEventListener('keydown', (e) => {
+                        if (e.ctrlKey && e.key === 'k') {
+                            e.preventDefault();
+                            searchInput.focus();
+                        }
+                    });
+                }
+
+                const notificationBtn = document.getElementById('notificationBtn');
+                if (notificationBtn) {
+                    notificationBtn.addEventListener('click', () => {
+                        this.showNotifications();
+                    });
+                }
+            }
+
+            setActivePage(page) {
+                console.log('🎯 Setting active page:', page);
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+
+                const activeItem = document.querySelector('[data-page="' + page + '"]');
+                if (activeItem) {
+                    activeItem.classList.add('active');
+                }
+
+                this.currentPage = page;
+            }
+
+            async loadPage(page) {
+                console.log('📄 Loading page:', page);
+                const contentArea = document.getElementById('contentArea');
+                if (!contentArea) {
+                    console.error('❌ ContentArea element not found!');
+                    return;
+                }
+
+                let content = '';
+
+                switch(page) {
+                    case 'dashboard':
+                        content = this.renderDashboard();
+                        break;
+                    case 'orders':
+                        content = this.renderOrders();
+                        break;
+                    case 'drivers':
+                        content = this.renderDrivers();
+                        break;
+                    case 'dispatchers':
+                        content = this.renderDispatchers();
+                        break;
+                    case 'customers':
+                        content = this.renderCustomers();
+                        break;
+                    default:
+                        content = this.renderComingSoon(page);
+                }
+
+                contentArea.innerHTML = content;
+                console.log('✅ Page content loaded');
+            }
+
+            renderDashboard() {
+                const stats = this.apiData.stats || this.getDefaultStats();
+                return `
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <div class="stat-info">
+                                    <h3>Faol buyurtmalar</h3>
+                                    <div class="stat-value">${stats.orders}</div>
+                                    <div class="stat-change positive">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>+18% so'nggi oyga nisbatan</span>
+                                    </div>
+                                </div>
+                                <div class="stat-icon blue">
+                                    <i class="fas fa-box"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <div class="stat-info">
+                                    <h3>Faol haydovchilar</h3>
+                                    <div class="stat-value">${stats.drivers}</div>
+                                    <div class="stat-change positive">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>+12% so'nggi oyga nisbatan</span>
+                                    </div>
+                                </div>
+                                <div class="stat-icon green">
+                                    <i class="fas fa-car"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <div class="stat-info">
+                                    <h3>Bugungi daromad</h3>
+                                    <div class="stat-value">${this.formatCurrency(stats.revenue)}</div>
+                                    <div class="stat-change positive">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>+24% so'nggi oyga nisbatan</span>
+                                    </div>
+                                </div>
+                                <div class="stat-icon purple">
+                                    <i class="fas fa-dollar-sign"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="content-card">
+                        <div class="content-header">
+                            <h3 class="content-title">So'nggi faollik</h3>
+                            <div class="content-actions">
+                                <button class="btn-secondary" onclick="dashboard.refreshActivity()">
+                                    <i class="fas fa-refresh"></i>
+                                    <span>Yangilash</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div style="padding: 2rem;">
+                            <p>Dashboard ma'lumotlari yuklanmoqda...</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderOrders() {
+                return `
+                    <div class="content-card">
+                        <div class="content-header">
+                            <h2 class="content-title">Buyurtmalar nazorati</h2>
+                            <div class="content-actions">
+                                <button class="btn-primary" onclick="dashboard.openModal('order')">
+                                    <i class="fas fa-plus"></i>
+                                    <span>Yangi buyurtma</span>
+                                </button>
+                                <button class="btn-secondary" onclick="dashboard.refreshOrders()">
+                                    <i class="fas fa-filter"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div style="padding: 2rem;">
+                            <p>Buyurtmalar ma'lumotlari yuklanmoqda...</p>
+                            <div style="margin-top: 1rem;">
+                                <button class="btn-secondary" onclick="dashboard.loadPage('dashboard')">
+                                    <i class="fas fa-arrow-left"></i>
+                                    Bosh sahifaga qaytish
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderDrivers() {
+                return `
+                    <div class="content-card">
+                        <div class="content-header">
+                            <h2 class="content-title">Haydovchilar boshqaruvi</h2>
+                            <div class="content-actions">
+                                <button class="btn-primary" onclick="dashboard.openModal('driver')">
+                                    <i class="fas fa-user-plus"></i>
+                                    <span>Yangi haydovchi</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div style="padding: 2rem;">
+                            <p>Haydovchilar ma'lumotlari yuklanmoqda...</p>
+                            <div style="margin-top: 1rem;">
+                                <button class="btn-secondary" onclick="dashboard.loadPage('dashboard')">
+                                    <i class="fas fa-arrow-left"></i>
+                                    Bosh sahifaga qaytish
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderComingSoon(page) {
+                const pageNames = {
+                    dispatchers: 'Dispecherlar',
+                    customers: 'Mijozlar',
+                    finance: 'Moliyaviy hisobotlar',
+                    history: 'Buyurtmalar tarixi',
+                    analytics: 'Analitika',
+                    employees: 'Xodimlar',
+                    roles: 'Rollar va huquqlar',
+                    support: 'Qo\'llab-quvvatlash',
+                    settings: 'Sozlamalar'
+                };
+
+                return `
+                    <div class="content-card" style="padding: 3rem; text-align: center;">
+                        <div style="width: 5rem; height: 5rem; border-radius: 1rem; background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; display: flex; align-items: center; justify-content: center; margin: 0 auto 2rem;">
+                            <i class="fas fa-tools" style="font-size: 2rem;"></i>
+                        </div>
+                        <h2 style="font-size: 2rem; font-weight: 700; color: #111827; margin-bottom: 1rem;">
+                            ${pageNames[page] || 'Bo\'lim'}
+                        </h2>
+                        <p style="color: #6b7280; margin-bottom: 2rem;">
+                            Bu bo'lim professional darajada ishlab chiqilmoqda...
+                        </p>
+                        <button class="btn-secondary" onclick="dashboard.loadPage('dashboard')">
+                            <i class="fas fa-arrow-left"></i>
+                            Bosh sahifaga qaytish
+                        </button>
+                    </div>
+                `;
+            }
+
+            formatCurrency(amount) {
+                return new Intl.NumberFormat('uz-UZ', {
+                    style: 'currency',
+                    currency: 'UZS',
+                    minimumFractionDigits: 0
+                }).format(amount).replace('UZS', 'so\'m');
+            }
+
+            // Action methods
+            async refreshActivity() {
+                console.log('🔄 Refreshing activity...');
+                await this.loadApiData();
+                this.loadPage('dashboard');
+                this.showNotification('Ma\'lumotlar yangilandi', 'success');
+            }
+
+            async refreshOrders() {
+                console.log('🔄 Refreshing orders...');
+                await this.loadApiData();
+                this.loadPage('orders');
+                this.showNotification('Buyurtmalar yangilandi', 'success');
+            }
+
+            openModal(type) {
+                console.log('📝 Opening modal:', type);
+                this.showNotification('Modal oynasi qo\'shilmoqda...', 'info');
+            }
+
+            showNotification(message, type = 'info') {
+                console.log('🔔 Notification:', message);
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    z-index: 1000;
+                    padding: 1rem 1.5rem;
+                    border-radius: 0.5rem;
+                    color: white;
+                    font-weight: 500;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                    transform: translateX(100%);
+                    transition: transform 0.3s ease;
+                    background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+                `;
+                notification.textContent = message;
+                document.body.appendChild(notification);
+
+                setTimeout(() => {
+                    notification.style.transform = 'translateX(0)';
+                }, 100);
+
+                setTimeout(() => {
+                    notification.style.transform = 'translateX(100%)';
+                    setTimeout(() => {
+                        document.body.removeChild(notification);
+                    }, 300);
+                }, 3000);
+            }
+
+            showNotifications() {
+                this.showNotification('Bildirishnomalar bo\'limi qo\'shilmoqda', 'info');
+            }
+
+            handleSearch() {
+                console.log('🔍 Searching for:', this.searchTerm);
+            }
+
+            updateTime() {
+                setInterval(() => {
+                    this.currentTime = new Date();
+                    const timeElement = document.getElementById('currentTime');
+                    if (timeElement) {
+                        timeElement.textContent = this.currentTime.toLocaleTimeString('uz-UZ', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                    }
+                }, 1000);
+            }
+
+            updateLiveStats() {
+                // Auto update functionality
+            }
+
+            startRealTimeUpdates() {
+                // Real-time update functionality
+            }
+        }
+
+        // Initialize dashboard when DOM is loaded
+        if (!window.dashboard) {
+            document.addEventListener('DOMContentLoaded', () => {
+                console.log('🚀 Initializing LogiMaster Pro Dashboard...');
+                window.dashboard = new LogiMasterDashboard();
+            });
+        }
+    </script>
+    <script>
+        // Update time every second
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('uz-UZ', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('currentTime').textContent = timeString;
+        }
+
+        setInterval(updateTime, 1000);
+        updateTime(); // Initial call
+    </script>
 </body>
 </html>

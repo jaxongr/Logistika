@@ -50,7 +50,10 @@
       "Bash(git push:*)",
       "Bash(dir C:UsersProDesktopavtohabarbot)",
       "Bash(dir)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(tasklist:*)",
+      "Bash(dir distdashboard)",
+      "Bash(dir srcservices)"
     ],
     "deny": [],
     "ask": []

@@ -6,6 +6,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { BotModule } from './bot/bot.module';
 import { DashboardApiController } from './dashboard/api.controller';
+import { DataService } from './services/data.service';
+import { PerformanceService } from './services/performance.service';
 
 @Module({
   imports: [
@@ -22,6 +24,6 @@ import { DashboardApiController } from './dashboard/api.controller';
     BotModule
   ],
   controllers: [AppController, DashboardApiController],
-  providers: [AppService],
+  providers: [AppService, DataService, PerformanceService],
 })
 export class AppModule {}
