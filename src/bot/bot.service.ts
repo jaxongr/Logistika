@@ -9,6 +9,7 @@ import axios from 'axios';
 import * as uzbekCargoDict from '../dictionaries/uzbek-cargo-dictionary.json';
 import { DataService } from '../services/data.service';
 import { PerformanceService } from '../services/performance.service';
+import { DashboardGateway } from '../websocket/dashboard.gateway';
 
 // Type definitions for cargo posting steps
 type CargoPostingStep = 'from' | 'to' | 'type' | 'truck_info' | 'budget' | 'description' | 'locationFrom' | 'locationTo' | 'cargoType' | 'route_and_cargo' | 'truck_needed' | 'price_offer' | 'loading_date' | 'complete';
@@ -38,7 +39,8 @@ export class BotService implements OnModuleInit {
 
   constructor(
     private readonly dataService: DataService,
-    private readonly performanceService: PerformanceService
+    private readonly performanceService: PerformanceService,
+    private readonly dashboardGateway: DashboardGateway
   ) {
     this.logger.log('🏗️ BotService constructor chaqirildi');
     // TypeScript xatolari tuzatish uchun
@@ -15955,11 +15957,12 @@ Buyurtmani qabul qilish uchun /start buyrug'ini yuboring va "Yuklar" bo'limini t
       const allOffers = Array.from(this.cargoOffers.entries());
       const demoOrders = allOffers.filter(([id, cargo]) => {
         // Demo orderlar - real userID bo'lmaganlar yoki test ma'lumotlari
-        return !cargo.adminCreated && (
+        const cargoAny = cargo as any;
+        return !cargoAny.adminCreated && (
           cargo.userId === 8098211117 || // Demo user ID
-          cargo.customer === 'unknown' ||
-          cargo.route === 'Noma\'lum → Noma\'lum' ||
-          cargo.customer === 'Abdujalol oken' // Demo customer
+          cargoAny.customer === 'unknown' ||
+          cargoAny.route === 'Noma\'lum → Noma\'lum' ||
+          cargoAny.customer === 'Abdujalol oken' // Demo customer
         );
       });
 
@@ -15980,6 +15983,230 @@ Buyurtmani qabul qilish uchun /start buyrug'ini yuboring va "Yuklar" bo'limini t
 
     } catch (error) {
       this.logger.error('❌ Error clearing demo orders:', error);
+      throw error;
+    }
+  }
+
+  // Dashboard order management methods
+  async cancelOrderFromDashboard(orderId: string) {
+    try {
+      this.logger.log(`❌ Cancelling order from dashboard: ${orderId}`);
+
+      // Find the order in cargo offers
+      const cargoOffer = this.cargoOffers.get(orderId);
+      if (!cargoOffer) {
+        throw new Error('Buyurtma topilmadi');
+      }
+
+      // Update order status to cancelled
+      const cargoOfferAny = cargoOffer as any;
+      cargoOffer.status = 'cancelled';
+      cargoOfferAny.cancelledAt = new Date().toISOString();
+      cargoOfferAny.cancelledBy = 'admin_dashboard';
+
+      // Remove from active offers and send cancellation message to all drivers
+      this.cargoOffers.delete(orderId);
+
+      // Broadcast cancellation to all drivers
+      const drivers = Array.from(this.userRoles.entries())
+        .filter(([_, data]) => data.role === 'haydovchi')
+        .map(([userId, _]) => userId);
+
+      const cancellationMessage = `❌ BUYURTMA BEKOR QILINDI\n\n` +
+        `🆔 Buyurtma ID: ${orderId}\n` +
+        `📋 Sabab: Dashboard orqali bekor qilindi\n\n` +
+        `Bu buyurtma endi mavjud emas.`;
+
+      // Send to all drivers
+      for (const driverId of drivers) {
+        try {
+          await this.bot.api.sendMessage(driverId, cancellationMessage);
+        } catch (error) {
+          this.logger.warn(`Failed to send cancellation to driver ${driverId}:`, error);
+        }
+      }
+
+      this.logger.log(`✅ Order ${orderId} cancelled successfully and removed from all drivers`);
+
+      // Broadcast real-time update to dashboard
+      this.dashboardGateway.broadcastOrderStatusChange(orderId, 'cancelled', {
+        cancelledBy: 'admin_dashboard',
+        cancelledAt: cargoOfferAny.cancelledAt
+      });
+
+      return {
+        success: true,
+        orderId: orderId,
+        notifiedDrivers: drivers.length,
+        cancelledAt: cargoOfferAny.cancelledAt
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Error cancelling order from dashboard:', error);
+      throw error;
+    }
+  }
+
+  async resendOrderFromDashboard(orderId: string) {
+    try {
+      this.logger.log(`🔄 Resending order from dashboard: ${orderId}`);
+
+      // Find the order in cargo offers
+      const cargoOffer = this.cargoOffers.get(orderId);
+      if (!cargoOffer) {
+        throw new Error('Buyurtma topilmadi');
+      }
+
+      // Reset order status to active
+      const cargoOfferAny = cargoOffer as any;
+      cargoOffer.status = 'active';
+      cargoOfferAny.resentAt = new Date().toISOString();
+      cargoOfferAny.resentBy = 'admin_dashboard';
+
+      // Get all available drivers
+      const drivers = Array.from(this.userRoles.entries())
+        .filter(([_, data]) => data.role === 'haydovchi')
+        .map(([userId, _]) => userId);
+
+      // Create order message
+      const orderMessage = `🆕 YANGI BUYURTMA (QAYTA YUBORILGAN)\n\n` +
+        `🆔 Buyurtma ID: ${cargoOffer.id}\n` +
+        `👤 Mijoz: ${cargoOffer.username}\n` +
+        `📍 Marshrut: ${cargoOffer.fromCity} → ${cargoOffer.toCity}\n` +
+        `📦 Yuk turi: ${cargoOffer.cargoType}\n` +
+        `🚛 Kerakli transport: ${cargoOffer.truckInfo}\n` +
+        `💰 Narx: ${cargoOffer.price.toLocaleString()} so'm\n` +
+        `📅 Yuklash sanasi: ${cargoOffer.loadingDate}\n` +
+        `📞 Telefon: ${cargoOffer.phone}\n\n` +
+        `✅ Qabul qilish uchun tugmani bosing yoki "Qabul" deb yozing`;
+
+      const keyboard = new InlineKeyboard()
+        .text('✅ Qabul qilaman', `accept_cargo_${cargoOffer.id}`)
+        .text('❌ Rad etaman', `reject_cargo_${cargoOffer.id}`);
+
+      let sentCount = 0;
+      const errors = [];
+
+      // Send to all drivers
+      for (const driverId of drivers) {
+        try {
+          await this.bot.api.sendMessage(driverId, orderMessage, {
+            reply_markup: keyboard
+          });
+          sentCount++;
+        } catch (error) {
+          this.logger.warn(`Failed to resend order to driver ${driverId}:`, error);
+          errors.push({ driverId, error: error.message });
+        }
+      }
+
+      this.logger.log(`✅ Order ${orderId} resent to ${sentCount}/${drivers.length} drivers`);
+
+      // Broadcast real-time update to dashboard
+      this.dashboardGateway.broadcastOrderStatusChange(orderId, 'active', {
+        resentBy: 'admin_dashboard',
+        resentAt: cargoOfferAny.resentAt,
+        sentToDrivers: sentCount
+      });
+
+      return {
+        success: true,
+        orderId: orderId,
+        totalDrivers: drivers.length,
+        successfulSends: sentCount,
+        errors: errors,
+        resentAt: cargoOfferAny.resentAt
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Error resending order from dashboard:', error);
+      throw error;
+    }
+  }
+
+  async getOrderDetailsFromDashboard(orderId: string) {
+    try {
+      this.logger.log(`👁️ Getting order details from dashboard: ${orderId}`);
+
+      // Find the order in cargo offers
+      const cargoOffer = this.cargoOffers.get(orderId);
+      if (!cargoOffer) {
+        throw new Error('Buyurtma topilmadi');
+      }
+
+      // Get additional details
+      const customerData = this.userRoles.get(cargoOffer.userId);
+
+      return {
+        id: cargoOffer.id,
+        customer: cargoOffer.username,
+        customerPhone: cargoOffer.phone,
+        customerProfile: customerData?.profile || null,
+        route: `${cargoOffer.fromCity} → ${cargoOffer.toCity}`,
+        fromCity: cargoOffer.fromCity,
+        toCity: cargoOffer.toCity,
+        cargoType: cargoOffer.cargoType,
+        truckInfo: cargoOffer.truckInfo,
+        amount: cargoOffer.price,
+        loadingDate: cargoOffer.loadingDate,
+        status: cargoOffer.status,
+        date: cargoOffer.date,
+        description: cargoOffer.description || '',
+        photo: (cargoOffer as any).photo || '',
+        driver: null, // Will be populated if driver accepted
+        acceptedAt: cargoOffer.acceptedDate || null,
+        completedAt: cargoOffer.completedDate || null,
+        cancelledAt: (cargoOffer as any).cancelledAt || null,
+        resentAt: (cargoOffer as any).resentAt || null
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Error getting order details from dashboard:', error);
+      throw error;
+    }
+  }
+
+  async getDriverDetailsFromDashboard(driverId: string) {
+    try {
+      this.logger.log(`👁️ Getting driver details from dashboard: ${driverId}`);
+
+      // Parse driver ID if it's a string
+      const driverIdNum = parseInt(driverId.replace(/[^0-9]/g, ''), 10);
+
+      // Find the driver
+      const driverData = this.userRoles.get(driverIdNum);
+      if (!driverData || driverData.role !== 'haydovchi') {
+        throw new Error('Haydovchi topilmadi');
+      }
+
+      // Get driver offer data
+      const driverOffer = Array.from(this.driverOffers.values())
+        .find(offer => offer.userId === driverIdNum);
+
+      // Get balance
+      const balance = this.userBalances.get(driverIdNum) || 0;
+
+      return {
+        id: driverId,
+        userId: driverIdNum,
+        name: driverOffer?.driverName || 'Noma\'lum',
+        fullName: driverData.profile?.fullName || driverOffer?.driverName || 'Noma\'lum',
+        phone: driverData.profile?.phone || driverOffer?.phone || 'Noma\'lum',
+        vehicle: driverOffer?.truckType || 'Noma\'lum',
+        capacity: driverOffer?.capacity || 0,
+        balance: balance,
+        orders: driverOffer?.completedOrders || 0,
+        rating: driverOffer?.rating || 5.0,
+        status: driverOffer?.status || 'unknown',
+        registrationDate: driverData.registrationDate,
+        fromCity: driverOffer?.fromCity || 'Noma\'lum',
+        toCity: driverOffer?.toCity || 'Noma\'lum',
+        isRegistered: driverData.isRegistered,
+        profile: driverData.profile
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Error getting driver details from dashboard:', error);
       throw error;
     }
   }

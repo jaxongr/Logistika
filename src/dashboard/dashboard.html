@@ -548,6 +548,29 @@
             transform: translateY(-1px);
         }
 
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid #d1d5db;
+            background: white;
+            color: #374151;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .filter-btn:hover {
+            background: #f9fafb;
+            border-color: #9ca3af;
+        }
+
+        .filter-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
         /* Tables */
         .table-container {
             overflow-x: auto;
@@ -945,12 +968,16 @@
         </main>
     </div>
 
+    <!-- Socket.IO Client -->
+    <script src="/socket.io/socket.io.js"></script>
+
     <!-- Scripts -->
     <script>
         // LogiMaster Pro Enhanced Dashboard - Inline version
         class LogiMasterDashboard {
             constructor() {
-                this.currentPage = 'dashboard';
+                // Restore current page from localStorage or default to 'dashboard'
+                this.currentPage = localStorage.getItem('dashboardCurrentPage') || 'dashboard';
                 this.searchTerm = '';
                 this.sidebarCollapsed = false;
                 this.currentTime = new Date();
@@ -961,6 +988,14 @@
                 this.callActive = false;
                 this.currentCall = null;
                 this.apiData = {};
+
+                // Order history filters
+                this.orderHistoryFilters = {
+                    status: 'all', // 'all', 'completed', 'cancelled'
+                    source: 'all', // 'all', 'yukchi', 'dispechr', 'admin'
+                    dateRange: 'all' // 'all', 'today', 'week', 'month'
+                };
+
                 this.init();
             }
 
@@ -1095,6 +1130,8 @@
                 }
 
                 this.currentPage = page;
+                // Save current page to localStorage
+                localStorage.setItem('dashboardCurrentPage', page);
             }
 
             async loadPage(page) {
@@ -1271,37 +1308,47 @@
                     return `<span style="padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: ${s.bg}; color: ${s.color};">${s.text}</span>`;
                 };
 
+                const getOrderSource = (order) => {
+                    // Determine who placed the order based on available data
+                    if (order.source) return order.source;
+                    if (order.createdBy) return order.createdBy;
+                    if (order.via) return order.via;
+                    // Default logic based on ID patterns or other indicators
+                    return 'Dashboard'; // Default for dashboard-created orders
+                };
+
                 const ordersTable = orders.map(order => `
-                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <tr style="border-bottom: 1px solid #e5e7eb; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#f8fafc'" onmouseout="this.style.backgroundColor='transparent'">
                         <td style="padding: 1rem;">
-                            <div style="font-weight: 600; color: #111827; margin-bottom: 0.25rem;">${order.id}</div>
-                            <div style="font-size: 0.875rem; color: #6b7280;">${order.date}</div>
+                            <div style="font-weight: 500; color: #6366f1; margin-bottom: 0.25rem;">${getOrderSource(order)}</div>
+                            <div style="font-size: 0.75rem; color: #6b7280;">Buyurtma manbai</div>
                         </td>
                         <td style="padding: 1rem;">
-                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${order.customer}</div>
-                            <div style="font-size: 0.875rem; color: #6b7280;">Mijoz</div>
+                            <div style="font-weight: 600; color: #111827; margin-bottom: 0.25rem;">${order.route}</div>
+                            <div style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.25rem;">${order.cargoType}</div>
+                            <div style="font-size: 0.75rem; color: #9ca3af;">📦 ${order.customer}</div>
                         </td>
                         <td style="padding: 1rem;">
-                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${order.route}</div>
-                            <div style="font-size: 0.875rem; color: #6b7280;">${order.cargoType}</div>
+                            <div style="font-weight: 700; color: #059669; font-size: 1.1rem;">${this.formatCurrency(order.amount)}</div>
+                            <div style="font-size: 0.75rem; color: #6b7280;">${order.date}</div>
                         </td>
                         <td style="padding: 1rem;">
-                            <div style="font-weight: 600; color: #111827;">${this.formatCurrency(order.amount)}</div>
-                        </td>
-                        <td style="padding: 1rem;">
-                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${order.driver}</div>
-                            <div style="font-size: 0.875rem; color: #6b7280;">Haydovchi</div>
+                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${order.driver || 'Kutilmoqda...'}</div>
+                            <div style="font-size: 0.75rem; color: #6b7280;">🚛 Haydovchi</div>
                         </td>
                         <td style="padding: 1rem;">
                             ${getStatusBadge(order.status)}
                         </td>
                         <td style="padding: 1rem;">
-                            <div style="display: flex; gap: 0.5rem;">
-                                <button class="btn-secondary" onclick="dashboard.viewOrderDetails('${order.id}')" style="padding: 0.5rem; font-size: 0.875rem;">
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="btn-secondary" onclick="dashboard.viewOrderDetails('${order.id}')" style="padding: 0.5rem 0.75rem; font-size: 0.75rem; border-radius: 0.375rem;" title="Ko'rish">
                                     <i class="fas fa-eye"></i>
                                 </button>
-                                <button class="btn-secondary" onclick="dashboard.editOrder('${order.id}')" style="padding: 0.5rem; font-size: 0.875rem;">
-                                    <i class="fas fa-edit"></i>
+                                <button class="btn-danger" onclick="dashboard.cancelOrder('${order.id}')" style="padding: 0.5rem 0.75rem; font-size: 0.75rem; background: #ef4444; color: white; border: none; border-radius: 0.375rem; cursor: pointer;" title="Bekor qilish">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                                <button class="btn-warning" onclick="dashboard.resendOrder('${order.id}')" style="padding: 0.5rem 0.75rem; font-size: 0.75rem; background: #f59e0b; color: white; border: none; border-radius: 0.375rem; cursor: pointer;" title="Qayta yuborish">
+                                    <i class="fas fa-redo"></i>
                                 </button>
                             </div>
                         </td>
@@ -1352,13 +1399,12 @@
                                 <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 0.5rem; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                                     <thead>
                                         <tr style="background: #f9fafb;">
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Buyurtma ID</th>
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Mijoz</th>
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Marshrut va Yuk</th>
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Summa</th>
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Haydovchi</th>
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Holat</th>
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Amallar</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">📋 Buyurtma manbai</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">🚚 Marshrut va Yuk tafsilotlari</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">💰 Summa</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">🚛 Haydovchi</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">📊 Holat</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">⚙️ Amallar</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1382,12 +1428,12 @@
             }
 
             renderOrderHistory() {
-                // Faqat yakunlangan va bekor qilingan buyurtmalarni ko'rsatish
+                // Get all orders for history
                 const allOrders = this.apiData.orders || [];
-                const orders = allOrders.filter(order =>
-                    order.status === 'completed' ||
-                    order.status === 'cancelled'
-                );
+
+                // Apply current filters
+                let orders = this.applyOrderHistoryFilters(allOrders);
+
                 console.log('📚 Rendering order history:', orders.length);
 
                 if (orders.length === 0) {
@@ -1423,12 +1469,8 @@
                 const historyTable = orders.map(order => `
                     <tr style="border-bottom: 1px solid #e5e7eb;">
                         <td style="padding: 1rem;">
-                            <div style="font-weight: 600; color: #111827; margin-bottom: 0.25rem;">${order.id}</div>
-                            <div style="font-size: 0.875rem; color: #6b7280;">${order.date}</div>
-                        </td>
-                        <td style="padding: 1rem;">
-                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${order.customer}</div>
-                            <div style="font-size: 0.875rem; color: #6b7280;">Mijoz</div>
+                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${this.getOrderSource(order)}</div>
+                            <div style="font-size: 0.875rem; color: #6b7280;">${order.customer}</div>
                         </td>
                         <td style="padding: 1rem;">
                             <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${order.route}</div>
@@ -1442,7 +1484,13 @@
                             <div style="font-size: 0.875rem; color: #6b7280;">Haydovchi</div>
                         </td>
                         <td style="padding: 1rem;">
+                            <div style="font-size: 0.875rem; color: #6b7280;">${order.date}</div>
+                        </td>
+                        <td style="padding: 1rem;">
                             ${getHistoryStatusBadge(order.status)}
+                        </td>
+                        <td style="padding: 1rem;">
+                            <div style="font-weight: 600; color: #374151; font-size: 0.875rem;">${order.id}</div>
                         </td>
                         <td style="padding: 1rem;">
                             <button class="btn-secondary" onclick="dashboard.viewOrderDetails('${order.id}')" style="padding: 0.5rem; font-size: 0.875rem;">
@@ -1472,6 +1520,38 @@
                                 </button>
                             </div>
                         </div>
+
+                        <!-- Filter buttons -->
+                        <div style="padding: 0 1.5rem 1rem 1.5rem;">
+                            <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="filter-btn ${this.orderHistoryFilters.status === 'all' ? 'active' : ''}" onclick="dashboard.setHistoryFilter('status', 'all')">Jami</button>
+                                    <button class="filter-btn ${this.orderHistoryFilters.status === 'completed' ? 'active' : ''}" onclick="dashboard.setHistoryFilter('status', 'completed')">Yakunlangan</button>
+                                    <button class="filter-btn ${this.orderHistoryFilters.status === 'cancelled' ? 'active' : ''}" onclick="dashboard.setHistoryFilter('status', 'cancelled')">Bekor qilingan</button>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="filter-btn ${this.orderHistoryFilters.source === 'all' ? 'active' : ''}" onclick="dashboard.setHistoryFilter('source', 'all')">Barcha manba</button>
+                                    <button class="filter-btn ${this.orderHistoryFilters.source === 'yukchi' ? 'active' : ''}" onclick="dashboard.setHistoryFilter('source', 'yukchi')">Yukchidan</button>
+                                    <button class="filter-btn ${this.orderHistoryFilters.source === 'dispechr' ? 'active' : ''}" onclick="dashboard.setHistoryFilter('source', 'dispechr')">Dispechrdan</button>
+                                    <button class="filter-btn ${this.orderHistoryFilters.source === 'admin' ? 'active' : ''}" onclick="dashboard.setHistoryFilter('source', 'admin')">Admindan</button>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="filter-btn ${this.orderHistoryFilters.dateRange === 'all' ? 'active' : ''}" onclick="dashboard.setHistoryFilter('dateRange', 'all')">Barcha sana</button>
+                                    <button class="filter-btn ${this.orderHistoryFilters.dateRange === 'today' ? 'active' : ''}" onclick="dashboard.setHistoryFilter('dateRange', 'today')">Bugun</button>
+                                    <button class="filter-btn ${this.orderHistoryFilters.dateRange === 'week' ? 'active' : ''}" onclick="dashboard.setHistoryFilter('dateRange', 'week')">Bu hafta</button>
+                                    <button class="filter-btn ${this.orderHistoryFilters.dateRange === 'month' ? 'active' : ''}" onclick="dashboard.setHistoryFilter('dateRange', 'month')">Bu oy</button>
+                                </div>
+                                <div style="margin-left: auto;">
+                                    <button class="btn-secondary" onclick="dashboard.clearAllHistoryFilters()" style="background: #f59e0b; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500;">
+                                        <i class="fas fa-filter-circle-xmark"></i>
+                                        Barcha filtrlarni tozalash
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="padding: 0 1.5rem 1.5rem 1.5rem;">
+                        </div>
                         <div style="padding: 1.5rem;">
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
                                 <div style="background: #a7f3d0; padding: 1rem; border-radius: 0.5rem; text-align: center;">
@@ -1496,13 +1576,14 @@
                                 <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 0.5rem; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                                     <thead>
                                         <tr style="background: #f9fafb;">
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Buyurtma ID</th>
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Mijoz</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Kimni zakazi</th>
                                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Marshrut va Yuk</th>
                                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Summa</th>
                                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Haydovchi</th>
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Natija</th>
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Tafsilot</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Sana</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Holat</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Buyurtma ID</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Amallar</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1551,37 +1632,56 @@
                 }
 
                 const driversTable = drivers.map(driver => `
-                    <tr>
+                    <tr style="transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#f8fafc'" onmouseout="this.style.backgroundColor='transparent'">
                         <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
                             <div style="display: flex; align-items: center;">
-                                <div style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; display: flex; align-items: center; justify-content: center; margin-right: 0.75rem;">
-                                    <i class="fas fa-user"></i>
+                                <div style="width: 2.5rem; height: 2.5rem; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; display: flex; align-items: center; justify-content: center; margin-right: 0.75rem; font-size: 0.875rem; font-weight: 600;">
+                                    ${driver.fullName ? driver.fullName.split(' ').map(n => n[0]).join('').toUpperCase() : driver.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                                 </div>
                                 <div>
-                                    <div style="font-weight: 600; color: #111827;">${driver.name}</div>
-                                    <div style="font-size: 0.875rem; color: #6b7280;">${driver.id}</div>
+                                    <div style="font-weight: 600; color: #111827; margin-bottom: 0.25rem;">${driver.fullName || driver.name}</div>
+                                    <div style="font-size: 0.75rem; color: #6b7280;">${driver.id}</div>
+                                    <div style="font-size: 0.75rem; color: #9ca3af;">🚛 ${driver.vehicle}</div>
                                 </div>
                             </div>
                         </td>
-                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${driver.phone}</td>
-                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${driver.vehicle}</td>
-                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${this.formatCurrency(driver.balance)}</td>
-                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb; color: #374151;">${driver.orders}</td>
                         <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
-                            <div style="display: flex; align-items: center;">
-                                <i class="fas fa-star" style="color: #fbbf24; margin-right: 0.25rem;"></i>
-                                <span style="color: #374151;">${driver.rating.toFixed(1)}</span>
+                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${driver.phone}</div>
+                            <div style="font-size: 0.75rem; color: #6b7280;">📞 Telefon</div>
+                        </td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                <div style="font-weight: 600; color: #059669; font-size: 1.1rem;">${this.formatCurrency(driver.balance)}</div>
+                                <button onclick="dashboard.openBalanceTopUpModal('${driver.id}', '${driver.fullName || driver.name}')" style="background: #10b981; color: white; border: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='#059669'" onmouseout="this.style.backgroundColor='#10b981'">
+                                    💰 To'ldirish
+                                </button>
                             </div>
                         </td>
                         <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
-                            <span style="padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: #dcfce7; color: #166534;">
-                                Faol
+                            <div style="font-weight: 500; color: #374151; margin-bottom: 0.25rem;">${driver.orders}</div>
+                            <div style="font-size: 0.75rem; color: #6b7280;">📦 Buyurtmalar</div>
+                        </td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
+                            <div style="display: flex; align-items: center; margin-bottom: 0.25rem;">
+                                <i class="fas fa-star" style="color: #fbbf24; margin-right: 0.25rem;"></i>
+                                <span style="font-weight: 500; color: #374151;">${driver.rating.toFixed(1)}</span>
+                            </div>
+                            <div style="font-size: 0.75rem; color: #6b7280;">⭐ Reyting</div>
+                        </td>
+                        <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
+                            <span style="padding: 0.375rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background: #dcfce7; color: #166534;">
+                                🟢 Faol
                             </span>
                         </td>
                         <td style="padding: 1rem; border-bottom: 1px solid #e5e7eb;">
-                            <button class="btn-secondary" onclick="dashboard.showNotification('Haydovchi ma\\'lumotlari: ${driver.name}', 'info')" style="padding: 0.5rem; font-size: 0.875rem;">
-                                <i class="fas fa-info"></i>
-                            </button>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn-secondary" onclick="dashboard.viewDriverDetails('${driver.id}')" style="padding: 0.5rem 0.75rem; font-size: 0.75rem; border-radius: 0.375rem;" title="Ma'lumotlar">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn-secondary" onclick="dashboard.callDriver('${driver.phone}')" style="padding: 0.5rem 0.75rem; font-size: 0.75rem; background: #3b82f6; color: white; border: none; border-radius: 0.375rem; cursor: pointer;" title="Qo'ng'iroq">
+                                    <i class="fas fa-phone"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `).join('');
@@ -1612,12 +1712,11 @@
                                 <table style="width: 100%; border-collapse: collapse;">
                                     <thead>
                                         <tr style="background: #f9fafb;">
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Haydovchi</th>
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Telefon</th>
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Transport</th>
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Balans</th>
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Buyurtmalar</th>
-                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Reyting</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">👨‍💼 Haydovchi ma'lumotlari</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">📞 Telefon</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">💰 Balans / Amallar</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">📦 Buyurtmalar</th>
+                                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">⭐ Reyting</th>
                                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Holat</th>
                                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Amallar</th>
                                         </tr>
@@ -2156,7 +2255,584 @@
             }
 
             startRealTimeUpdates() {
-                // Real-time update functionality
+                // WebSocket connection for real-time updates
+                this.initializeWebSocket();
+            }
+
+            initializeWebSocket() {
+                try {
+                    console.log('🔌 Initializing WebSocket connection...');
+
+                    // Initialize Socket.IO client
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const socketUrl = `${protocol}//${window.location.host}/dashboard`;
+
+                    this.socket = io('/dashboard', {
+                        transports: ['websocket', 'polling']
+                    });
+
+                    this.socket.on('connect', () => {
+                        console.log('✅ WebSocket connected successfully');
+                        this.showNotification('Real-time yangilanishlar faol', 'success');
+                    });
+
+                    this.socket.on('disconnect', () => {
+                        console.log('❌ WebSocket disconnected');
+                        this.showNotification('Real-time yangilanishlar uzildi', 'warning');
+                    });
+
+                    // Listen for real-time updates
+                    this.socket.on('order-update', (orderData) => {
+                        console.log('📦 Received order update:', orderData);
+                        this.handleOrderUpdate(orderData);
+                    });
+
+                    this.socket.on('order-status-change', (data) => {
+                        console.log('🔄 Order status changed:', data);
+                        this.handleOrderStatusChange(data);
+                    });
+
+                    this.socket.on('new-order', (orderData) => {
+                        console.log('🆕 New order received:', orderData);
+                        this.handleNewOrder(orderData);
+                    });
+
+                    this.socket.on('driver-action', (data) => {
+                        console.log('🚛 Driver action:', data);
+                        this.handleDriverAction(data);
+                    });
+
+                    this.socket.on('stats-update', (stats) => {
+                        console.log('📊 Stats updated:', stats);
+                        this.handleStatsUpdate(stats);
+                    });
+
+                    this.socket.on('dashboard-stats', (stats) => {
+                        console.log('📈 Dashboard stats received:', stats);
+                        this.apiData.stats = stats;
+                        if (this.currentPage === 'dashboard') {
+                            this.loadPage('dashboard');
+                        }
+                    });
+
+                } catch (error) {
+                    console.error('❌ WebSocket initialization error:', error);
+                    this.showNotification('Real-time yangilanishlar ishga tushmadi', 'error');
+                }
+            }
+
+            // WebSocket event handlers
+            handleOrderUpdate(orderData) {
+                // Update order in current data
+                if (this.apiData.orders) {
+                    const orderIndex = this.apiData.orders.findIndex(o => o.id === orderData.id);
+                    if (orderIndex !== -1) {
+                        this.apiData.orders[orderIndex] = orderData;
+                    } else {
+                        this.apiData.orders.unshift(orderData);
+                    }
+                }
+
+                // Refresh current page if we're viewing orders
+                if (this.currentPage === 'orders' || this.currentPage === 'history') {
+                    this.loadPage(this.currentPage);
+                }
+
+                this.showNotification('Buyurtma yangilandi', 'info');
+            }
+
+            handleOrderStatusChange(data) {
+                // Update order status in current data
+                if (this.apiData.orders) {
+                    const orderIndex = this.apiData.orders.findIndex(o => o.id === data.orderId);
+                    if (orderIndex !== -1) {
+                        this.apiData.orders[orderIndex].status = data.status;
+                        if (data.driverInfo) {
+                            this.apiData.orders[orderIndex].driver = data.driverInfo.name || data.driverInfo;
+                        }
+                    }
+                }
+
+                // Refresh if viewing relevant pages
+                if (this.currentPage === 'orders' || this.currentPage === 'history') {
+                    this.loadPage(this.currentPage);
+                }
+
+                this.showNotification(`Buyurtma holati: ${data.status}`, 'info');
+            }
+
+            handleNewOrder(orderData) {
+                // Add new order to current data
+                if (!this.apiData.orders) {
+                    this.apiData.orders = [];
+                }
+                this.apiData.orders.unshift(orderData);
+
+                // Refresh if viewing orders page
+                if (this.currentPage === 'orders') {
+                    this.loadPage('orders');
+                }
+
+                this.showNotification('Yangi buyurtma qabul qilindi', 'success');
+            }
+
+            handleDriverAction(data) {
+                // Handle driver actions (accept, reject, etc.)
+                if (this.currentPage === 'orders' || this.currentPage === 'drivers') {
+                    this.loadPage(this.currentPage);
+                }
+
+                this.showNotification(`Haydovchi ${data.action}`, 'info');
+            }
+
+            handleStatsUpdate(stats) {
+                // Update statistics in real-time
+                this.apiData.stats = { ...this.apiData.stats, ...stats };
+
+                // Update live activity numbers
+                if (document.getElementById('liveDrivers')) {
+                    document.getElementById('liveDrivers').textContent = stats.drivers || 89;
+                }
+                if (document.getElementById('liveOrders')) {
+                    document.getElementById('liveOrders').textContent = stats.orders || 247;
+                }
+                if (document.getElementById('liveRevenue')) {
+                    document.getElementById('liveRevenue').textContent = this.formatCurrency(stats.revenue || 2456700);
+                }
+
+                // Refresh dashboard if currently viewing
+                if (this.currentPage === 'dashboard') {
+                    this.loadPage('dashboard');
+                }
+            }
+
+            // Order history filter functions
+            setHistoryFilter(filterType, value) {
+                console.log('🔍 Setting history filter:', filterType, value);
+                this.orderHistoryFilters[filterType] = value;
+
+                // Re-render order history with new filters
+                if (this.currentPage === 'history') {
+                    this.loadPage('history');
+                }
+            }
+
+            applyOrderHistoryFilters(allOrders) {
+                let filtered = [...allOrders];
+
+                // Status filter
+                if (this.orderHistoryFilters.status !== 'all') {
+                    filtered = filtered.filter(order => order.status === this.orderHistoryFilters.status);
+                }
+
+                // Source filter
+                if (this.orderHistoryFilters.source !== 'all') {
+                    filtered = filtered.filter(order => {
+                        const source = this.getOrderSourceType(order);
+                        return source === this.orderHistoryFilters.source;
+                    });
+                }
+
+                // Date range filter
+                if (this.orderHistoryFilters.dateRange !== 'all') {
+                    const now = new Date();
+                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+                    filtered = filtered.filter(order => {
+                        const orderDate = new Date(order.date);
+
+                        switch (this.orderHistoryFilters.dateRange) {
+                            case 'today':
+                                return orderDate >= today;
+                            case 'week':
+                                const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                                return orderDate >= weekAgo;
+                            case 'month':
+                                const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+                                return orderDate >= monthAgo;
+                            default:
+                                return true;
+                        }
+                    });
+                }
+
+                return filtered;
+            }
+
+            getOrderSource(order) {
+                const sourceType = this.getOrderSourceType(order);
+                const sourceLabels = {
+                    'yukchi': '👤 Yukchi',
+                    'dispechr': '🎧 Dispechr',
+                    'admin': '👨‍💼 Admin'
+                };
+                return sourceLabels[sourceType] || '❓ Noma\'lum';
+            }
+
+            getOrderSourceType(order) {
+                if (order.customer === 'Admin Dashboard' || order.id.includes('dashboard')) {
+                    return 'admin';
+                }
+                // You can add more logic here to detect dispechr vs yukchi
+                // For now, assume non-admin orders are from yukchi
+                return 'yukchi';
+            }
+
+            // Clear all filters method
+            clearAllHistoryFilters() {
+                console.log('🧹 Clearing all history filters...');
+                this.orderHistoryFilters = {
+                    status: 'all',
+                    source: 'all',
+                    dateRange: 'all'
+                };
+                // Re-render order history
+                if (this.currentPage === 'history') {
+                    this.loadPage('history');
+                }
+                this.showNotification('Barcha filtrlar tozalandi', 'success');
+            }
+
+            // Order management methods
+            async cancelOrder(orderId) {
+                try {
+                    console.log('❌ Cancelling order:', orderId);
+
+                    if (!confirm('Bu buyurtmani bekor qilishni xohlaysizmi? Barcha haydovchilardan olib tashlanadi.')) {
+                        return;
+                    }
+
+                    const response = await fetch(`/api/dashboard/orders/${orderId}/cancel`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        console.log('✅ Order cancelled successfully:', result);
+                        this.showNotification('Buyurtma bekor qilindi va barcha haydovchilardan olib tashlandi', 'success');
+
+                        // Refresh current page
+                        await this.loadApiData();
+                        this.loadPage(this.currentPage);
+                    } else {
+                        throw new Error('Server xatosi');
+                    }
+                } catch (error) {
+                    console.error('❌ Error cancelling order:', error);
+                    this.showNotification('Buyurtmani bekor qilishda xatolik yuz berdi', 'error');
+                }
+            }
+
+            async resendOrder(orderId) {
+                try {
+                    console.log('🔄 Resending order to drivers:', orderId);
+
+                    const response = await fetch(`/api/dashboard/orders/${orderId}/resend`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        console.log('✅ Order resent successfully:', result);
+                        this.showNotification('Buyurtma qayta haydovchilarga yuborildi', 'success');
+
+                        // Refresh current page
+                        await this.loadApiData();
+                        this.loadPage(this.currentPage);
+                    } else {
+                        throw new Error('Server xatosi');
+                    }
+                } catch (error) {
+                    console.error('❌ Error resending order:', error);
+                    this.showNotification('Buyurtmani qayta yuborishda xatolik yuz berdi', 'error');
+                }
+            }
+
+            async viewOrderDetails(orderId) {
+                try {
+                    console.log('👁️ Viewing order details:', orderId);
+
+                    const response = await fetch(`/api/dashboard/orders/${orderId}`);
+                    if (response.ok) {
+                        const orderData = await response.json();
+
+                        // Create a detailed view modal
+                        const modalContent = `
+                            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 1rem; padding: 2rem; box-shadow: 0 20px 25px rgba(0,0,0,0.1);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 1rem;">
+                                    <h2 style="font-size: 1.5rem; font-weight: 700; color: #1f2937; margin: 0;">Buyurtma Tafsilotlari</h2>
+                                    <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; font-size: 1.5rem; color: #6b7280; cursor: pointer; padding: 0.5rem;">×</button>
+                                </div>
+                                <div style="space-y: 1rem;">
+                                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem;">
+                                        <strong style="color: #374151;">Buyurtma ID:</strong>
+                                        <span>${orderData.data?.id || orderId}</span>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem;">
+                                        <strong style="color: #374151;">Mijoz:</strong>
+                                        <span>${orderData.data?.customer || 'Ma\'lumot yo\'q'}</span>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem;">
+                                        <strong style="color: #374151;">Marshrut:</strong>
+                                        <span>${orderData.data?.route || 'Ma\'lumot yo\'q'}</span>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem;">
+                                        <strong style="color: #374151;">Yuk turi:</strong>
+                                        <span>${orderData.data?.cargoType || 'Ma\'lumot yo\'q'}</span>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem;">
+                                        <strong style="color: #374151;">Summa:</strong>
+                                        <span style="font-weight: 600; color: #059669;">${this.formatCurrency(orderData.data?.amount || 0)}</span>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem;">
+                                        <strong style="color: #374151;">Haydovchi:</strong>
+                                        <span>${orderData.data?.driver || 'Kutilmoqda...'}</span>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem;">
+                                        <strong style="color: #374151;">Holat:</strong>
+                                        <span>${orderData.data?.status || 'Ma\'lumot yo\'q'}</span>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-bottom: 1rem;">
+                                        <strong style="color: #374151;">Sana:</strong>
+                                        <span>${orderData.data?.date || 'Ma\'lumot yo\'q'}</span>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                                    <button onclick="this.parentElement.parentElement.parentElement.remove()" style="padding: 0.5rem 1rem; background: #6b7280; color: white; border: none; border-radius: 0.5rem; cursor: pointer;">Yopish</button>
+                                </div>
+                            </div>
+                        `;
+
+                        // Create overlay
+                        const overlay = document.createElement('div');
+                        overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 2rem;';
+                        overlay.innerHTML = modalContent;
+
+                        document.body.appendChild(overlay);
+
+                        // Close on overlay click
+                        overlay.addEventListener('click', (e) => {
+                            if (e.target === overlay) {
+                                overlay.remove();
+                            }
+                        });
+
+                    } else {
+                        throw new Error('Server xatosi');
+                    }
+                } catch (error) {
+                    console.error('❌ Error viewing order details:', error);
+                    this.showNotification('Buyurtma tafsilotlarini olishda xatolik yuz berdi', 'error');
+                }
+            }
+
+            // Driver management methods
+            openBalanceTopUpModal(driverId, driverName) {
+                const modalContent = `
+                    <div style="max-width: 500px; margin: 0 auto; background: white; border-radius: 1rem; padding: 2rem; box-shadow: 0 20px 25px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 1rem;">
+                            <h2 style="font-size: 1.5rem; font-weight: 700; color: #1f2937; margin: 0;">💰 Balansni to'ldirish</h2>
+                            <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; font-size: 1.5rem; color: #6b7280; cursor: pointer; padding: 0.5rem;">×</button>
+                        </div>
+                        <div style="margin-bottom: 2rem;">
+                            <div style="background: #f8fafc; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                                <strong style="color: #374151;">Haydovchi:</strong> ${driverName}
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; font-weight: 500; color: #374151; margin-bottom: 0.5rem;">To'ldirish summasi (so'm)</label>
+                                <input type="number" id="topUpAmount" placeholder="Miqdorni kiriting..." style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 1rem; box-sizing: border-box;">
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; font-weight: 500; color: #374151; margin-bottom: 0.5rem;">Izoh (ixtiyoriy)</label>
+                                <textarea id="topUpNote" placeholder="Izoh..." style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 1rem; resize: vertical; height: 80px; box-sizing: border-box;"></textarea>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                            <button onclick="this.parentElement.parentElement.parentElement.remove()" style="padding: 0.75rem 1.5rem; background: #6b7280; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">Bekor qilish</button>
+                            <button onclick="dashboard.processBalanceTopUp('${driverId}', '${driverName}', this)" style="padding: 0.75rem 1.5rem; background: #10b981; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">💰 To'ldirish</button>
+                        </div>
+                    </div>
+                `;
+
+                // Create overlay
+                const overlay = document.createElement('div');
+                overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 2rem;';
+                overlay.innerHTML = modalContent;
+
+                document.body.appendChild(overlay);
+
+                // Close on overlay click
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) {
+                        overlay.remove();
+                    }
+                });
+
+                // Focus amount input
+                setTimeout(() => {
+                    const amountInput = document.getElementById('topUpAmount');
+                    if (amountInput) amountInput.focus();
+                }, 100);
+            }
+
+            async processBalanceTopUp(driverId, driverName, button) {
+                try {
+                    const amountInput = document.getElementById('topUpAmount');
+                    const noteInput = document.getElementById('topUpNote');
+
+                    const amount = parseFloat(amountInput.value);
+                    const note = noteInput.value.trim();
+
+                    if (!amount || amount <= 0) {
+                        this.showNotification('Iltimos, to\'ldirish summasini kiriting', 'error');
+                        return;
+                    }
+
+                    if (amount > 10000000) { // 10 million limit
+                        this.showNotification('Maksimal to\'ldirish summasi: 10,000,000 so\'m', 'error');
+                        return;
+                    }
+
+                    // Disable button and show loading
+                    button.disabled = true;
+                    button.innerHTML = '⏳ To\'ldirilmoqda...';
+
+                    console.log('💰 Processing balance top-up for driver:', driverId, amount);
+
+                    const response = await fetch(`/api/dashboard/drivers/${driverId}/add-balance`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            amount: amount,
+                            note: note
+                        })
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        console.log('✅ Balance topped up successfully:', result);
+
+                        this.showNotification(`${driverName} haydovchisiga ${this.formatCurrency(amount)} to'ldirildi`, 'success');
+
+                        // Close modal
+                        button.parentElement.parentElement.parentElement.remove();
+
+                        // Refresh drivers page
+                        await this.loadApiData();
+                        this.loadPage('drivers');
+                    } else {
+                        throw new Error('Server xatosi');
+                    }
+                } catch (error) {
+                    console.error('❌ Error processing balance top-up:', error);
+                    this.showNotification('Balansni to\'ldirishda xatolik yuz berdi', 'error');
+
+                    // Re-enable button
+                    button.disabled = false;
+                    button.innerHTML = '💰 To\'ldirish';
+                }
+            }
+
+            async viewDriverDetails(driverId) {
+                try {
+                    console.log('👁️ Viewing driver details:', driverId);
+
+                    const response = await fetch(`/api/dashboard/drivers/${driverId}`);
+                    if (response.ok) {
+                        const driverData = await response.json();
+                        const driver = driverData.data;
+
+                        const modalContent = `
+                            <div style="max-width: 700px; margin: 0 auto; background: white; border-radius: 1rem; padding: 2rem; box-shadow: 0 20px 25px rgba(0,0,0,0.1);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 1rem;">
+                                    <h2 style="font-size: 1.5rem; font-weight: 700; color: #1f2937; margin: 0;">👨‍💼 Haydovchi Tafsilotlari</h2>
+                                    <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; font-size: 1.5rem; color: #6b7280; cursor: pointer; padding: 0.5rem;">×</button>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                                    <div>
+                                        <h3 style="color: #374151; margin-bottom: 1rem; font-size: 1.1rem;">Shaxsiy ma'lumotlar</h3>
+                                        <div style="space-y: 1rem;">
+                                            <div style="margin-bottom: 1rem;">
+                                                <strong style="color: #374151;">Ism familiya:</strong>
+                                                <div style="color: #6b7280; margin-top: 0.25rem;">${driver?.fullName || driver?.name || 'Ma\'lumot yo\'q'}</div>
+                                            </div>
+                                            <div style="margin-bottom: 1rem;">
+                                                <strong style="color: #374151;">Telefon raqam:</strong>
+                                                <div style="color: #6b7280; margin-top: 0.25rem;">${driver?.phone || 'Ma\'lumot yo\'q'}</div>
+                                            </div>
+                                            <div style="margin-bottom: 1rem;">
+                                                <strong style="color: #374151;">Transport:</strong>
+                                                <div style="color: #6b7280; margin-top: 0.25rem;">${driver?.vehicle || 'Ma\'lumot yo\'q'}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 style="color: #374151; margin-bottom: 1rem; font-size: 1.1rem;">Faoliyat</h3>
+                                        <div style="space-y: 1rem;">
+                                            <div style="margin-bottom: 1rem;">
+                                                <strong style="color: #374151;">Joriy balans:</strong>
+                                                <div style="color: #059669; margin-top: 0.25rem; font-weight: 600; font-size: 1.1rem;">${this.formatCurrency(driver?.balance || 0)}</div>
+                                            </div>
+                                            <div style="margin-bottom: 1rem;">
+                                                <strong style="color: #374151;">Buyurtmalar soni:</strong>
+                                                <div style="color: #6b7280; margin-top: 0.25rem;">${driver?.orders || 0} ta</div>
+                                            </div>
+                                            <div style="margin-bottom: 1rem;">
+                                                <strong style="color: #374151;">Reyting:</strong>
+                                                <div style="color: #6b7280; margin-top: 0.25rem; display: flex; align-items: center;">
+                                                    <i class="fas fa-star" style="color: #fbbf24; margin-right: 0.5rem;"></i>
+                                                    ${driver?.rating?.toFixed(1) || 'N/A'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end; border-top: 1px solid #e5e7eb; padding-top: 1rem;">
+                                    <button onclick="dashboard.callDriver('${driver?.phone}')" style="padding: 0.75rem 1.5rem; background: #3b82f6; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">📞 Qo'ng'iroq qilish</button>
+                                    <button onclick="dashboard.openBalanceTopUpModal('${driverId}', '${driver?.fullName || driver?.name}'); this.parentElement.parentElement.parentElement.remove();" style="padding: 0.75rem 1.5rem; background: #10b981; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">💰 Balans to'ldirish</button>
+                                    <button onclick="this.parentElement.parentElement.parentElement.remove()" style="padding: 0.75rem 1.5rem; background: #6b7280; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">Yopish</button>
+                                </div>
+                            </div>
+                        `;
+
+                        // Create overlay
+                        const overlay = document.createElement('div');
+                        overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 2rem;';
+                        overlay.innerHTML = modalContent;
+
+                        document.body.appendChild(overlay);
+
+                        // Close on overlay click
+                        overlay.addEventListener('click', (e) => {
+                            if (e.target === overlay) {
+                                overlay.remove();
+                            }
+                        });
+                    } else {
+                        throw new Error('Server xatosi');
+                    }
+                } catch (error) {
+                    console.error('❌ Error viewing driver details:', error);
+                    this.showNotification('Haydovchi ma\'lumotlarini olishda xatolik yuz berdi', 'error');
+                }
+            }
+
+            callDriver(phoneNumber) {
+                if (phoneNumber && phoneNumber !== 'Ma\'lumot yo\'q') {
+                    // Attempt to open phone dialer
+                    window.open(`tel:${phoneNumber}`, '_self');
+                    this.showNotification(`${phoneNumber} raqamiga qo'ng'iroq qilish...`, 'info');
+                } else {
+                    this.showNotification('Telefon raqam mavjud emas', 'error');
+                }
             }
         }
 
@@ -2165,6 +2841,14 @@
             document.addEventListener('DOMContentLoaded', () => {
                 console.log('🚀 Initializing LogiMaster Pro Dashboard...');
                 window.dashboard = new LogiMasterDashboard();
+
+                // Restore and load the current page after initialization
+                setTimeout(() => {
+                    const savedPage = localStorage.getItem('dashboardCurrentPage') || 'dashboard';
+                    console.log('🔄 Restoring page from localStorage:', savedPage);
+                    window.dashboard.setActivePage(savedPage);
+                    window.dashboard.loadPage(savedPage);
+                }, 100);
             });
         }
     </script>

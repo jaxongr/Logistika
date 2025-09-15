@@ -530,4 +530,92 @@ export class DashboardApiController {
             };
         }
     }
+
+    // Order management endpoints
+    @Post('orders/:id/cancel')
+    async cancelOrder(@Param('id') orderId: string) {
+        try {
+            console.log('❌ Cancelling order from dashboard:', orderId);
+
+            const result = await this.botService.cancelOrderFromDashboard(orderId);
+
+            return {
+                success: true,
+                message: 'Buyurtma bekor qilindi va barcha haydovchilardan olib tashlandi',
+                data: result
+            };
+        } catch (error) {
+            console.error('❌ Error cancelling order:', error);
+            return {
+                success: false,
+                message: 'Buyurtmani bekor qilishda xatolik yuz berdi',
+                error: error.message
+            };
+        }
+    }
+
+    @Post('orders/:id/resend')
+    async resendOrder(@Param('id') orderId: string) {
+        try {
+            console.log('🔄 Resending order from dashboard:', orderId);
+
+            const result = await this.botService.resendOrderFromDashboard(orderId);
+
+            return {
+                success: true,
+                message: 'Buyurtma qayta haydovchilarga yuborildi',
+                data: result
+            };
+        } catch (error) {
+            console.error('❌ Error resending order:', error);
+            return {
+                success: false,
+                message: 'Buyurtmani qayta yuborishda xatolik yuz berdi',
+                error: error.message
+            };
+        }
+    }
+
+    @Get('orders/:id')
+    async getOrderDetails(@Param('id') orderId: string) {
+        try {
+            console.log('👁️ Getting order details from dashboard:', orderId);
+
+            const result = await this.botService.getOrderDetailsFromDashboard(orderId);
+
+            return {
+                success: true,
+                data: result
+            };
+        } catch (error) {
+            console.error('❌ Error getting order details:', error);
+            return {
+                success: false,
+                message: 'Buyurtma ma\'lumotlarini olishda xatolik yuz berdi',
+                error: error.message
+            };
+        }
+    }
+
+    // Driver management endpoints
+    @Get('drivers/:id')
+    async getDriverDetails(@Param('id') driverId: string) {
+        try {
+            console.log('👁️ Getting driver details from dashboard:', driverId);
+
+            const result = await this.botService.getDriverDetailsFromDashboard(driverId);
+
+            return {
+                success: true,
+                data: result
+            };
+        } catch (error) {
+            console.error('❌ Error getting driver details:', error);
+            return {
+                success: false,
+                message: 'Haydovchi ma\'lumotlarini olishda xatolik yuz berdi',
+                error: error.message
+            };
+        }
+    }
 }

@@ -127,6 +127,45 @@
           }
         ]
       }
+    },
+    "8398872102": {
+      "role": "haydovchi",
+      "isRegistered": true,
+      "registrationDate": "2025-09-15T11:06:30.664Z",
+      "profile": {
+        "fullName": "Iskandar to'xtashboyev",
+        "phone": "+998772761187",
+        "minTonnage": 16,
+        "maxTonnage": 20,
+        "personalizedQuestions": [
+          {
+            "from": "Andijon Marhamat",
+            "to": "Toshkent Zangiota",
+            "weight": "17 tonna",
+            "type": "Avtomobil qismlari",
+            "minCapacity": 16,
+            "maxCapacity": 25
+          },
+          {
+            "from": "Buxoro Shofirkon",
+            "to": "Navoiy Qiziltepa",
+            "weight": "22 tonna",
+            "type": "Og'ir mashina-mexanizmlar",
+            "minCapacity": 16,
+            "maxCapacity": 25
+          }
+        ],
+        "priceSurveyAnswers": [
+          {
+            "question": "Andijon Marhamat → Toshkent Zangiota (17 tonna Avtomobil qismlari)",
+            "answer": "2 500 000 so'm"
+          },
+          {
+            "question": "Buxoro Shofirkon → Navoiy Qiziltepa (22 tonna Og'ir mashina-mexanizmlar)",
+            "answer": "1 800 000 so'm"
+          }
+        ]
+      }
     }
   },
   "driverOffers": {},
@@ -149,5 +188,5 @@
       "completedAt": null
     }
   },
-  "timestamp": "2025-09-15T10:46:36.219Z"
+  "timestamp": "2025-09-15T11:25:29.246Z"
 }

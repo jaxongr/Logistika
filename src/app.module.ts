@@ -8,6 +8,7 @@ import { BotModule } from './bot/bot.module';
 import { DashboardApiController } from './dashboard/api.controller';
 import { DataService } from './services/data.service';
 import { PerformanceService } from './services/performance.service';
+import { WebSocketModule } from './websocket/websocket.module';
 
 @Module({
   imports: [
@@ -21,7 +22,8 @@ import { PerformanceService } from './services/performance.service';
       rootPath: join(__dirname, 'dashboard'),
       serveRoot: '/dashboard',
     }),
-    BotModule
+    BotModule,
+    WebSocketModule
   ],
   controllers: [AppController, DashboardApiController],
   providers: [AppService, DataService, PerformanceService],
