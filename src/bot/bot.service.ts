@@ -44,7 +44,7 @@ export class BotService implements OnModuleInit {
   ) {
     this.logger.log('🏗️ BotService constructor chaqirildi');
     // TypeScript xatolari tuzatish uchun
-    this.initDemoData();
+    // this.initDemoData(); // Demo data removed
   }
   private bot: Bot;
   private openai: OpenAI;
