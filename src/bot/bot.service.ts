@@ -44,7 +44,6 @@ export class BotService implements OnModuleInit {
   ) {
     this.logger.log('🏗️ BotService constructor chaqirildi');
     // TypeScript xatolari tuzatish uchun
-    // this.initDemoData(); // Demo data removed
   }
   private bot: Bot;
   private openai: OpenAI;
@@ -15745,111 +15744,52 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
     }
   }
 
-  // Initialize demo data for testing
-  private initDemoData() {
+  // Clear all demo data
+  public clearDemoData() {
     try {
-      this.logger.log('🎭 Initializing demo data...');
+      this.logger.log('🗑️ Clearing all demo data...');
 
-      // Create demo completed orders
-      const demoOrders = [
-        {
-          id: 'cargo_demo_completed_1',
-          userId: 8098211117,
-          username: 'Demo Customer',
-          fromCity: 'Toshkent',
-          toCity: 'Samarqand',
-          cargoType: 'Oziq-ovqat mahsulotlari',
-          truckInfo: 'Yengil yuk mashinasi',
-          price: 500000,
-          description: 'Demo completed order',
-          phone: '+998901234567',
-          date: '2025-09-15',
-          status: 'completed' as const,
-          loadingDate: '2025-09-15',
-          createdAt: '2025-09-15T08:00:00Z',
-          completedAt: '2025-09-15T12:00:00Z',
-          assignedDriverId: 123456
-        },
-        {
-          id: 'cargo_demo_completed_2',
-          userId: 8098211118,
-          username: 'Test Yukchi',
-          fromCity: 'Buxoro',
-          toCity: 'Navoi',
-          cargoType: 'Qurilish materiallari',
-          truckInfo: 'Kamaz',
-          price: 800000,
-          description: 'Demo order 2',
-          phone: '+998907654321',
-          date: '2025-09-14',
-          status: 'completed' as const,
-          loadingDate: '2025-09-14',
-          createdAt: '2025-09-14T10:00:00Z',
-          completedAt: '2025-09-14T16:00:00Z',
-          assignedDriverId: 123457
-        },
-        {
-          id: 'cargo_demo_cancelled_1',
-          userId: 8098211119,
-          username: 'Demo Customer 3',
-          fromCity: 'Andijon',
-          toCity: 'Namangan',
-          cargoType: 'Maishiy texnika',
-          truckInfo: 'Gazel',
-          price: 300000,
-          description: 'Demo cancelled order',
-          phone: '+998905555555',
-          date: '2025-09-13',
-          status: 'cancelled' as const,
-          loadingDate: '2025-09-13',
-          createdAt: '2025-09-13T14:00:00Z',
-          cancelledAt: '2025-09-13T15:00:00Z'
-        },
-        {
-          id: 'cargo_demo_active_1',
-          userId: 8098211120,
-          username: 'Active Customer',
-          fromCity: 'Qarshi',
-          toCity: 'Shahrisabz',
-          cargoType: 'Paxta',
-          truckInfo: 'Fura',
-          price: 1200000,
-          description: 'Demo active order',
-          phone: '+998909999999',
-          date: '2025-09-15',
-          status: 'active' as const,
-          loadingDate: '2025-09-16',
-          createdAt: '2025-09-15T11:00:00Z'
-        }
+      // Clear demo orders
+      const demoOrderIds = [
+        'cargo_demo_completed_1',
+        'cargo_demo_completed_2',
+        'cargo_demo_cancelled_1',
+        'cargo_demo_active_1'
       ];
 
-      // Add demo orders to cargo offers
-      demoOrders.forEach(order => {
-        this.cargoOffers.set(order.id, order as any);
+      demoOrderIds.forEach(id => {
+        this.cargoOffers.delete(id);
       });
 
-      this.logger.log(`✅ Created ${demoOrders.length} demo orders`);
+      // Clear demo drivers
+      const demoDriverIds = [
+        1757939488, // Test driver
+        5968018488,
+        6099086283,
+        8398872102,
+        1757939102  // #D102
+      ];
 
-      // Create demo drivers for testing balance functionality
-      const testDriverId = 1757939488;
-      this.userRoles.set(testDriverId, {
-        role: 'haydovchi',
-        isRegistered: true,
-        registrationDate: new Date().toISOString(),
-        profile: {
-          firstName: 'Test',
-          lastName: 'Haydovchi',
-          fullName: 'Test Haydovchi',
-          phone: '+998911234567',
-          truckInfo: 'Test Transport (10 tonna)'
-        }
-      } as any);
-      this.userBalances.set(testDriverId, 85000); // Initial balance
+      demoDriverIds.forEach(id => {
+        this.userRoles.delete(id);
+        this.userBalances.delete(id);
+      });
 
-      this.logger.log(`✅ Created test driver with ID: ${testDriverId}`);
+      this.logger.log('✅ Demo data cleared successfully');
+      return {
+        success: true,
+        message: 'Demo ma\'lumotlar tozalandi',
+        clearedOrders: demoOrderIds.length,
+        clearedDrivers: demoDriverIds.length
+      };
 
     } catch (error) {
-      this.logger.error('❌ Error initializing demo data:', error);
+      this.logger.error('❌ Error clearing demo data:', error);
+      return {
+        success: false,
+        message: 'Demo ma\'lumotlarni tozalashda xatolik',
+        error: error.message
+      };
     }
   }
 
@@ -15868,13 +15808,16 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
                           driverOffer?.driverName ||
                           `Haydovchi #${String(userId).slice(-3)}`;
 
+          const balance = this.userBalances.get(userId) || 0;
+          this.logger.log(`🔍 Driver ${userId} balance lookup: ${balance} (userBalances size: ${this.userBalances.size})`);
+
           return {
             id: `#D${String(userId).slice(-3)}`,
             realId: userId, // Haqiqiy ID qo'shamiz
             name: fullName,
             phone: userData.profile?.phone || driverOffer?.phone || '+998xxxxxxxxx',
             vehicle: userData.profile?.truckInfo || driverOffer?.truckType || 'Ma\'lumot yo\'q',
-            balance: this.userBalances.get(userId) || 0,
+            balance: balance,
             orders: Array.from(this.cargoOffers.values()).filter(cargo =>
               cargo.userId === userId || (cargo as any).assignedDriverId === userId
             ).length,
@@ -16428,7 +16371,7 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
     }
   }
 
-  async addDriverBalanceFromDashboard(driverId: string, amount: number) {
+  async addDriverBalanceFromDashboard(driverId: string, amount: number, reason?: string) {
     try {
       this.logger.log(`💰 Adding balance to driver from dashboard: ${driverId}, amount: ${amount}`);
 
@@ -16469,12 +16412,28 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
       // Update balance
       this.userBalances.set(driverIdNum, newBalance);
 
+      // Debug log to verify balance update
+      this.logger.log(`🔍 Balance updated in memory for driver ${driverIdNum}: ${this.userBalances.get(driverIdNum)}`);
+
       // Send notification to driver
-      const message = `💰 BALANS TO'LDIRILDI\n\n` +
-        `📊 Oldingi balans: ${currentBalance.toLocaleString()} so'm\n` +
-        `➕ Qo'shilgan: ${amount.toLocaleString()} so'm\n` +
-        `💳 Yangi balans: ${newBalance.toLocaleString()} so'm\n\n` +
-        `✅ Dashboard orqali to'ldirildi`;
+      let message: string;
+
+      if (amount < 0) {
+        // Jarima xabari
+        message = `⚠️ JARIMA YECHILDI\n\n` +
+          `📊 Oldingi balans: ${currentBalance.toLocaleString()} so'm\n` +
+          `➖ Jarima summasi: ${Math.abs(amount).toLocaleString()} so'm\n` +
+          `💳 Yangi balans: ${newBalance.toLocaleString()} so'm\n\n` +
+          `📝 Sabab: ${reason || 'Sababsiz'}\n\n` +
+          `⚠️ Dashboard orqali yechildi`;
+      } else {
+        // Balans to'ldirish xabari
+        message = `💰 BALANS TO'LDIRILDI\n\n` +
+          `📊 Oldingi balans: ${currentBalance.toLocaleString()} so'm\n` +
+          `➕ Qo'shilgan: ${amount.toLocaleString()} so'm\n` +
+          `💳 Yangi balans: ${newBalance.toLocaleString()} so'm\n\n` +
+          `✅ Dashboard orqali to'ldirildi`;
+      }
 
       try {
         await this.bot.api.sendMessage(driverIdNum, message);

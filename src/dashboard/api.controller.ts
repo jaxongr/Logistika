@@ -90,7 +90,9 @@ export class DashboardApiController {
     @Get('drivers')
     async getDrivers(@Query('status') status?: string) {
         try {
+            console.log('📊 Getting drivers data with status:', status);
             const drivers = await this.getDriversData(status);
+            console.log('📈 Drivers data fetched:', drivers.length, 'drivers found');
 
             return {
                 success: true,
@@ -105,6 +107,18 @@ export class DashboardApiController {
                 total: 0
             };
         }
+    }
+
+    @Get('test-buttons')
+    async testButtons() {
+        return {
+            success: true,
+            message: 'Button test endpoint working',
+            data: {
+                timestamp: new Date().toISOString(),
+                available_buttons: ['balance-btn', 'penalty-btn']
+            }
+        };
     }
 
     @Get('dispatchers')
@@ -267,7 +281,8 @@ export class DashboardApiController {
         try {
             console.log('💰 Adding balance to driver from dashboard:', driverId, amount);
 
-            const result = await this.botService.addDriverBalanceFromDashboard(driverId, amount);
+            const result = await this.botService.addDriverBalanceFromDashboard(driverId, amount, undefined);
+            console.log('✅ Balance API result:', result);
 
             return {
                 success: true,
@@ -275,6 +290,7 @@ export class DashboardApiController {
                 data: result
             };
         } catch (error) {
+            console.error('❌ Error in addDriverBalance API:', error);
             console.error('❌ Error adding driver balance:', error);
             return {
                 success: false,
@@ -289,7 +305,8 @@ export class DashboardApiController {
         try {
             console.log('⚠️ Deducting penalty from driver:', driverId, penaltyData.amount);
 
-            const result = await this.botService.addDriverBalanceFromDashboard(driverId, -penaltyData.amount);
+            const result = await this.botService.addDriverBalanceFromDashboard(driverId, -penaltyData.amount, penaltyData.reason);
+            console.log('✅ Penalty API result:', result);
 
             return {
                 success: true,
@@ -297,6 +314,7 @@ export class DashboardApiController {
                 data: result
             };
         } catch (error) {
+            console.error('❌ Error in deductDriverPenalty API:', error);
             console.error('❌ Error deducting driver penalty:', error);
             return {
                 success: false,
@@ -347,6 +365,29 @@ export class DashboardApiController {
             return {
                 success: false,
                 message: 'Demo buyurtmalarni tozalashda xatolik',
+                error: error.message
+            };
+        }
+    }
+
+    @Delete('drivers/clear-demo')
+    async clearDemoDrivers() {
+        try {
+            console.log('🗑️ Clearing demo drivers...');
+
+            // Demo haydovchilarni tozalash
+            const result = await this.botService.clearDemoData();
+
+            return {
+                success: true,
+                message: 'Demo haydovchilar tozalandi',
+                data: result
+            };
+        } catch (error) {
+            console.error('❌ Error clearing demo drivers:', error);
+            return {
+                success: false,
+                message: 'Demo haydovchilarni tozalashda xatolik',
                 error: error.message
             };
         }

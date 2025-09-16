@@ -1667,17 +1667,7 @@
 
             renderDrivers() {
                 const drivers = this.apiData.drivers || [];
-                console.log('📊 Rendering drivers:', drivers);
-
-                // Debug each driver data
-                drivers.forEach((driver, index) => {
-                    console.log(`Driver ${index}:`, {
-                        id: driver.id,
-                        realId: driver.realId,
-                        name: driver.name,
-                        fullName: driver.fullName
-                    });
-                });
+                console.log('📊 Rendering drivers:', drivers.length, 'found');
 
                 if (drivers.length === 0) {
                     return `
@@ -1819,42 +1809,74 @@
                 `;
             }
 
+            setupGlobalEventDelegation() {
+                console.log('🌐 Setting up global event delegation for driver buttons...');
+
+                // Use event delegation - attach listeners to document body (once only)
+                document.body.addEventListener('click', (e) => {
+                    // Handle balance button clicks
+                    if (e.target.classList.contains('balance-btn') || e.target.closest('.balance-btn')) {
+                        e.preventDefault();
+                        console.log('🎯 Balance button clicked via delegation!', e.target);
+                        const button = e.target.closest('.balance-btn');
+                        if (button) {
+                            const driverId = button.dataset.driverId;
+                            const driverName = button.dataset.driverName;
+                            console.log('Balance Data:', { driverId, driverName });
+                            this.openBalanceTopUpModal(driverId, driverName);
+                        }
+                    }
+
+                    // Handle penalty button clicks
+                    if (e.target.classList.contains('penalty-btn') || e.target.closest('.penalty-btn')) {
+                        e.preventDefault();
+                        console.log('⚠️ Penalty button clicked via delegation!', e.target);
+                        const button = e.target.closest('.penalty-btn');
+                        if (button) {
+                            const driverId = button.dataset.driverId;
+                            const driverName = button.dataset.driverName;
+                            console.log('Penalty Data:', { driverId, driverName });
+                            this.openPenaltyDeductModal(driverId, driverName);
+                        }
+                    }
+
+                    // Handle modal cancel button clicks
+                    if (e.target.classList.contains('modal-cancel-btn')) {
+                        e.preventDefault();
+                        console.log('❌ Modal cancel button clicked');
+                        const modal = e.target.closest('[style*="position: fixed"]');
+                        if (modal) {
+                            modal.remove();
+                        }
+                    }
+
+                    // Handle modal balance submit button clicks
+                    if (e.target.classList.contains('modal-balance-submit-btn')) {
+                        e.preventDefault();
+                        console.log('💰 Modal balance submit button clicked');
+                        const button = e.target;
+                        const driverId = button.dataset.driverId;
+                        const driverName = button.dataset.driverName;
+                        this.processBalanceTopUp(driverId, driverName, button);
+                    }
+
+                    // Handle modal penalty submit button clicks
+                    if (e.target.classList.contains('modal-penalty-submit-btn')) {
+                        e.preventDefault();
+                        console.log('⚠️ Modal penalty submit button clicked');
+                        const button = e.target;
+                        const driverId = button.dataset.driverId;
+                        const driverName = button.dataset.driverName;
+                        this.processPenaltyDeduct(driverId, driverName, button);
+                    }
+                });
+
+                console.log('✅ Global event delegation setup complete');
+            }
+
             setupDriverButtonEvents() {
-                console.log('🔧 Setting up driver button events...');
-
-                const balanceBtns = document.querySelectorAll('.balance-btn');
-                const penaltyBtns = document.querySelectorAll('.penalty-btn');
-
-                console.log(`Found ${balanceBtns.length} balance buttons and ${penaltyBtns.length} penalty buttons`);
-
-                // Add new event listeners with proper context binding
-                balanceBtns.forEach((btn, index) => {
-                    console.log(`Setting up balance button ${index}:`, btn.dataset);
-                    btn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        console.log('🎯 Balance button clicked!', e.target);
-                        const button = e.target.closest('button');
-                        const driverId = button.dataset.driverId;
-                        const driverName = button.dataset.driverName;
-                        console.log('Data:', { driverId, driverName });
-                        dashboard.openBalanceTopUpModal(driverId, driverName);
-                    });
-                });
-
-                penaltyBtns.forEach((btn, index) => {
-                    console.log(`Setting up penalty button ${index}:`, btn.dataset);
-                    btn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        console.log('⚠️ Penalty button clicked!', e.target);
-                        const button = e.target.closest('button');
-                        const driverId = button.dataset.driverId;
-                        const driverName = button.dataset.driverName;
-                        console.log('Data:', { driverId, driverName });
-                        dashboard.openPenaltyDeductModal(driverId, driverName);
-                    });
-                });
-
-                console.log('✅ Driver button events setup complete');
+                // This method is no longer needed since we use global event delegation
+                console.log('📝 Driver button events handled by global delegation');
             }
 
             renderDispatchers() {
@@ -2825,8 +2847,8 @@
                             </div>
                         </div>
                         <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-                            <button onclick="this.parentElement.parentElement.parentElement.remove()" style="padding: 0.75rem 1.5rem; background: #6b7280; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">Bekor qilish</button>
-                            <button onclick="dashboard.processBalanceTopUp('${driverId}', '${driverName}', this)" style="padding: 0.75rem 1.5rem; background: #10b981; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">💰 To'ldirish</button>
+                            <button class="modal-cancel-btn" style="padding: 0.75rem 1.5rem; background: #6b7280; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">Bekor qilish</button>
+                            <button class="modal-balance-submit-btn" data-driver-id="${driverId}" data-driver-name="${driverName}" style="padding: 0.75rem 1.5rem; background: #10b981; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">💰 To'ldirish</button>
                         </div>
                     </div>
                 `;
@@ -2876,8 +2898,8 @@
                             </div>
                         </div>
                         <div style="display: flex; gap: 1rem; justify-content: flex-end;">
-                            <button onclick="this.parentElement.parentElement.parentElement.remove()" style="padding: 0.75rem 1.5rem; background: #6b7280; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">Bekor qilish</button>
-                            <button onclick="dashboard.processPenaltyDeduct('${driverId}', '${driverName}', this)" style="padding: 0.75rem 1.5rem; background: #dc2626; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">⚠️ Jarima yech</button>
+                            <button class="modal-cancel-btn" style="padding: 0.75rem 1.5rem; background: #6b7280; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">Bekor qilish</button>
+                            <button class="modal-penalty-submit-btn" data-driver-id="${driverId}" data-driver-name="${driverName}" style="padding: 0.75rem 1.5rem; background: #dc2626; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">⚠️ Jarima yech</button>
                         </div>
                     </div>
                 `;
@@ -3392,6 +3414,9 @@
             document.addEventListener('DOMContentLoaded', () => {
                 console.log('🚀 Initializing LogiMaster Pro Dashboard...');
                 window.dashboard = new LogiMasterDashboard();
+
+                // Setup global event delegation for driver buttons
+                window.dashboard.setupGlobalEventDelegation();
 
                 // Restore and load the current page after initialization
                 setTimeout(() => {
