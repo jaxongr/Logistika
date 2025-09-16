@@ -55,7 +55,10 @@
       "Bash(dir distdashboard)",
       "Bash(dir srcservices)",
       "Bash(rm:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git restore:*)",
+      "Bash(start http://localhost:3004/dashboard)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

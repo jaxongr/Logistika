@@ -242,6 +242,31 @@
             border: 2px solid white;
         }
 
+        .logout-btn {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border: none;
+            border-radius: 0.75rem;
+            color: white;
+            width: 2.5rem;
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        }
+
+        .logout-btn:hover {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+        }
+
+        .logout-btn:active {
+            transform: translateY(0);
+        }
+
         .time-display {
             display: flex;
             align-items: center;
@@ -882,6 +907,9 @@
                             Barcha huquqlar
                         </p>
                     </div>
+                    <button class="logout-btn" id="logoutBtn" onclick="logout()" title="Chiqish">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
                     <div class="user-avatar">
                         SA
                     </div>
@@ -3442,6 +3470,59 @@
 
         setInterval(updateTime, 1000);
         updateTime(); // Initial call
+
+        // Logout function
+        async function logout() {
+            if (confirm('Rostdan ham tizimdan chiqmoqchimisiz?')) {
+                try {
+                    const response = await fetch('/auth/logout', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        alert('Muvaffaqiyatli chiqtingiz!');
+                        window.location.href = result.redirect;
+                    } else {
+                        alert('Xatolik yuz berdi!');
+                    }
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    alert('Tarmoq xatosi yuz berdi!');
+                }
+            }
+        }
+
+        // Check authentication status on page load
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/auth/check');
+                const result = await response.json();
+
+                if (!result.isAuthenticated) {
+                    window.location.href = '/auth/login';
+                    return;
+                }
+
+                // Update user info if needed
+                if (result.user) {
+                    const userNameElement = document.querySelector('.user-name');
+                    if (userNameElement) {
+                        userNameElement.textContent = result.user.role === 'super_admin' ? 'Super Admin' : result.user.username;
+                    }
+                }
+            } catch (error) {
+                console.error('Auth check error:', error);
+                // Don't redirect on error - might be network issue
+            }
+        }
+
+        // Check auth status on page load
+        document.addEventListener('DOMContentLoaded', checkAuthStatus);
 
         // Shaharlar orasidagi masofalar (km)
         const cityDistances = {

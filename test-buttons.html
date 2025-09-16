@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Button Test</title>
+</head>
+<body>
+    <h1>Haydovchi Balans Tugmalari Test</h1>
+
+    <div id="testContainer">
+        <p>Haydovchilar ma'lumotlarini yuklash...</p>
+    </div>
+
+    <script>
+        console.log('🧪 Starting button test...');
+
+        // Test dashboard object creation
+        const dashboard = {
+            openBalanceTopUpModal: function(driverId, driverName) {
+                console.log('💰 Balance modal opened for:', driverId, driverName);
+                alert(`Balans to'ldirish modal ochildi: ${driverName} (${driverId})`);
+            },
+
+            openPenaltyDeductModal: function(driverId, driverName) {
+                console.log('⚠️ Penalty modal opened for:', driverId, driverName);
+                alert(`Jarima modal ochildi: ${driverName} (${driverId})`);
+            }
+        };
+
+        // Fetch drivers data and create test buttons
+        fetch('/api/dashboard/drivers')
+            .then(response => response.json())
+            .then(data => {
+                console.log('📊 Drivers data received:', data);
+
+                if (data.success && data.data.length > 0) {
+                    const container = document.getElementById('testContainer');
+                    container.innerHTML = '<h2>Test Tugmalari:</h2>';
+
+                    data.data.forEach((driver, index) => {
+                        const driverDiv = document.createElement('div');
+                        driverDiv.style.cssText = 'margin: 10px 0; padding: 15px; border: 1px solid #ccc; border-radius: 8px;';
+
+                        driverDiv.innerHTML = `
+                            <h3>${driver.name} (${driver.id})</h3>
+                            <p>Real ID: ${driver.realId}</p>
+                            <p>Balans: ${driver.balance} so'm</p>
+                            <div style="margin-top: 10px;">
+                                <button class="balance-btn"
+                                        data-driver-id="${driver.realId}"
+                                        data-driver-name="${driver.name}"
+                                        style="background: #10b981; color: white; padding: 8px 16px; border: none; border-radius: 4px; margin-right: 10px; cursor: pointer;">
+                                    💰 Balans to'ldirish
+                                </button>
+                                <button class="penalty-btn"
+                                        data-driver-id="${driver.realId}"
+                                        data-driver-name="${driver.name}"
+                                        style="background: #dc2626; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">
+                                    ⚠️ Jarima yechish
+                                </button>
+                            </div>
+                        `;
+
+                        container.appendChild(driverDiv);
+                    });
+
+                    // Setup event listeners
+                    console.log('🔧 Setting up event listeners...');
+
+                    const balanceBtns = document.querySelectorAll('.balance-btn');
+                    const penaltyBtns = document.querySelectorAll('.penalty-btn');
+
+                    console.log(`Found ${balanceBtns.length} balance buttons and ${penaltyBtns.length} penalty buttons`);
+
+                    balanceBtns.forEach((btn, index) => {
+                        console.log(`Setting up balance button ${index}:`, btn.dataset);
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            console.log('🎯 Balance button clicked!', e.target);
+                            const button = e.target.closest('button');
+                            const driverId = button.dataset.driverId;
+                            const driverName = button.dataset.driverName;
+                            console.log('Data:', { driverId, driverName });
+                            dashboard.openBalanceTopUpModal(driverId, driverName);
+                        });
+                    });
+
+                    penaltyBtns.forEach((btn, index) => {
+                        console.log(`Setting up penalty button ${index}:`, btn.dataset);
+                        btn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            console.log('⚠️ Penalty button clicked!', e.target);
+                            const button = e.target.closest('button');
+                            const driverId = button.dataset.driverId;
+                            const driverName = button.dataset.driverName;
+                            console.log('Data:', { driverId, driverName });
+                            dashboard.openPenaltyDeductModal(driverId, driverName);
+                        });
+                    });
+
+                    console.log('✅ Event listeners setup complete!');
+
+                } else {
+                    document.getElementById('testContainer').innerHTML = '<p>❌ Haydovchilar ma\'lumotlari topilmadi</p>';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error loading drivers:', error);
+                document.getElementById('testContainer').innerHTML = '<p>❌ Xatolik yuz berdi</p>';
+            });
+    </script>
+</body>
+</html>

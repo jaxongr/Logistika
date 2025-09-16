@@ -687,4 +687,26 @@ export class DashboardApiController {
             };
         }
     }
+
+    @Post('drivers/clear-registration-steps')
+    async clearStuckRegistrationSteps() {
+        try {
+            console.log('🧹 Clearing stuck registration steps...');
+
+            const result = await this.botService.clearStuckRegistrationSteps();
+
+            return {
+                success: true,
+                message: `${result.clearedCount} ta tiqilib qolgan registratsiya jarayoni tozalandi`,
+                data: result
+            };
+        } catch (error) {
+            console.error('❌ Error clearing stuck registration steps:', error);
+            return {
+                success: false,
+                message: 'Registratsiya jarayonlarini tozalashda xatolik yuz berdi',
+                error: error.message
+            };
+        }
+    }
 }

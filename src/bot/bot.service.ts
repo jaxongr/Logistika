@@ -10155,6 +10155,14 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
           });
           this.logger.log(`Loaded ${Object.keys(data.userRoles).length} user roles from file`);
         }
+
+        // Load userBalances
+        if (data.userBalances) {
+          Object.entries(data.userBalances).forEach(([userId, balance]: [string, any]) => {
+            this.userBalances.set(parseInt(userId), balance);
+          });
+          this.logger.log(`Loaded ${Object.keys(data.userBalances).length} user balances from file`);
+        }
         
         // Load driverOffers  
         if (data.driverOffers) {
@@ -10171,10 +10179,59 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
           });
           this.logger.log(`Loaded ${Object.keys(data.cargoOffers).length} cargo offers from file`);
         }
+
+        // Load customerOrderHistory
+        if (data.customerOrderHistory) {
+          Object.entries(data.customerOrderHistory).forEach(([userId, orderHistory]: [string, any]) => {
+            this.customerOrderHistory.set(parseInt(userId), orderHistory);
+          });
+          this.logger.log(`Loaded ${Object.keys(data.customerOrderHistory).length} customer order histories from file`);
+        }
+
+        // Load driverPerformance
+        if (data.driverPerformance) {
+          Object.entries(data.driverPerformance).forEach(([userId, performance]: [string, any]) => {
+            this.driverPerformance.set(parseInt(userId), performance);
+          });
+          this.logger.log(`Loaded ${Object.keys(data.driverPerformance).length} driver performance records from file`);
+        }
+
+        // Load activeOrders
+        if (data.activeOrders) {
+          Object.entries(data.activeOrders).forEach(([orderId, orderInfo]: [string, any]) => {
+            this.activeOrders.set(orderId, orderInfo);
+          });
+          this.logger.log(`Loaded ${Object.keys(data.activeOrders).length} active orders from file`);
+        }
+
+        // Clear any stuck registration steps for already registered users
+        this.clearStuckRegistrationSteps();
       }
     } catch (error) {
       this.logger.error('Error loading user data:', error);
     }
+  }
+
+  // Public method for API calls
+  public clearStuckRegistrationSteps() {
+    let clearedCount = 0;
+
+    // Check each registered user and remove them from registration steps
+    this.userRoles.forEach((userInfo, userId) => {
+      if (userInfo.isRegistered && this.driverRegistrationSteps.has(userId)) {
+        this.driverRegistrationSteps.delete(userId);
+        clearedCount++;
+        this.logger.log(`🧹 Cleared stuck registration step for registered user ${userId}`);
+      }
+    });
+
+    if (clearedCount > 0) {
+      this.logger.log(`✅ Cleared ${clearedCount} stuck registration steps`);
+    } else {
+      this.logger.log('✅ No stuck registration steps found');
+    }
+
+    return { clearedCount };
   }
 
   private async sendDriverApp(ctx: any) {
@@ -10322,8 +10379,12 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
     try {
       const data = {
         userRoles: Object.fromEntries(this.userRoles.entries()),
+        userBalances: Object.fromEntries(this.userBalances.entries()),
         driverOffers: Object.fromEntries(this.driverOffers.entries()),
         cargoOffers: Object.fromEntries(this.cargoOffers.entries()),
+        customerOrderHistory: Object.fromEntries(this.customerOrderHistory.entries()),
+        driverPerformance: Object.fromEntries(this.driverPerformance.entries()),
+        activeOrders: Object.fromEntries(this.activeOrders.entries()),
         timestamp: new Date().toISOString()
       };
       
@@ -10339,6 +10400,7 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
     try {
       // Clear all Maps
       this.userRoles.clear();
+      this.userBalances.clear();
       this.registrationInProgress.clear();
       this.registrationData.clear();
       this.driverRegistrationSteps.clear();
@@ -10348,6 +10410,8 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
       this.matches.clear();
       this.pricingDatabase.clear();
       this.activeOrders.clear();
+      this.customerOrderHistory.clear();
+      this.driverPerformance.clear();
       // this.dispatcherReferrals.clear(); // REFERRAL SYSTEM REMOVED
       this.virtualBalances.clear();
       this.userPayments.clear();
@@ -15930,8 +15994,15 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
               cargo.userId === userId || (cargo as any).assignedDriverId === userId
             ).length,
             rating: 4.5 + Math.random() * 0.5,
-            status: status || 'active'
+            status: status || 'active',
+            registrationDate: userData.registrationDate // Sorting uchun qo'shamiz
           };
+        })
+        // Yangi haydovchilarni tepaga saralash (eng so'nggi registratsiya qilinganlar birinchi)
+        .sort((a, b) => {
+          const dateA = new Date(a.registrationDate).getTime();
+          const dateB = new Date(b.registrationDate).getTime();
+          return dateB - dateA; // Eng yangi birinchi
         });
 
       return status ? drivers.filter(driver => driver.status === status) : drivers;
