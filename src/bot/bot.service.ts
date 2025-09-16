@@ -16001,7 +16001,7 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
             name: fullName,
             phone: userData.profile?.phone || driverOffer?.phone || '+998xxxxxxxxx',
             vehicle: userData.profile?.truckInfo || driverOffer?.truckType || 'Ma\'lumot yo\'q',
-            loadCapacity: userData.profile?.loadCapacity || driverOffer?.loadCapacity || 'Aniqlanmagan',
+            loadCapacity: userData.profile?.loadCapacity || driverOffer?.capacity || 'Aniqlanmagan',
             vehicleNumber: userData.profile?.vehicleNumber || 'Aniqlanmagan',
             balance: balance,
             orders: Array.from(this.cargoOffers.values()).filter(cargo =>
