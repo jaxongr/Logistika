@@ -1037,6 +1037,37 @@ export class BotService implements OnModuleInit {
 
       this.logger.log(`📥 MESSAGE: User ${userId} sent: "${text}". Role: ${userRole?.role || 'no role'}`);
 
+      // Haydovchi menu tugmalari uchun ustunlik berish
+      const driverMenuButtons = [
+        '🆕 Yangi orderlar', '📋 Order tarixi', '👤 Mening profilim',
+        '💰 Balansim', '📱 Mobil ilova', '⚙️ Sozlamalar'
+      ];
+
+      if (driverMenuButtons.includes(text) && userRole?.role === 'haydovchi') {
+        this.logger.log(`🎯 Driver menu button detected: "${text}" for user ${userId}`);
+
+        switch (text) {
+          case '🆕 Yangi orderlar':
+            await this.showAvailableOrders(ctx);
+            return;
+          case '📋 Order tarixi':
+            await this.showOrderHistory(ctx);
+            return;
+          case '👤 Mening profilim':
+            await this.showDriverProfile(ctx);
+            return;
+          case '💰 Balansim':
+            await this.showDriverBalance(ctx);
+            return;
+          case '📱 Mobil ilova':
+            await this.sendDriverApp(ctx);
+            return;
+          case '⚙️ Sozlamalar':
+            await this.showDriverSettings(ctx);
+            return;
+        }
+      }
+
       // Balance Button Handler - Simple Check
       if (text === '💰 Balansim') {
         this.logger.log(`🎯 BALANCE: Button press detected for user ${userId}`);
@@ -7533,79 +7564,6 @@ Texnik yordam: 09:00-22:00
     await this.showSettings(ctx);
   }
 
-  private async showDriverProfile(ctx: any) {
-    const userId = ctx.from.id;
-    const driverInfo = this.driverOffers.get(userId.toString());
-    
-    if (!driverInfo) {
-      const noProfileMessage = `
-❌ <b>PROFIL TOPILMADI</b>
-
-🚫 Siz hali haydovchi sifatida ro'yxatdan o'tmagansiz.
-
-📝 <b>Ro'yxatdan o'tish uchun:</b>
-1️⃣ Bosh menyuga qayting
-2️⃣ "🚚 HAYDOVCHI" tugmasini bosing  
-3️⃣ 8 bosqichli ro'yxatdan o'ting
-
-⚡ <b>Bu jarayon 2-3 daqiqa vaqt oladi!</b>
-      `;
-      
-      const keyboard = new InlineKeyboard()
-        .text('🚚 Ro\'yxatdan o\'tish', 'register_haydovchi')
-        .text('🔙 Orqaga', 'back_main').row();
-        
-      await ctx.editMessageText(noProfileMessage, {
-        parse_mode: 'HTML',
-        reply_markup: keyboard
-      });
-      return;
-    }
-
-    const profileMessage = `
-👤 <b>HAYDOVCHI PROFILI</b>
-
-┌─────────────────────────────┐
-│     📋 SHAXSIY MA'LUMOTLAR   │
-└─────────────────────────────┘
-
-🎯 <b>Ism-familiya:</b> ${driverInfo.driverName}
-📱 <b>Telefon:</b> ${driverInfo.phone}
-🆔 <b>ID:</b> ${userId}
-📅 <b>Ro'yxat sanasi:</b> ${new Date(driverInfo.date).toLocaleDateString('uz-UZ')}
-
-┌─────────────────────────────┐
-│      🚛 TRANSPORT MA'LUMOTI  │
-└─────────────────────────────┘
-
-🚗 <b>Mashina:</b> ${driverInfo.truckType}
-⚖️ <b>Tonnaj:</b> ${driverInfo.capacity} tonna
-🔍 <b>Yo'nalish:</b> ${driverInfo.fromCity} dan ${driverInfo.toCity} ga
-
-┌─────────────────────────────┐
-│        📊 STATISTIKA        │  
-└─────────────────────────────┘
-
-⭐ <b>Reyting:</b> ${driverInfo.rating}/5.0
-✅ <b>Bajarilgan:</b> ${driverInfo.completedOrders} ta order
-💰 <b>So'ngi narx:</b> ${driverInfo.price.toLocaleString()} so'm
-📊 <b>Status:</b> ${driverInfo.status === 'available' ? '🟢 Faol' : '🔴 Band'}
-    `;
-
-    const keyboard = new InlineKeyboard()
-      .text('✏️ Tahrirlash', 'edit_driver_profile')
-      .text('📊 Statistika', 'driver_stats').row()
-      .text('💰 Daromad', 'earnings')
-      .text('⭐ Reyting', 'rating_details').row()
-      .text('📋 Profil PDF', 'download_profile')
-      .text('📤 Yuborish', 'share_profile').row()
-      .text('🔙 Orqaga', 'back_main');
-
-    await ctx.editMessageText(profileMessage, {
-      parse_mode: 'HTML',
-      reply_markup: keyboard
-    });
-  }
 
   private async editDriverProfile(ctx: any) {
     const editMessage = `
@@ -14337,14 +14295,164 @@ RETURN THE TEXT WITH MINIMAL CHANGES ONLY!`;
     }
   }
 
+  // Haydovchi balansini ko'rsatish
+  private async showDriverBalance(ctx: any) {
+    const userId = ctx.from.id;
+    const currentBalance = await this.getUserBalance(userId);
+
+    const message = `
+💰 <b>HAYDOVCHI BALANSI</b>
+
+💵 <b>Joriy balans:</b> ${currentBalance.toLocaleString()} so'm
+
+📊 <b>Balans ma'lumotlari:</b>
+• Dashboard orqali to'ldiriladi
+• Komissiya to'lovlarda ishlatiladi
+• Real vaqtda yangilanadi
+
+💡 <b>Balans to'ldirish:</b>
+Admin dashboard orqali balansingizni to'ldirish mumkin.
+    `;
+
+    await ctx.reply(message, {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📊 Balans tarixi', callback_data: 'balance_history' }],
+          [{ text: '🔙 Haydovchi menyu', callback_data: 'back_main' }]
+        ]
+      }
+    });
+  }
+
+  // Haydovchi profil funksiyalari
+  private async showDriverProfile(ctx: any) {
+    const userId = ctx.from.id;
+    const userRole = this.userRoles.get(userId);
+
+    const message = `
+👤 <b>MENING PROFILIM</b>
+
+📋 <b>Ma'lumotlar:</b>
+• Ism: ${userRole?.profile?.fullName || 'Kiritilmagan'}
+• Telefon: ${userRole?.profile?.phone || 'Kiritilmagan'}
+• Mashina: ${userRole?.profile?.truckInfo || 'Kiritilmagan'}
+
+✅ <b>Status:</b> ${userRole?.isRegistered ? 'Faol' : 'Nofaol'}
+📅 <b>Ro'yxatdan o'tgan:</b> ${userRole?.registrationDate ? new Date(userRole.registrationDate).toLocaleDateString() : 'Noma\'lum'}
+    `;
+
+    await ctx.reply(message, {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✏️ Tahrirlash', callback_data: 'edit_driver_profile' }],
+          [{ text: '🔙 Haydovchi menyu', callback_data: 'back_main' }]
+        ]
+      }
+    });
+  }
+
+  private async showAvailableOrders(ctx: any) {
+    const message = `
+🆕 <b>YANGI ORDERLAR</b>
+
+📋 <b>Mavjud orderlar:</b>
+Hozirda yangi orderlar yo'q.
+
+🔄 <b>Yangilanish:</b>
+Yangi orderlar paydo bo'lganda sizga xabar beriladi.
+    `;
+
+    await ctx.reply(message, {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔄 Yangilash', callback_data: 'refresh_orders' }],
+          [{ text: '🔙 Haydovchi menyu', callback_data: 'back_main' }]
+        ]
+      }
+    });
+  }
+
+  private async showOrderHistory(ctx: any) {
+    const message = `
+📋 <b>ORDER TARIXI</b>
+
+📊 <b>Bajarilgan orderlar:</b>
+Hozircha tarix bo'sh.
+
+💼 <b>Statistika:</b>
+• Jami: 0 ta
+• Bajarilgan: 0 ta
+• Bekor qilingan: 0 ta
+    `;
+
+    await ctx.reply(message, {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📊 Batafsil statistika', callback_data: 'driver_stats' }],
+          [{ text: '🔙 Haydovchi menyu', callback_data: 'back_main' }]
+        ]
+      }
+    });
+  }
+
+  private async showDriverSettings(ctx: any) {
+    const message = `
+⚙️ <b>HAYDOVCHI SOZLAMALARI</b>
+
+🔔 <b>Bildirishnomalar:</b>
+• Yangi orderlar: ✅ Yoqilgan
+• Balans o'zgarishi: ✅ Yoqilgan
+• Tizim xabarlari: ✅ Yoqilgan
+
+📍 <b>Joylashuv:</b>
+• GPS ulanishi: ❌ O'chirilgan
+• Avtomatik yangilanish: ❌ O'chirilgan
+
+🎯 <b>Order sozlamalari:</b>
+• Avtomatik qabul qilish: ❌ O'chirilgan
+• Masofaviy cheklash: ❌ O'chirilgan
+    `;
+
+    await ctx.reply(message, {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔔 Bildirishnomalarda', callback_data: 'notification_settings' }],
+          [{ text: '📍 Joylashuv sozlamalari', callback_data: 'location_settings' }],
+          [{ text: '🔙 Haydovchi menyu', callback_data: 'back_main' }]
+        ]
+      }
+    });
+  }
+
   // Foydalanuvchining balansini olish
   private async getUserBalance(userId: number): Promise<number> {
     try {
+      // Avval memory dan balansni olish
+      const memoryBalance = this.userBalances.get(userId);
+      if (memoryBalance !== undefined) {
+        this.logger.log(`💰 Balance from memory for user ${userId}: ${memoryBalance}`);
+        return memoryBalance;
+      }
+
+      // Fayl ichidan olish (eski tizim uchun)
       const filePath = path.join(process.cwd(), 'src', 'data', 'balance-settings.json');
       if (fs.existsSync(filePath)) {
         const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        return data.userBalances?.[userId] || 0;
+        const fileBalance = data.userBalances?.[userId] || 0;
+        if (fileBalance > 0) {
+          // Fayl balansni memory ga ko'chirish
+          this.userBalances.set(userId, fileBalance);
+          this.logger.log(`💰 Balance from file for user ${userId}: ${fileBalance}, moved to memory`);
+          return fileBalance;
+        }
       }
+
+      this.logger.log(`💰 No balance found for user ${userId}, returning 0`);
       return 0;
     } catch (error) {
       this.logger.error('❌ Error getting user balance:', error);
