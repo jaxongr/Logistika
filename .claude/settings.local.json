@@ -58,7 +58,9 @@
       "Bash(git commit:*)",
       "Bash(git restore:*)",
       "Bash(start http://localhost:3004/dashboard)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(start http://localhost:3004/dashboard/users)",
+      "Bash(start http://localhost:3004/dashboard/staff)"
     ],
     "deny": [],
     "ask": []

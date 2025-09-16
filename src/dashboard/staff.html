@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xodimlar | LogiMaster Pro</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
+            --blue-gradient: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            --purple-gradient: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            --green-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            --orange-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            --red-gradient: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f9fafb 0%, #e0f2fe 50%, #f3e8ff 100%);
+            min-height: 100vh;
+            color: var(--gray-900);
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-content {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 80px;
+            min-height: 80px;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo-icon {
+            position: relative;
+            width: 3rem;
+            height: 3rem;
+            background: var(--primary-gradient);
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
+        }
+
+        .logo-icon::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 1rem;
+            height: 1rem;
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            border-radius: 50%;
+            border: 2px solid white;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .logo-text h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            background: var(--primary-gradient);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .logo-text p {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            height: 100%;
+        }
+
+        .search-container {
+            position: relative;
+            width: 320px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 3rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 1rem;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            font-size: 0.875rem;
+            color: var(--gray-700);
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: rgba(59, 130, 246, 0.5);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-400);
+        }
+
+        .notification-btn {
+            position: relative;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 1rem;
+            color: var(--gray-600);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .notification-btn:hover {
+            background: rgba(255, 255, 255, 0.7);
+            color: var(--gray-800);
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -0.25rem;
+            right: -0.25rem;
+            width: 1.25rem;
+            height: 1.25rem;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            border-radius: 50%;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            height: fit-content;
+        }
+
+        .user-details {
+            text-align: right;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: var(--gray-800);
+            margin: 0;
+        }
+
+        .user-role {
+            font-size: 0.75rem;
+            color: var(--gray-600);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            justify-content: flex-end;
+        }
+
+        .user-avatar {
+            position: relative;
+            width: 3rem;
+            height: 3rem;
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .user-avatar::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 1rem;
+            height: 1rem;
+            background: #10b981;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .logout-btn {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border: none;
+            border-radius: 0.75rem;
+            color: white;
+            width: 2.5rem;
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        }
+
+        .logout-btn:hover {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+        }
+
+        .logout-btn:active {
+            transform: translateY(0);
+        }
+
+        .time-display {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--gray-600);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .main-layout {
+            display: flex;
+            min-height: calc(100vh - 80px);
+        }
+
+        .sidebar {
+            width: 320px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.08);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-content {
+            padding: 2rem;
+        }
+
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            border: none;
+            background: none;
+            border-radius: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--gray-600);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .nav-item:hover::before {
+            opacity: 0.1;
+        }
+
+        .nav-item.active::before {
+            opacity: 1;
+        }
+
+        .nav-item:hover {
+            color: var(--gray-900);
+            transform: translateX(4px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-item.active {
+            color: white;
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
+            transform: scale(1.02);
+        }
+
+        .nav-icon {
+            width: 1.5rem;
+            height: 1.5rem;
+            position: relative;
+            z-index: 1;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+        }
+
+        .nav-item.active .nav-icon {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .nav-label {
+            position: relative;
+            z-index: 1;
+            font-size: 0.875rem;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .container {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 0;
+        }
+
+        .page-header {
+            margin-bottom: 32px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle {
+            color: var(--gray-600);
+            font-size: 16px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            color: var(--gray-600);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .filters-section {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .filters-row {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 300px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 16px 12px 48px;
+            border: 1px solid var(--gray-300);
+            border-radius: 12px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .search-box .search-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-400);
+        }
+
+        .filter-select {
+            padding: 12px 16px;
+            border: 1px solid var(--gray-300);
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .add-staff-btn {
+            background: var(--blue-gradient);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .add-staff-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);
+        }
+
+        .staff-table {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .table-header {
+            background: var(--gray-50);
+            padding: 16px 24px;
+            font-weight: 600;
+            color: var(--gray-700);
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .staff-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .staff-row {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--gray-100);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .staff-row:hover {
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .staff-avatar {
+            width: 48px;
+            height: 48px;
+            background: var(--primary-gradient);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .staff-info {
+            flex: 1;
+        }
+
+        .staff-name {
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 4px;
+        }
+
+        .staff-details {
+            color: var(--gray-600);
+            font-size: 14px;
+        }
+
+        .staff-role {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .role-super_admin {
+            background: rgba(236, 72, 153, 0.1);
+            color: #be185d;
+        }
+
+        .role-admin {
+            background: rgba(59, 130, 246, 0.1);
+            color: #1e40af;
+        }
+
+        .role-moderator {
+            background: rgba(139, 92, 246, 0.1);
+            color: #7c3aed;
+        }
+
+        .role-operator {
+            background: rgba(16, 185, 129, 0.1);
+            color: #059669;
+        }
+
+        .role-analyst {
+            background: rgba(245, 158, 11, 0.1);
+            color: #d97706;
+        }
+
+        .staff-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-active {
+            background: rgba(16, 185, 129, 0.1);
+            color: #059669;
+        }
+
+        .status-inactive {
+            background: rgba(245, 158, 11, 0.1);
+            color: #d97706;
+        }
+
+        .status-suspended {
+            background: rgba(239, 68, 68, 0.1);
+            color: #dc2626;
+        }
+
+        .staff-login {
+            font-size: 12px;
+            color: var(--gray-500);
+        }
+
+        .staff-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn.edit {
+            background: rgba(59, 130, 246, 0.1);
+            color: #1e40af;
+        }
+
+        .action-btn.permissions {
+            background: rgba(139, 92, 246, 0.1);
+            color: #7c3aed;
+        }
+
+        .action-btn.password {
+            background: rgba(245, 158, 11, 0.1);
+            color: #d97706;
+        }
+
+        .action-btn.delete {
+            background: rgba(239, 68, 68, 0.1);
+            color: #dc2626;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 24px;
+        }
+
+        .pagination-btn {
+            padding: 8px 12px;
+            border: 1px solid var(--gray-300);
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .pagination-btn:hover, .pagination-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--gray-500);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 24px;
+            color: var(--gray-500);
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 10000;
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            margin-bottom: 24px;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--gray-700);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--gray-300);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-help {
+            font-size: 12px;
+            color: var(--gray-500);
+            margin-top: 4px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: var(--blue-gradient);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-700);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .permissions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .permission-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .permission-item input[type="checkbox"] {
+            margin: 0;
+        }
+
+        @media (max-width: 768px) {
+            .filters-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-box {
+                min-width: auto;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .staff-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .staff-actions {
+                align-self: stretch;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <i class="fas fa-truck"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>LogiMaster Pro</h1>
+                    <p>
+                        <i class="fas fa-wifi" style="font-size: 0.7rem;"></i>
+                        Professional logistika boshqaruv tizimi
+                    </p>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <div class="search-container">
+                    <input type="text" class="search-input" placeholder="Qidirish... (Ctrl+K)" id="globalSearch">
+                    <i class="fas fa-search search-icon"></i>
+                </div>
+
+                <div class="time-display">
+                    <i class="fas fa-clock"></i>
+                    <span id="currentTime">--:--</span>
+                </div>
+
+                <button class="notification-btn" id="notificationBtn">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-badge">3</span>
+                </button>
+
+                <div class="user-info">
+                    <div class="user-details">
+                        <p class="user-name">Super Admin</p>
+                        <p class="user-role">
+                            <i class="fas fa-shield-alt"></i>
+                            Barcha huquqlar
+                        </p>
+                    </div>
+                    <button class="logout-btn" id="logoutBtn" onclick="logout()" title="Chiqish">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                    <div class="user-avatar">
+                        SA
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="main-layout">
+        <!-- Sidebar -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-content">
+                <div class="nav-menu">
+                    <button class="nav-item" onclick="window.location.href='/dashboard'">
+                        <div class="nav-icon">
+                            <i class="fas fa-home"></i>
+                        </div>
+                        <span class="nav-label">Bosh sahifa</span>
+                    </button>
+                    <button class="nav-item" onclick="window.location.href='/dashboard'">
+                        <div class="nav-icon">
+                            <i class="fas fa-box"></i>
+                        </div>
+                        <span class="nav-label">Buyurtmalar</span>
+                    </button>
+                    <button class="nav-item" onclick="window.location.href='/dashboard'">
+                        <div class="nav-icon">
+                            <i class="fas fa-car"></i>
+                        </div>
+                        <span class="nav-label">Haydovchilar</span>
+                    </button>
+                    <button class="nav-item" onclick="window.location.href='/dashboard'">
+                        <div class="nav-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <span class="nav-label">Mijozlar</span>
+                    </button>
+                    <button class="nav-item" onclick="window.location.href='/dashboard/users'">
+                        <div class="nav-icon">
+                            <i class="fas fa-user-cog"></i>
+                        </div>
+                        <span class="nav-label">Foydalanuvchilar</span>
+                    </button>
+                    <button class="nav-item active">
+                        <div class="nav-icon">
+                            <i class="fas fa-users-cog"></i>
+                        </div>
+                        <span class="nav-label">Xodimlar</span>
+                    </button>
+                    <button class="nav-item" onclick="window.location.href='/dashboard'">
+                        <div class="nav-icon">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <span class="nav-label">Hisobotlar</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1 class="page-title">Xodimlar</h1>
+            <p class="page-subtitle">Platform xodimlari va role-based access control</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon" style="background: var(--blue-gradient);">
+                        <i class="fas fa-users-cog"></i>
+                    </div>
+                </div>
+                <div class="stat-number" id="totalStaff">-</div>
+                <div class="stat-label">Jami xodimlar</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon" style="background: var(--green-gradient);">
+                        <i class="fas fa-user-check"></i>
+                    </div>
+                </div>
+                <div class="stat-number" id="activeStaff">-</div>
+                <div class="stat-label">Faol xodimlar</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon" style="background: var(--orange-gradient);">
+                        <i class="fas fa-wifi"></i>
+                    </div>
+                </div>
+                <div class="stat-number" id="onlineStaff">-</div>
+                <div class="stat-label">Online xodimlar</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon" style="background: var(--purple-gradient);">
+                        <i class="fas fa-sign-in-alt"></i>
+                    </div>
+                </div>
+                <div class="stat-number" id="recentLogins">-</div>
+                <div class="stat-label">Bugungi kirishlar</div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-section">
+            <div class="filters-row">
+                <div class="search-box">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Ism, username yoki email bo'yicha qidirish...">
+                </div>
+
+                <select id="roleFilter" class="filter-select">
+                    <option value="">Barcha rollar</option>
+                    <option value="super_admin">Super Admin</option>
+                    <option value="admin">Administrator</option>
+                    <option value="moderator">Moderator</option>
+                    <option value="operator">Operator</option>
+                    <option value="analyst">Tahlilchi</option>
+                </select>
+
+                <select id="statusFilter" class="filter-select">
+                    <option value="">Barcha statuslar</option>
+                    <option value="active">Faol</option>
+                    <option value="inactive">Nofaol</option>
+                    <option value="suspended">To'xtatilgan</option>
+                </select>
+
+                <select id="departmentFilter" class="filter-select">
+                    <option value="">Barcha bo'limlar</option>
+                </select>
+
+                <button class="add-staff-btn" onclick="showAddStaffModal()">
+                    <i class="fas fa-user-plus"></i>
+                    Yangi xodim
+                </button>
+            </div>
+        </div>
+
+        <!-- Staff Table -->
+        <div class="staff-table">
+            <div class="table-header">
+                Xodimlar ro'yxati
+            </div>
+            <div class="staff-list" id="staffList">
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Yuklanmoqda...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Staff Modal -->
+    <div id="staffModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Yangi xodim</h2>
+            </div>
+
+            <form id="staffForm">
+                <div class="form-group">
+                    <label class="form-label">To'liq ism</label>
+                    <input type="text" id="staffFullName" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" id="staffUsername" class="form-input" required>
+                    <div class="form-help">Login uchun foydalaniladigan noyob nom</div>
+                </div>
+
+                <div class="form-group" id="passwordGroup">
+                    <label class="form-label">Parol</label>
+                    <input type="password" id="staffPassword" class="form-input" required>
+                    <div class="form-help">Kamida 6 ta belgi</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="staffEmail" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Telefon</label>
+                    <input type="tel" id="staffPhone" class="form-input">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Rol</label>
+                    <select id="staffRole" class="form-input" required>
+                        <option value="">Rolni tanlang</option>
+                        <option value="admin">Administrator</option>
+                        <option value="moderator">Moderator</option>
+                        <option value="operator">Operator</option>
+                        <option value="analyst">Tahlilchi</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Bo'lim</label>
+                    <input type="text" id="staffDepartment" class="form-input" placeholder="Masalan: IT, Marketing, HR">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select id="staffStatus" class="form-input">
+                        <option value="active">Faol</option>
+                        <option value="inactive">Nofaol</option>
+                        <option value="suspended">To'xtatilgan</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Eslatma</label>
+                    <textarea id="staffNotes" class="form-input" rows="3" placeholder="Qo'shimcha ma'lumot..."></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Bekor qilish</button>
+                    <button type="submit" class="btn btn-primary">Saqlash</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Password Change Modal -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Parolni o'zgartirish</h2>
+            </div>
+
+            <form id="passwordForm">
+                <div class="form-group">
+                    <label class="form-label">Joriy parol</label>
+                    <input type="password" id="currentPassword" class="form-input" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Yangi parol</label>
+                    <input type="password" id="newPassword" class="form-input" required>
+                    <div class="form-help">Kamida 6 ta belgi</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Yangi parolni tasdiqlang</label>
+                    <input type="password" id="confirmPassword" class="form-input" required>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Bekor qilish</button>
+                    <button type="submit" class="btn btn-primary">O'zgartirish</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Permissions Modal -->
+    <div id="permissionsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Huquqlar</h2>
+            </div>
+
+            <div class="permissions-grid" id="permissionsList">
+                <!-- Permissions will be loaded here -->
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Yopish</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let currentFilters = {};
+        let editingStaffId = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStaffStats();
+            loadDepartments();
+            loadStaff();
+            setupEventListeners();
+            updateTime();
+            setInterval(updateTime, 1000);
+        });
+
+        function setupEventListeners() {
+            // Search input
+            const searchInput = document.getElementById('searchInput');
+            let searchTimeout;
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    currentFilters.search = this.value;
+                    currentPage = 1;
+                    loadStaff();
+                }, 500);
+            });
+
+            // Filter selects
+            document.getElementById('roleFilter').addEventListener('change', function() {
+                currentFilters.role = this.value;
+                currentPage = 1;
+                loadStaff();
+            });
+
+            document.getElementById('statusFilter').addEventListener('change', function() {
+                currentFilters.status = this.value;
+                currentPage = 1;
+                loadStaff();
+            });
+
+            document.getElementById('departmentFilter').addEventListener('change', function() {
+                currentFilters.department = this.value;
+                currentPage = 1;
+                loadStaff();
+            });
+
+            // Forms
+            document.getElementById('staffForm').addEventListener('submit', handleStaffSubmit);
+            document.getElementById('passwordForm').addEventListener('submit', handlePasswordSubmit);
+        }
+
+        async function loadStaffStats() {
+            try {
+                const response = await fetch('/api/dashboard/staff/stats');
+                const result = await response.json();
+
+                if (result.success) {
+                    const stats = result.data;
+                    document.getElementById('totalStaff').textContent = stats.totalStaff || 0;
+                    document.getElementById('activeStaff').textContent = stats.activeStaff || 0;
+                    document.getElementById('onlineStaff').textContent = stats.onlineStaff || 0;
+                    document.getElementById('recentLogins').textContent = stats.recentLogins || 0;
+                }
+            } catch (error) {
+                console.error('Error loading staff stats:', error);
+            }
+        }
+
+        async function loadDepartments() {
+            try {
+                const response = await fetch('/api/dashboard/staff/departments');
+                const result = await response.json();
+
+                if (result.success) {
+                    const departmentFilter = document.getElementById('departmentFilter');
+                    result.data.forEach(dept => {
+                        const option = document.createElement('option');
+                        option.value = dept;
+                        option.textContent = dept;
+                        departmentFilter.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading departments:', error);
+            }
+        }
+
+        async function loadStaff() {
+            const staffList = document.getElementById('staffList');
+            staffList.innerHTML = `
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Yuklanmoqda...</p>
+                </div>
+            `;
+
+            try {
+                const params = new URLSearchParams({
+                    limit: 20,
+                    offset: (currentPage - 1) * 20,
+                    ...currentFilters
+                });
+
+                const response = await fetch(`/api/dashboard/staff?${params}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    displayStaff(result.data);
+                    updatePagination(result.total, result.pagination);
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                console.error('Error loading staff:', error);
+                staffList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Xatolik yuz berdi</h3>
+                        <p>Xodimlar ma'lumotlarini yuklashda muammo yuz berdi</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displayStaff(staff) {
+            const staffList = document.getElementById('staffList');
+
+            if (!staff || staff.length === 0) {
+                staffList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-users-cog"></i>
+                        <h3>Xodimlar topilmadi</h3>
+                        <p>Hozircha hech qanday xodim yo'q yoki filter shartlariga mos keluvchi xodim topilmadi</p>
+                    </div>
+                `;
+                return;
+            }
+
+            staffList.innerHTML = staff.map(member => `
+                <div class="staff-row">
+                    <div class="staff-avatar">
+                        ${getInitials(member.fullName)}
+                    </div>
+                    <div class="staff-info">
+                        <div class="staff-name">${member.fullName}</div>
+                        <div class="staff-details">
+                            @${member.username} • ${member.email}
+                            ${member.department ? `• ${member.department}` : ''}
+                        </div>
+                        ${member.lastLogin ? `<div class="staff-login">Oxirgi kirish: ${formatDate(member.lastLogin)}</div>` : ''}
+                    </div>
+                    <div class="staff-role role-${member.role}">
+                        ${getRoleText(member.role)}
+                    </div>
+                    <div class="staff-status status-${member.status}">
+                        ${getStatusText(member.status)}
+                    </div>
+                    <div class="staff-actions">
+                        <button class="action-btn edit" onclick="editStaff('${member.id}')" title="Tahrirlash">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="action-btn permissions" onclick="viewPermissions('${member.id}', '${member.fullName}')" title="Huquqlar">
+                            <i class="fas fa-key"></i>
+                        </button>
+                        <button class="action-btn password" onclick="changePassword('${member.id}', '${member.fullName}')" title="Parol">
+                            <i class="fas fa-lock"></i>
+                        </button>
+                        <button class="action-btn delete" onclick="deleteStaff('${member.id}', '${member.fullName}')" title="O'chirish">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getInitials(fullName) {
+            return fullName.split(' ').map(word => word.charAt(0).toUpperCase()).slice(0, 2).join('');
+        }
+
+        function getRoleText(role) {
+            const roles = {
+                super_admin: 'Super Admin',
+                admin: 'Administrator',
+                moderator: 'Moderator',
+                operator: 'Operator',
+                analyst: 'Tahlilchi'
+            };
+            return roles[role] || role;
+        }
+
+        function getStatusText(status) {
+            const statuses = {
+                active: 'Faol',
+                inactive: 'Nofaol',
+                suspended: 'To\'xtatilgan'
+            };
+            return statuses[status] || status;
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('uz-UZ', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function updatePagination(total, pagination) {
+            const paginationEl = document.getElementById('pagination');
+            const totalPages = Math.ceil(total / 20);
+
+            if (totalPages <= 1) {
+                paginationEl.innerHTML = '';
+                return;
+            }
+
+            let paginationHTML = '';
+
+            // Previous button
+            if (currentPage > 1) {
+                paginationHTML += `
+                    <button class="pagination-btn" onclick="changePage(${currentPage - 1})">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                `;
+            }
+
+            // Page numbers
+            for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+                paginationHTML += `
+                    <button class="pagination-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">
+                        ${i}
+                    </button>
+                `;
+            }
+
+            // Next button
+            if (currentPage < totalPages) {
+                paginationHTML += `
+                    <button class="pagination-btn" onclick="changePage(${currentPage + 1})">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                `;
+            }
+
+            paginationEl.innerHTML = paginationHTML;
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            loadStaff();
+        }
+
+        function showAddStaffModal() {
+            editingStaffId = null;
+            document.getElementById('modalTitle').textContent = 'Yangi xodim';
+            document.getElementById('staffForm').reset();
+            document.getElementById('passwordGroup').style.display = 'block';
+            document.getElementById('staffPassword').required = true;
+            document.getElementById('staffModal').style.display = 'block';
+        }
+
+        async function editStaff(staffId) {
+            try {
+                const response = await fetch(`/api/dashboard/staff/${staffId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    editingStaffId = staffId;
+                    const staff = result.data;
+
+                    document.getElementById('modalTitle').textContent = 'Xodim tahrirlash';
+                    document.getElementById('staffFullName').value = staff.fullName;
+                    document.getElementById('staffUsername').value = staff.username;
+                    document.getElementById('staffEmail').value = staff.email;
+                    document.getElementById('staffPhone').value = staff.phone || '';
+                    document.getElementById('staffRole').value = staff.role;
+                    document.getElementById('staffDepartment').value = staff.department || '';
+                    document.getElementById('staffStatus').value = staff.status;
+                    document.getElementById('staffNotes').value = staff.notes || '';
+
+                    // Hide password field for editing
+                    document.getElementById('passwordGroup').style.display = 'none';
+                    document.getElementById('staffPassword').required = false;
+
+                    document.getElementById('staffModal').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error loading staff data:', error);
+                alert('Xodim ma\'lumotlarini yuklashda xatolik yuz berdi');
+            }
+        }
+
+        async function handleStaffSubmit(e) {
+            e.preventDefault();
+
+            const staffData = {
+                fullName: document.getElementById('staffFullName').value,
+                username: document.getElementById('staffUsername').value,
+                email: document.getElementById('staffEmail').value,
+                phone: document.getElementById('staffPhone').value,
+                role: document.getElementById('staffRole').value,
+                department: document.getElementById('staffDepartment').value,
+                status: document.getElementById('staffStatus').value,
+                notes: document.getElementById('staffNotes').value,
+                createdBy: 'current_user' // This should come from session
+            };
+
+            if (!editingStaffId) {
+                staffData.password = document.getElementById('staffPassword').value;
+            }
+
+            try {
+                const url = editingStaffId
+                    ? `/api/dashboard/staff/${editingStaffId}`
+                    : '/api/dashboard/staff';
+
+                const method = editingStaffId ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(staffData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    closeModal();
+                    loadStaff();
+                    loadStaffStats();
+                    alert(result.message);
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                console.error('Error saving staff:', error);
+                alert('Saqlashda xatolik yuz berdi: ' + error.message);
+            }
+        }
+
+        function changePassword(staffId, staffName) {
+            editingStaffId = staffId;
+            document.getElementById('passwordForm').reset();
+            document.getElementById('passwordModal').style.display = 'block';
+        }
+
+        async function handlePasswordSubmit(e) {
+            e.preventDefault();
+
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (newPassword !== confirmPassword) {
+                alert('Yangi parollar mos kelmadi');
+                return;
+            }
+
+            const passwordData = {
+                currentPassword: document.getElementById('currentPassword').value,
+                newPassword: newPassword
+            };
+
+            try {
+                const response = await fetch(`/api/dashboard/staff/${editingStaffId}/password`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(passwordData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    closeModal();
+                    alert(result.message);
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                alert('Parol o\'zgartirishda xatolik yuz berdi: ' + error.message);
+            }
+        }
+
+        async function viewPermissions(staffId, staffName) {
+            try {
+                const response = await fetch(`/api/dashboard/staff/${staffId}/permissions`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const permissionsList = document.getElementById('permissionsList');
+                    const permissions = result.data.permissions;
+
+                    permissionsList.innerHTML = permissions.map(permission => `
+                        <div class="permission-item">
+                            <input type="checkbox" checked disabled>
+                            <span>${getPermissionText(permission)}</span>
+                        </div>
+                    `).join('');
+
+                    document.getElementById('permissionsModal').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error loading permissions:', error);
+                alert('Huquqlar ma\'lumotlarini yuklashda xatolik yuz berdi');
+            }
+        }
+
+        function getPermissionText(permission) {
+            const permissions = {
+                manage_staff: 'Xodimlarni boshqarish',
+                manage_system: 'Tizimni boshqarish',
+                manage_orders: 'Buyurtmalarni boshqarish',
+                manage_drivers: 'Haydovchilarni boshqarish',
+                manage_customers: 'Mijozlarni boshqarish',
+                manage_payments: 'To\'lovlarni boshqarish',
+                view_analytics: 'Analitikani ko\'rish',
+                manage_settings: 'Sozlamalarni boshqarish',
+                export_data: 'Ma\'lumotlarni eksport qilish',
+                manage_backups: 'Zaxira nusxalarni boshqarish',
+                view_orders: 'Buyurtmalarni ko\'rish',
+                view_drivers: 'Haydovchilarni ko\'rish',
+                view_customers: 'Mijozlarni ko\'rish',
+                create_orders: 'Buyurtma yaratish'
+            };
+            return permissions[permission] || permission;
+        }
+
+        async function deleteStaff(staffId, staffName) {
+            if (!confirm(`"${staffName}" xodimini o'chirishni tasdiqlaysizmi?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/dashboard/staff/${staffId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    loadStaff();
+                    loadStaffStats();
+                    alert(result.message);
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                console.error('Error deleting staff:', error);
+                alert('O\'chirishda xatolik yuz berdi: ' + error.message);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('staffModal').style.display = 'none';
+            document.getElementById('passwordModal').style.display = 'none';
+            document.getElementById('permissionsModal').style.display = 'none';
+        }
+
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('uz-UZ', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            const timeEl = document.getElementById('currentTime');
+            if (timeEl) {
+                timeEl.textContent = timeString;
+            }
+        }
+
+        async function logout() {
+            try {
+                const response = await fetch('/auth/logout', { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    window.location.href = result.redirect;
+                }
+            } catch (error) {
+                console.error('Error logging out:', error);
+                window.location.href = '/auth/login';
+            }
+        }
+
+        // Close modals when clicking outside
+        document.addEventListener('click', function(event) {
+            const staffModal = document.getElementById('staffModal');
+            const passwordModal = document.getElementById('passwordModal');
+            const permissionsModal = document.getElementById('permissionsModal');
+
+            if (event.target === staffModal) {
+                event.preventDefault();
+                closeModal();
+            }
+            if (event.target === passwordModal) {
+                event.preventDefault();
+                closeModal();
+            }
+            if (event.target === permissionsModal) {
+                event.preventDefault();
+                closeModal();
+            }
+        });
+
+        // Prevent modal content clicks from closing modal
+        document.addEventListener('DOMContentLoaded', function() {
+            const modalContents = document.querySelectorAll('.modal-content');
+            modalContents.forEach(content => {
+                content.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                });
+            });
+        });
+    </script>
+
+    <!-- Role Management System -->
+    <script src="js/role-manager.js"></script>
+</body>
+</html>

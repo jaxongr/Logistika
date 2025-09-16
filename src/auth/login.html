@@ -3,240 +3,840 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login - Yo'lda Bot</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>Yo'ldauz Enterprise - Secure Access Portal</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #1f2937;
+            --secondary-color: #3b82f6;
+            --accent-color: #0ea5e9;
+            --success-color: #10b981;
+            --error-color: #ef4444;
+            --warning-color: #f59e0b;
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --text-muted: #9ca3af;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #f1f5f9;
+            --border-light: #e2e8f0;
+            --border-medium: #cbd5e0;
+            --shadow-light: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-medium: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-large: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-secondary);
             min-height: 100vh;
+            display: flex;
+            font-feature-settings: 'cv11', 'ss01';
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Left Panel - Enterprise Branding */
+        .brand-panel {
+            flex: 1;
+            background: linear-gradient(135deg, var(--primary-color) 0%, #374151 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 60px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .brand-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.4;
+        }
+
+        .brand-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .company-logo {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            border-radius: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-family: 'Arial', sans-serif;
+            margin: 0 auto 32px;
+            transition: all 0.3s ease;
         }
 
-        .login-container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            max-width: 400px;
-            width: 100%;
+        .company-logo:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
         }
 
-        .login-header {
-            background: linear-gradient(135deg, #2196F3, #1976D2);
+        .company-logo i {
+            font-size: 3.5rem;
             color: white;
-            padding: 2rem;
-            text-align: center;
-        }
-
-        .login-header h1 {
-            margin: 0;
-            font-size: 1.8rem;
-            font-weight: 300;
-        }
-
-        .login-header p {
-            margin: 0.5rem 0 0;
             opacity: 0.9;
-            font-size: 0.9rem;
         }
 
-        .login-form {
-            padding: 2rem;
+        .company-name {
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 16px;
+            letter-spacing: -0.025em;
+        }
+
+        .company-tagline {
+            font-size: 1.25rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 400;
+            margin-bottom: 48px;
+            line-height: 1.6;
+        }
+
+        .enterprise-features {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 32px;
+            margin-top: 48px;
+        }
+
+        .feature-item {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .feature-icon {
+            width: 64px;
+            height: 64px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .feature-icon:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .feature-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .feature-desc {
+            font-size: 0.875rem;
+            opacity: 0.7;
+            line-height: 1.4;
+        }
+
+        /* Right Panel - Login Form */
+        .auth-panel {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px;
+            background: var(--bg-primary);
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 440px;
+        }
+
+        .auth-header {
+            margin-bottom: 48px;
+        }
+
+        .auth-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            letter-spacing: -0.025em;
+        }
+
+        .auth-subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        /* Security Badge */
+        .security-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 8px 16px;
+            margin-bottom: 32px;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .security-badge i {
+            color: var(--success-color);
+        }
+
+        /* Form Styles */
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
         }
 
         .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-control {
-            border: 2px solid #e3f2fd;
-            border-radius: 10px;
-            padding: 0.75rem 1rem;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        .form-control:focus {
-            border-color: #2196F3;
-            box-shadow: 0 0 0 0.2rem rgba(33, 150, 243, 0.25);
-        }
-
-        .input-group {
             position: relative;
         }
 
-        .input-group-text {
-            background: #f8f9fa;
-            border: 2px solid #e3f2fd;
-            border-right: none;
-            border-radius: 10px 0 0 10px;
-            color: #666;
-        }
-
-        .input-group .form-control {
-            border-left: none;
-            border-radius: 0 10px 10px 0;
-        }
-
-        .btn-login {
-            background: linear-gradient(135deg, #2196F3, #1976D2);
-            border: none;
-            border-radius: 10px;
-            color: white;
+        .form-label {
+            display: block;
+            color: var(--text-primary);
             font-weight: 600;
-            padding: 0.75rem 2rem;
+            margin-bottom: 8px;
+            font-size: 0.875rem;
+        }
+
+        .form-label.required::after {
+            content: '*';
+            color: var(--error-color);
+            margin-left: 4px;
+        }
+
+        .input-container {
+            position: relative;
+        }
+
+        .form-input {
             width: 100%;
+            padding: 16px 20px;
+            border: 2px solid var(--border-light);
+            border-radius: 12px;
             font-size: 1rem;
-            transition: all 0.3s ease;
+            font-weight: 500;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+            outline: none;
         }
 
-        .btn-login:hover {
-            background: linear-gradient(135deg, #1976D2, #1565C0);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4);
+        .form-input:focus {
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
-        .btn-login:active {
+        .form-input::placeholder {
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .input-icon {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .input-icon:hover {
+            color: var(--text-secondary);
+            background: var(--bg-tertiary);
+        }
+
+        /* Form Options */
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 32px 0;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border-medium);
+            border-radius: 6px;
+            margin-right: 12px;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .checkbox input {
+            opacity: 0;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .checkbox input:checked + .checkmark {
+            background: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+
+        .checkmark {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-primary);
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .checkmark::after {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 2px;
+            width: 4px;
+            height: 9px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .checkbox input:checked + .checkmark::after {
+            opacity: 1;
+        }
+
+        .checkbox-label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .forgot-link {
+            color: var(--secondary-color);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        .forgot-link:hover {
+            color: var(--accent-color);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        /* Submit Button */
+        .submit-btn {
+            width: 100%;
+            padding: 16px 24px;
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: var(--shadow-medium);
+        }
+
+        .submit-btn:hover {
+            background: var(--accent-color);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-large);
+        }
+
+        .submit-btn:active {
             transform: translateY(0);
         }
 
-        .alert {
-            border-radius: 10px;
-            border: none;
-            margin-bottom: 1rem;
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
 
-        .loading {
+        .btn-content {
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 24px;
+            height: 24px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
             display: none;
         }
 
-        .loading.show {
-            display: inline-block;
+        .submit-btn.loading .loading-spinner {
+            display: block;
         }
 
-        .login-footer {
+        .submit-btn.loading .btn-content {
+            opacity: 0;
+        }
+
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* Alert Messages */
+        .alert {
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+            border-left: 4px solid;
+        }
+
+        .alert.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: #065f46;
+            border-color: var(--success-color);
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            color: #991b1b;
+            border-color: var(--error-color);
+        }
+
+        .alert-info {
+            background: rgba(59, 130, 246, 0.1);
+            color: #1e40af;
+            border-color: var(--secondary-color);
+        }
+
+        /* Footer */
+        .auth-footer {
             text-align: center;
-            padding: 1rem 2rem 2rem;
-            color: #666;
-            font-size: 0.8rem;
+            margin-top: 48px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border-light);
         }
 
-        .password-toggle {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #666;
-            cursor: pointer;
-            z-index: 10;
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .footer-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .footer-link:hover {
+            color: var(--secondary-color);
+        }
+
+        .copyright {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            line-height: 1.5;
+        }
+
+        /* Trust Indicators */
+        .trust-indicators {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .trust-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .trust-item i {
+            color: var(--success-color);
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 32px;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 2;
+        }
+
+        .footer-text {
+            color: #64748b;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .footer-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+
+        .footer-link:hover {
+            color: #764ba2;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .brand-panel {
+                padding: 40px;
+            }
+
+            .company-name {
+                font-size: 2.5rem;
+            }
+
+            .enterprise-features {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+
+            .brand-panel {
+                flex: none;
+                min-height: 50vh;
+                padding: 32px 20px;
+            }
+
+            .company-name {
+                font-size: 2rem;
+            }
+
+            .company-tagline {
+                font-size: 1rem;
+            }
+
+            .enterprise-features {
+                display: none;
+            }
+
+            .auth-panel {
+                flex: 1;
+                padding: 32px 20px;
+            }
+
+            .auth-title {
+                font-size: 1.75rem;
+            }
+
+            .form-options {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 20px;
+            }
+
+            .footer-links {
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .trust-indicators {
+                flex-wrap: wrap;
+                gap: 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .brand-panel {
+                padding: 24px 16px;
+            }
+
+            .auth-panel {
+                padding: 24px 16px;
+            }
+
+            .company-logo {
+                width: 80px;
+                height: 80px;
+            }
+
+            .company-logo i {
+                font-size: 2.5rem;
+            }
+
+            .form-input {
+                padding: 14px 16px;
+                font-size: 16px;
+            }
+
+            .submit-btn {
+                padding: 14px 20px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-header">
-            <i class="fas fa-truck fa-2x mb-2"></i>
-            <h1>Yo'lda Admin</h1>
-            <p>Boshqaruv panelga kirish</p>
-        </div>
+    <!-- Brand Panel -->
+    <div class="brand-panel">
+        <div class="brand-content">
+            <div class="company-logo">
+                <i class="fas fa-route"></i>
+            </div>
+            <h1 class="company-name">Yo'ldauz</h1>
+            <p class="company-tagline">
+                Korporativ logistika boshqaruv platformasi.<br>
+                Ishonchli, xavfsiz va samarali yechim.
+            </p>
 
-        <form class="login-form" id="loginForm">
-            <div id="alertContainer"></div>
-
-            <div class="form-group">
-                <label class="form-label">Login</label>
-                <div class="input-group">
-                    <span class="input-group-text">
-                        <i class="fas fa-user"></i>
-                    </span>
-                    <input type="text" class="form-control" id="username" name="username" required placeholder="Foydalanuvchi nomi">
+            <div class="enterprise-features">
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="feature-title">Maxfiylik</div>
+                    <div class="feature-desc">Enterprise darajasida xavfsizlik</div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="feature-title">Analytics</div>
+                    <div class="feature-desc">Real-time hisobotlar va tahlil</div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="feature-title">24/7 Qo'llab-quvvatlash</div>
+                    <div class="feature-desc">Doimiy texnik yordam</div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="feature-title">Team Management</div>
+                    <div class="feature-desc">Jamoa boshqaruvi va huquqlar</div>
                 </div>
             </div>
-
-            <div class="form-group">
-                <label class="form-label">Parol</label>
-                <div class="input-group">
-                    <span class="input-group-text">
-                        <i class="fas fa-lock"></i>
-                    </span>
-                    <input type="password" class="form-control" id="password" name="password" required placeholder="Parol">
-                    <button type="button" class="password-toggle" onclick="togglePassword()">
-                        <i class="fas fa-eye" id="passwordIcon"></i>
-                    </button>
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-login">
-                <span class="loading">
-                    <i class="fas fa-spinner fa-spin"></i>
-                </span>
-                <span class="btn-text">Kirish</span>
-            </button>
-        </form>
-
-        <div class="login-footer">
-            <i class="fas fa-shield-alt"></i> Xavfsiz boshqaruv tizimi
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        function togglePassword() {
-            const passwordInput = document.getElementById('password');
-            const passwordIcon = document.getElementById('passwordIcon');
+    <!-- Auth Panel -->
+    <div class="auth-panel">
+        <div class="auth-container">
+            <div class="auth-header">
+                <h2 class="auth-title">Xush kelibsiz</h2>
+                <p class="auth-subtitle">
+                    Hisobingizga kiring va korporativ platformadan foydalanishni davom eting
+                </p>
+            </div>
 
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                passwordIcon.className = 'fas fa-eye-slash';
-            } else {
-                passwordInput.type = 'password';
-                passwordIcon.className = 'fas fa-eye';
-            }
-        }
+            <div class="security-badge">
+                <i class="fas fa-shield-check"></i>
+                <span>SSL shifrlangan ulanish</span>
+            </div>
 
-        function showAlert(message, type = 'danger') {
-            const alertContainer = document.getElementById('alertContainer');
-            alertContainer.innerHTML = `
-                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-                    ${message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <!-- Alert Messages -->
+            <div class="alert alert-success" id="successAlert">
+                <i class="fas fa-check-circle"></i>
+                <span>Muvaffaqiyatli tizimga kirdingiz! Dashboard yuklanmoqda...</span>
+            </div>
+
+            <div class="alert alert-error" id="errorAlert">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span id="errorText">Kiritilgan login ma'lumotlari noto'g'ri. Qaytadan urinib ko'ring.</span>
+            </div>
+
+            <!-- Login Form -->
+            <form class="auth-form" id="loginForm" novalidate>
+                <div class="form-group">
+                    <label class="form-label required" for="username">Foydalanuvchi nomi</label>
+                    <div class="input-container">
+                        <input
+                            type="text"
+                            id="username"
+                            name="username"
+                            class="form-input"
+                            placeholder="Login nomingizni kiriting"
+                            required
+                            autocomplete="username"
+                        >
+                    </div>
                 </div>
-            `;
-        }
 
-        function setLoading(isLoading) {
-            const loading = document.querySelector('.loading');
-            const btnText = document.querySelector('.btn-text');
-            const submitBtn = document.querySelector('.btn-login');
+                <div class="form-group">
+                    <label class="form-label required" for="password">Parol</label>
+                    <div class="input-container">
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            class="form-input"
+                            placeholder="Xavfsiz parolingizni kiriting"
+                            required
+                            autocomplete="current-password"
+                        >
+                        <i class="fas fa-eye input-icon" id="passwordToggle"></i>
+                    </div>
+                </div>
 
-            if (isLoading) {
-                loading.classList.add('show');
-                btnText.textContent = 'Tekshirilmoqda...';
-                submitBtn.disabled = true;
-            } else {
-                loading.classList.remove('show');
-                btnText.textContent = 'Kirish';
-                submitBtn.disabled = false;
-            }
-        }
+                <div class="form-options">
+                    <label class="checkbox-group">
+                        <div class="checkbox">
+                            <input type="checkbox" id="rememberMe">
+                            <div class="checkmark"></div>
+                        </div>
+                        <span class="checkbox-label">Meni eslab qol</span>
+                    </label>
+                    <a href="#" class="forgot-link">Parolni unutdingizmi?</a>
+                </div>
 
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+                <button type="submit" class="submit-btn" id="submitButton">
+                    <span class="btn-content">Tizimga kirish</span>
+                    <div class="loading-spinner"></div>
+                </button>
+            </form>
+
+            <!-- Footer -->
+            <div class="auth-footer">
+                <div class="footer-links">
+                    <a href="#" class="footer-link">Maxfiylik siyosati</a>
+                    <a href="#" class="footer-link">Foydalanish shartlari</a>
+                    <a href="https://t.me/yoldauz_support" class="footer-link">Qo'llab-quvvatlash</a>
+                </div>
+                <div class="copyright">
+                    © 2024 Yo'ldauz Enterprise. Barcha huquqlar himoyalangan.
+                </div>
+                <div class="trust-indicators">
+                    <div class="trust-item">
+                        <i class="fas fa-lock"></i>
+                        <span>256-bit SSL</span>
+                    </div>
+                    <div class="trust-item">
+                        <i class="fas fa-certificate"></i>
+                        <span>ISO 27001</span>
+                    </div>
+                    <div class="trust-item">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>GDPR Compliant</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Form elements
+        const loginForm = document.getElementById('loginForm');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const passwordToggle = document.getElementById('passwordToggle');
+        const submitButton = document.getElementById('submitButton');
+        const rememberCheckbox = document.getElementById('rememberMe');
+
+        // Alert elements
+        const successAlert = document.getElementById('successAlert');
+        const errorAlert = document.getElementById('errorAlert');
+
+        // Password toggle functionality
+        passwordToggle.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+
+        // Form submission
+        loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
 
-            const formData = new FormData(e.target);
-            const loginData = {
-                username: formData.get('username'),
-                password: formData.get('password')
-            };
+            // Clear previous alerts
+            successAlert.classList.remove('show');
+            errorAlert.classList.remove('show');
 
-            setLoading(true);
+            // Show loading state
+            submitButton.classList.add('loading');
+            submitButton.disabled = true;
+
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+            const remember = rememberCheckbox.checked;
 
             try {
                 const response = await fetch('/auth/login', {
@@ -244,32 +844,98 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(loginData)
+                    body: JSON.stringify({ username, password })
                 });
 
                 const result = await response.json();
 
+                submitButton.classList.remove('loading');
+                submitButton.disabled = false;
+
                 if (result.success) {
-                    showAlert(result.message, 'success');
+                    successAlert.classList.add('show');
+
+                    // Store credentials if remember is checked
+                    if (remember) {
+                        localStorage.setItem('yoldauz_enterprise_remember', 'true');
+                        localStorage.setItem('yoldauz_enterprise_username', username);
+                    }
+
+                    // Redirect after success
                     setTimeout(() => {
                         window.location.href = result.redirect;
-                    }, 1000);
+                    }, 2000);
+
                 } else {
-                    showAlert(result.message, 'danger');
+                    document.getElementById('errorText').textContent = result.message;
+                    errorAlert.classList.add('show');
+
+                    // Auto-hide error after 5 seconds
+                    setTimeout(() => {
+                        errorAlert.classList.remove('show');
+                    }, 5000);
                 }
             } catch (error) {
-                showAlert('Tarmoq xatosi yuz berdi!', 'danger');
+                submitButton.classList.remove('loading');
+                submitButton.disabled = false;
+
+                document.getElementById('errorText').textContent = 'Tarmoq xatosi yuz berdi!';
+                errorAlert.classList.add('show');
                 console.error('Login error:', error);
-            } finally {
-                setLoading(false);
+
+                // Auto-hide error after 5 seconds
+                setTimeout(() => {
+                    errorAlert.classList.remove('show');
+                }, 5000);
             }
         });
 
-        // Enter key support
-        document.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && !e.target.closest('.btn-login')) {
-                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+        // Load saved credentials
+        if (localStorage.getItem('yoldauz_enterprise_remember') === 'true') {
+            const savedUsername = localStorage.getItem('yoldauz_enterprise_username');
+            if (savedUsername) {
+                usernameInput.value = savedUsername;
+                rememberCheckbox.checked = true;
             }
+        }
+
+        // Enhanced form validation
+        usernameInput.addEventListener('blur', function() {
+            const username = this.value.trim();
+
+            if (username && username.length < 3) {
+                this.style.borderColor = 'var(--error-color)';
+            } else {
+                this.style.borderColor = 'var(--border-light)';
+            }
+        });
+
+        // Real-time form validation
+        function validateForm() {
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value;
+            const usernameValid = username.length >= 3;
+            const passwordValid = password.length >= 6;
+
+            submitButton.disabled = !(usernameValid && passwordValid);
+        }
+
+        usernameInput.addEventListener('input', validateForm);
+        passwordInput.addEventListener('input', validateForm);
+
+        // Initial validation
+        validateForm();
+
+        // Enhanced input effects
+        const inputs = document.querySelectorAll('.form-input');
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.style.transform = 'translateY(-1px)';
+            });
+
+            input.addEventListener('blur', function() {
+                this.parentElement.style.transform = 'translateY(0)';
+            });
         });
     </script>
 </body>

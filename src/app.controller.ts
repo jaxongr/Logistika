@@ -67,6 +67,16 @@ export class AppController {
     return res.sendFile(path.join(process.cwd(), 'src', 'dashboard', 'dashboard.html'));
   }
 
+  @Get('dashboard/users')
+  dashboardUsers(@Res() res: Response) {
+    return res.sendFile(path.join(process.cwd(), 'src', 'dashboard', 'users.html'));
+  }
+
+  @Get('dashboard/staff')
+  dashboardStaff(@Res() res: Response) {
+    return res.sendFile(path.join(process.cwd(), 'src', 'dashboard', 'staff.html'));
+  }
+
   @Get('health')
   health() {
     return { status: 'OK', timestamp: new Date().toISOString() };

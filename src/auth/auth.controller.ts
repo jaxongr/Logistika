@@ -12,7 +12,8 @@ export class AuthController {
 
   @Get('login')
   showLoginPage(@Res() res: Response) {
-    return res.sendFile(path.join(__dirname, '..', '..', 'src', 'auth', 'login.html'));
+    const filePath = path.join(process.cwd(), 'src', 'auth', 'login.html');
+    return res.sendFile(filePath);
   }
 
   @Post('login')

@@ -1040,7 +1040,7 @@ export class BotService implements OnModuleInit {
       // Haydovchi menu tugmalari uchun ustunlik berish
       const driverMenuButtons = [
         '🆕 Yangi orderlar', '📋 Order tarixi', '👤 Mening profilim',
-        '💰 Balansim', '📱 Mobil ilova', '⚙️ Sozlamalar'
+        '💰 Balansim', '📍 Men qayerdaman', '📱 Mobil ilova', '⚙️ Sozlamalar'
       ];
 
       if (driverMenuButtons.includes(text) && userRole?.role === 'haydovchi') {
@@ -1058,6 +1058,9 @@ export class BotService implements OnModuleInit {
             return;
           case '💰 Balansim':
             await this.showDriverBalance(ctx);
+            return;
+          case '📍 Men qayerdaman':
+            await this.requestDriverLocation(ctx);
             return;
           case '📱 Mobil ilova':
             await this.sendDriverApp(ctx);
@@ -1264,6 +1267,15 @@ export class BotService implements OnModuleInit {
       
       if (!currentStep) {
         this.logger.log(`User ${userId} not in cargo posting process`);
+
+        // Check if user is a driver requesting location
+        const userRole = this.userRoles.get(userId);
+        if (userRole && userRole.role === 'haydovchi') {
+          this.logger.log(`Processing driver location for user ${userId}`);
+          await this.processDriverLocation(ctx);
+          return;
+        }
+
         await ctx.reply('📍 Lokatsiya qabul qilindi, lekin hozir yuk e\'lon qilish jarayonida emassiz.');
         return;
       }
@@ -15989,12 +16001,20 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
             name: fullName,
             phone: userData.profile?.phone || driverOffer?.phone || '+998xxxxxxxxx',
             vehicle: userData.profile?.truckInfo || driverOffer?.truckType || 'Ma\'lumot yo\'q',
+            loadCapacity: userData.profile?.loadCapacity || driverOffer?.loadCapacity || 'Aniqlanmagan',
+            vehicleNumber: userData.profile?.vehicleNumber || 'Aniqlanmagan',
             balance: balance,
             orders: Array.from(this.cargoOffers.values()).filter(cargo =>
               cargo.userId === userId || (cargo as any).assignedDriverId === userId
             ).length,
             rating: 4.5 + Math.random() * 0.5,
             status: status || 'active',
+            lastLocation: userData.profile?.lastLocation ? {
+              address: userData.profile.lastLocation.address,
+              timestamp: userData.profile.lastLocation.timestamp,
+              latitude: userData.profile.lastLocation.latitude,
+              longitude: userData.profile.lastLocation.longitude
+            } : null,
             registrationDate: userData.registrationDate // Sorting uchun qo'shamiz
           };
         })
@@ -16747,6 +16767,210 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
     } catch (error) {
       this.logger.error('❌ Error adding driver from dashboard:', error);
       throw error;
+    }
+  }
+
+  // Driver location request and processing
+  private async requestDriverLocation(ctx: any) {
+    try {
+      const userId = ctx.from.id;
+
+      await ctx.reply('📍 <b>LOKATSIYA YUBORISH</b>\n\n🗺️ Qayerda ekanligingizni bilish uchun lokatsiyangizni yuboring.\n\n💡 <b>Qanday yuborish:</b>\n• Pastdagi tugmani bosing\n• Yoki Telegram ichida 📎 → Lokatsiya tanlang', {
+        parse_mode: 'HTML',
+        reply_markup: {
+          keyboard: [
+            [{ text: '📍 Lokatsiyani yuborish', request_location: true }],
+            [{ text: '🔙 Orqaga' }]
+          ],
+          resize_keyboard: true,
+          one_time_keyboard: false
+        }
+      });
+
+    } catch (error) {
+      this.logger.error('Error requesting driver location:', error);
+      await ctx.reply('❌ Lokatsiya so\'rashda xatolik yuz berdi. Qaytadan urinib ko\'ring.');
+    }
+  }
+
+  // Process received location
+  private async processDriverLocation(ctx: any) {
+    try {
+      const userId = ctx.from.id;
+      const location = ctx.message.location;
+
+      if (!location) {
+        await ctx.reply('❌ Lokatsiya ma\'lumotlari topilmadi. Qaytadan urinib ko\'ring.');
+        return;
+      }
+
+      const latitude = location.latitude;
+      const longitude = location.longitude;
+
+      this.logger.log(`📍 Driver location received: ${latitude}, ${longitude} from user ${userId}`);
+
+      // Use reverse geocoding to get address
+      await ctx.reply('🔄 Lokatsiya aniqlanmoqda...', { parse_mode: 'HTML' });
+
+      try {
+        // Get address using Nominatim (free reverse geocoding)
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=uz,ru,en`, {
+          headers: {
+            'User-Agent': 'YoldaBotApp/1.0'
+          }
+        });
+
+        let address = 'Aniqlanmagan manzil';
+        let cleanAddress = address;
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data && data.display_name) {
+            address = data.display_name;
+
+            // AI orqali manzilni tozalash va formatlash
+            cleanAddress = await this.cleanLocationWithAI(address, latitude, longitude);
+          }
+        }
+
+        // Save location to user data
+        const userRole = this.userRoles.get(userId);
+        if (userRole) {
+          userRole.profile = {
+            ...userRole.profile,
+            lastLocation: {
+              latitude,
+              longitude,
+              address: cleanAddress,
+              timestamp: new Date().toISOString()
+            }
+          };
+          this.userRoles.set(userId, userRole);
+        }
+
+        // Send location info to user
+        const locationMessage = `📍 <b>SIZNING LOKATSIYANGIZ</b>
+
+🗺️ <b>Manzil:</b> ${cleanAddress}
+
+📊 <b>Koordinatalar:</b>
+• Kenglik: ${latitude.toFixed(6)}
+• Uzunlik: ${longitude.toFixed(6)}
+
+🕐 <b>Vaqt:</b> ${new Date().toLocaleString('uz-UZ')}
+
+✅ Lokatsiya muvaffaqiyatli saqlandi!`;
+
+        await ctx.reply(locationMessage, {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🗺️ Xaritada ko\'rish', url: `https://www.google.com/maps?q=${latitude},${longitude}` }],
+              [{ text: '🔄 Yangi lokatsiya yuborish', callback_data: 'request_location' }],
+              [{ text: '🔙 Asosiy menyu', callback_data: 'back_to_driver_menu' }]
+            ]
+          }
+        });
+
+        // Real-time update to dashboard
+        this.dashboardGateway.server.emit('driver-location-update', {
+          driverId: userId,
+          location: {
+            latitude,
+            longitude,
+            address: cleanAddress,
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        // Return to driver menu
+        setTimeout(async () => {
+          await this.showDriverMainMenu(ctx);
+        }, 3000);
+
+      } catch (geocodingError) {
+        this.logger.error('Geocoding error:', geocodingError);
+
+        const basicLocationMessage = `📍 <b>SIZNING LOKATSIYANGIZ</b>
+
+📊 <b>Koordinatalar:</b>
+• Kenglik: ${latitude.toFixed(6)}
+• Uzunlik: ${longitude.toFixed(6)}
+
+🕐 <b>Vaqt:</b> ${new Date().toLocaleString('uz-UZ')}
+
+⚠️ Manzil aniqlanmadi, lekin koordinatalar saqlandi.`;
+
+        await ctx.reply(basicLocationMessage, {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🗺️ Xaritada ko\'rish', url: `https://www.google.com/maps?q=${latitude},${longitude}` }],
+              [{ text: '🔙 Asosiy menyu', callback_data: 'back_to_driver_menu' }]
+            ]
+          }
+        });
+      }
+
+    } catch (error) {
+      this.logger.error('Error processing driver location:', error);
+      await ctx.reply('❌ Lokatsiya qayta ishlashda xatolik yuz berdi. Qaytadan urinib ko\'ring.');
+    }
+  }
+
+  // AI-powered location cleaning and formatting
+  private async cleanLocationWithAI(rawAddress: string, lat: number, lon: number): Promise<string> {
+    try {
+      // Simple AI-like cleaning for Uzbekistan addresses
+      let cleanAddress = rawAddress;
+
+      // Remove unnecessary technical info
+      cleanAddress = cleanAddress.replace(/,\s*\d{5,}/g, ''); // Remove postal codes
+      cleanAddress = cleanAddress.replace(/,\s*Uzbekistan$/i, ''); // Remove country
+      cleanAddress = cleanAddress.replace(/,\s*O'zbekiston$/i, ''); // Remove country in Uzbek
+
+      // Prioritize important parts (city, district, street)
+      const parts = cleanAddress.split(',').map(p => p.trim());
+      const importantParts = parts.filter(part => {
+        return !part.match(/^\d+$/) && // Remove pure numbers
+               part.length > 2 && // Remove very short parts
+               !part.match(/^(road|way|street)$/i); // Remove generic road words
+      });
+
+      // Take first 3 most relevant parts
+      const result = importantParts.slice(0, 3).join(', ');
+
+      return result || `Koordinatalar: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+
+    } catch (error) {
+      this.logger.error('Error cleaning location with AI:', error);
+      return `Koordinatalar: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    }
+  }
+
+  // Show driver main menu
+  private async showDriverMainMenu(ctx: any) {
+    try {
+      const message = `🚚 <b>HAYDOVCHI PANELI</b>
+
+👋 Xush kelibsiz! Quyidagi xizmatlardan foydalaning:`;
+
+      await ctx.reply(message, {
+        parse_mode: 'HTML',
+        reply_markup: {
+          keyboard: [
+            ['🆕 Yangi orderlar', '📋 Order tarixi'],
+            ['👤 Mening profilim', '💰 Balansim'],
+            ['📍 Men qayerdaman', '📱 Mobil ilova'],
+            ['⚙️ Sozlamalar']
+          ],
+          resize_keyboard: true,
+          one_time_keyboard: false
+        }
+      });
+    } catch (error) {
+      this.logger.error('Error showing driver main menu:', error);
     }
   }
 }
