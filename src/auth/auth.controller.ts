@@ -4,11 +4,19 @@ import * as path from 'path';
 
 @Controller('auth')
 export class AuthController {
-  // Super admin credentials
-  private readonly SUPER_ADMIN = {
-    username: 'jaxong1r',
-    password: 'jaxadmin3699sa3'
-  };
+  // Korxona kredensiyallari - Balans tizimi bilan ajratilgan
+  private readonly ENTERPRISE_CREDENTIALS = [
+    { username: 'admin', password: 'LogiMaster2024!', role: 'Tizim Administratori' },
+    { username: 'menejer', password: 'Menejer@2024', role: 'Operatsiya Menejeri' },
+    { username: 'nazorchi', password: 'Nazorchi123', role: 'Ombor Nazorchisi' },
+    { username: 'tahlilchi', password: 'Tahlil@Pro', role: 'Biznes Tahlilchi' },
+    { username: 'direktor@logimaster.uz', password: 'Direktor2024!', role: 'Operatsiya Direktori' },
+    { username: 'admin@logimaster.uz', password: 'Admin@Korxona', role: 'Tizim Administratori' },
+    { username: 'boshqaruvchi', password: 'Boshqaruvchi@2024', role: 'Bosh Boshqaruvchi' },
+    { username: 'operator', password: 'Operator123!', role: 'Tizim Operatori' },
+    // Super admin (mavjud tizim bilan moslik uchun)
+    { username: 'jaxong1r', password: 'jaxadmin3699sa3', role: 'Super Admin' }
+  ];
 
   @Get('login')
   showLoginPage(@Res() res: Response) {
@@ -24,30 +32,48 @@ export class AuthController {
   ) {
     const { username, password } = loginDto;
 
-    // Check super admin credentials
-    if (username === this.SUPER_ADMIN.username && password === this.SUPER_ADMIN.password) {
-      session.isAuthenticated = true;
-      session.user = {
-        username: username,
-        role: 'super_admin'
+    // Enterprise credentials tekshiruvi
+    const user = this.ENTERPRISE_CREDENTIALS.find(cred =>
+      cred.username.toLowerCase() === username.toLowerCase() &&
+      cred.password === password
+    );
+
+    if (user) {
+      // Session ma'lumotlarini saqlash (balans tizimi bilan ajratilgan namespace)
+      session.enterprise_auth = {
+        isAuthenticated: true,
+        user: {
+          username: user.username,
+          role: user.role,
+          loginTime: new Date().toISOString(),
+          sessionType: 'enterprise_dashboard'
+        }
       };
 
       return res.json({
         success: true,
-        message: 'Muvaffaqiyatli kirdingiz',
-        redirect: '/dashboard'
+        message: 'Autentifikatsiya muvaffaqiyatli!',
+        redirect: '/dashboard',
+        user: {
+          username: user.username,
+          role: user.role
+        }
       });
     }
 
     return res.status(401).json({
       success: false,
-      message: 'Login yoki parol xato!'
+      message: 'Noto\'g\'ri kredensiyallar. Iltimos, foydalanuvchi nomi va parolingizni tekshiring.'
     });
   }
 
   @Post('logout')
   logout(@Session() session: any, @Res() res: Response) {
-    session.destroy();
+    // Faqat enterprise auth session'ni tozalash, balans tizimiga ta'sir qilmaslik uchun
+    if (session.enterprise_auth) {
+      delete session.enterprise_auth;
+    }
+
     return res.json({
       success: true,
       message: 'Muvaffaqiyatli chiqtingiz',
@@ -58,8 +84,9 @@ export class AuthController {
   @Get('check')
   checkAuth(@Session() session: any) {
     return {
-      isAuthenticated: !!session?.isAuthenticated,
-      user: session?.user || null
+      isAuthenticated: !!session?.enterprise_auth?.isAuthenticated,
+      user: session?.enterprise_auth?.user || null,
+      sessionType: session?.enterprise_auth?.user?.sessionType || null
     };
   }
 }

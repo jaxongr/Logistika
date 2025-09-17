@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>🚛 Haydovchi Tracker Pro</title>
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%232c3e50'/><text y='50' x='50' text-anchor='middle' dy='0.35em' fill='white' font-size='60'>🚛</text></svg>">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #2c3e50 100%);
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            pointer-events: none;
+        }
+
+        .app-container {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .header .subtitle {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            font-weight: 400;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow:
+                0 8px 32px rgba(0, 0, 0, 0.1),
+                0 2px 8px rgba(0, 0, 0, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow:
+                0 12px 40px rgba(0, 0, 0, 0.15),
+                0 4px 12px rgba(0, 0, 0, 0.08),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+
+        .status-card {
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .status-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #2ecc71, #27ae60);
+            border-radius: 20px 20px 0 0;
+            transition: all 0.3s ease;
+        }
+
+        .status-card.inactive::before {
+            background: linear-gradient(90deg, #e74c3c, #c0392b);
+        }
+
+        .status-indicator {
+            font-size: 48px;
+            margin-bottom: 15px;
+            display: block;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+
+        .status-text {
+            font-size: 22px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+
+        .status-subtitle {
+            font-size: 14px;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid #ecf0f1;
+            border-radius: 12px;
+            font-size: 16px;
+            background: #fafbfc;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .input-field:focus {
+            border-color: #3498db;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.1);
+        }
+
+        .display-field {
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 16px;
+            border: 1px solid #dee2e6;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.6s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            color: white;
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(46, 204, 113, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.5);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.5);
+        }
+
+        .location-card {
+            border-left: 4px solid #3498db;
+        }
+
+        .location-info {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            padding: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+            border: 1px solid #dee2e6;
+        }
+
+        .location-label {
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .location-coords {
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+
+        .location-time {
+            color: #6c757d;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .warning-card {
+            background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+            border: 2px solid #f39c12;
+            border-left: 6px solid #f39c12;
+            position: relative;
+        }
+
+        .warning-card::before {
+            content: '⚠️';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            font-size: 24px;
+            background: #f39c12;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
+        }
+
+        .warning-title {
+            color: #e67e22;
+            margin-bottom: 10px;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .warning-text {
+            color: #d35400;
+            font-weight: 500;
+            line-height: 1.5;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .connection-status.online {
+            background: rgba(46, 204, 113, 0.1);
+            color: #27ae60;
+            border: 1px solid rgba(46, 204, 113, 0.3);
+        }
+
+        .connection-status.offline {
+            background: rgba(231, 76, 60, 0.1);
+            color: #c0392b;
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+
+        .signal-bars {
+            display: flex;
+            gap: 2px;
+            align-items: flex-end;
+        }
+
+        .signal-bar {
+            width: 3px;
+            background: #bdc3c7;
+            border-radius: 2px;
+            transition: background 0.3s ease;
+        }
+
+        .signal-bar:nth-child(1) { height: 6px; }
+        .signal-bar:nth-child(2) { height: 10px; }
+        .signal-bar:nth-child(3) { height: 14px; }
+        .signal-bar:nth-child(4) { height: 18px; }
+
+        .signal-bars.strong .signal-bar { background: #2ecc71; }
+        .signal-bars.medium .signal-bar:nth-child(-n+3) { background: #f39c12; }
+        .signal-bars.weak .signal-bar:nth-child(-n+2) { background: #e74c3c; }
+
+        @media (max-width: 375px) {
+            .main-content { padding: 15px; gap: 15px; }
+            .card { padding: 20px; }
+            .header { padding: 15px; }
+            .status-indicator { font-size: 40px; }
+            .status-text { font-size: 20px; }
+        }
+
+        /* PWA Install prompt */
+        .install-prompt {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .install-prompt.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .install-prompt button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Loading spinner */
+        .loading-spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <h1>🚛 Haydovchi Tracker Pro</h1>
+            <p class="subtitle">Professional GPS Tracking</p>
+        </header>
+
+        <main class="main-content">
+            <!-- Setup Screen -->
+            <div id="setupScreen">
+                <div class="card">
+                    <div class="connection-status online" id="connectionStatus">
+                        <div class="signal-bars strong">
+                            <div class="signal-bar"></div>
+                            <div class="signal-bar"></div>
+                            <div class="signal-bar"></div>
+                            <div class="signal-bar"></div>
+                        </div>
+                        <span>Server ulanishi faol</span>
+                    </div>
+
+                    <div class="input-group">
+                        <label class="input-label" for="driverIdInput">
+                            🆔 Haydovchi ID raqami
+                        </label>
+                        <input type="text"
+                               id="driverIdInput"
+                               class="input-field"
+                               placeholder="Bot orqali berilgan ID ni kiriting..."
+                               maxlength="20">
+                    </div>
+
+                    <button class="btn btn-primary" onclick="startTracking()">
+                        <span id="startButtonText">🚀 Tracking Boshlash</span>
+                    </button>
+                </div>
+
+                <div class="card warning-card">
+                    <h3 class="warning-title">Muhim eslatma</h3>
+                    <p class="warning-text">
+                        Bu ilovani yopmang! Aks holda bot sizga zakazlar bermaydi.
+                        Telefon ekrani o'chib tursa ham ilova ishlaydi.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Tracking Screen -->
+            <div id="trackingScreen" class="hidden">
+                <div class="card status-card" id="statusCard">
+                    <div class="connection-status online" id="trackingConnectionStatus">
+                        <div class="signal-bars strong" id="signalBars">
+                            <div class="signal-bar"></div>
+                            <div class="signal-bar"></div>
+                            <div class="signal-bar"></div>
+                            <div class="signal-bar"></div>
+                        </div>
+                        <span id="connectionText">GPS signal kuchli</span>
+                    </div>
+
+                    <span class="status-indicator" id="statusIcon">🟢</span>
+                    <div class="status-text" id="statusText">Faol Tracking</div>
+                    <div class="status-subtitle" id="statusSubtitle">Lokatsiya har 30 soniyada yuborilmoqda</div>
+
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value" id="sessionTime">00:00</div>
+                            <div class="stat-label">Faollik vaqti</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="updateCount">0</div>
+                            <div class="stat-label">Yuborishlar</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="input-group">
+                        <label class="input-label">🆔 Haydovchi ID:</label>
+                        <div class="display-field" id="currentDriverId"></div>
+                    </div>
+                </div>
+
+                <div class="card location-card">
+                    <div class="location-info" id="locationInfo">
+                        <span class="location-label">📍 Joriy lokatsiya:</span>
+                        <div class="location-coords" id="locationText">GPS signali kutilmoqda...</div>
+                        <div class="location-time" id="locationTime"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <button class="btn btn-danger" onclick="stopTracking()">
+                        ⏹️ To'xtatish
+                    </button>
+                    <button class="btn btn-secondary" onclick="changeId()">
+                        🔧 ID O'zgartirish
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- PWA Install Prompt -->
+        <div class="install-prompt" id="installPrompt">
+            <div>
+                <strong>📱 Ilovani o'rnating</strong><br>
+                <small>Tezroq kirish uchun</small>
+            </div>
+            <div>
+                <button onclick="installApp()">O'rnatish</button>
+                <button onclick="dismissInstall()" style="background: transparent; color: #bdc3c7;">Keyinroq</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let trackingInterval;
+        let driverId;
+        let sessionStartTime;
+        let updateCounter = 0;
+        let sessionTimer;
+        let deferredPrompt;
+
+        const serverUrl = 'http://localhost:3004';
+
+        // PWA Install
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            showInstallPrompt();
+        });
+
+        function showInstallPrompt() {
+            document.getElementById('installPrompt').classList.add('show');
+        }
+
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((result) => {
+                    deferredPrompt = null;
+                    dismissInstall();
+                });
+            }
+        }
+
+        function dismissInstall() {
+            document.getElementById('installPrompt').classList.remove('show');
+        }
+
+        function startTracking() {
+            const driverIdInput = document.getElementById('driverIdInput');
+            const startButton = document.querySelector('#setupScreen .btn-primary');
+            const startButtonText = document.getElementById('startButtonText');
+
+            driverId = driverIdInput.value.trim();
+
+            if (!driverId) {
+                showNotification('⚠️ Iltimos, haydovchi ID ni kiriting!', 'error');
+                return;
+            }
+
+            // Show loading state
+            startButtonText.innerHTML = '<div class="loading-spinner"></div> Boshlanyapti...';
+            startButton.disabled = true;
+
+            // Save to localStorage
+            localStorage.setItem('driverId', driverId);
+            sessionStartTime = Date.now();
+            updateCounter = 0;
+
+            // Switch screens with animation
+            setTimeout(() => {
+                document.getElementById('setupScreen').classList.add('hidden');
+                document.getElementById('trackingScreen').classList.remove('hidden');
+                document.getElementById('currentDriverId').textContent = driverId;
+
+                // Start location tracking
+                if (navigator.geolocation) {
+                    trackingInterval = setInterval(updateLocation, 30000);
+                    updateLocation();
+                    startSessionTimer();
+                    showNotification('✅ Tracking muvaffaqiyatli boshlandi!', 'success');
+                } else {
+                    showNotification('❌ GPS qo\'llab-quvvatlanmaydi!', 'error');
+                }
+            }, 500);
+        }
+
+        function stopTracking() {
+            if (confirm('⚠️ Tracking to\'xtatilsinmi? Bu holatda bot sizga zakazlar bermaydi!')) {
+                clearInterval(trackingInterval);
+                clearInterval(sessionTimer);
+
+                const statusCard = document.getElementById('statusCard');
+                statusCard.classList.add('inactive');
+
+                document.getElementById('statusIcon').textContent = '🔴';
+                document.getElementById('statusText').textContent = 'Nofaol';
+                document.getElementById('statusSubtitle').textContent = 'Tracking to\'xtatildi';
+
+                updateConnectionStatus(false);
+                showNotification('⏸️ Tracking to\'xtatildi', 'warning');
+            }
+        }
+
+        function changeId() {
+            if (confirm('🔄 ID o\'zgartirilsinmi? Joriy sessiya tugaydi.')) {
+                stopTracking();
+                setTimeout(() => {
+                    document.getElementById('trackingScreen').classList.add('hidden');
+                    document.getElementById('setupScreen').classList.remove('hidden');
+                    document.getElementById('driverIdInput').value = '';
+                    document.getElementById('driverIdInput').focus();
+                }, 300);
+            }
+        }
+
+        function updateLocation() {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const locationData = {
+                        driverId: driverId,
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        timestamp: new Date().toISOString(),
+                        accuracy: position.coords.accuracy
+                    };
+
+                    updateLocationUI(locationData);
+                    sendLocationToServer(locationData);
+                    updateCounter++;
+                    document.getElementById('updateCount').textContent = updateCounter;
+                },
+                function(error) {
+                    handleLocationError(error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 10000
+                }
+            );
+        }
+
+        function updateLocationUI(locationData) {
+            const accuracy = locationData.accuracy || 0;
+
+            document.getElementById('locationText').innerHTML =
+                `Lat: ${locationData.latitude.toFixed(6)}<br>
+                 Lng: ${locationData.longitude.toFixed(6)}<br>
+                 <small>Aniqlik: ±${Math.round(accuracy)}m</small>`;
+
+            document.getElementById('locationTime').textContent =
+                `So'nggi yangilanish: ${new Date().toLocaleString('uz-UZ')}`;
+
+            document.getElementById('statusIcon').textContent = '🟢';
+            document.getElementById('statusText').textContent = 'Faol Tracking';
+            document.getElementById('statusSubtitle').textContent = 'Lokatsiya muvaffaqiyatli yuborildi';
+
+            updateConnectionStatus(true);
+            updateSignalStrength(accuracy);
+        }
+
+        function handleLocationError(error) {
+            let errorMessage = '';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage = 'GPS ruxsati berilmagan';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage = 'Lokatsiya aniqlanmadi';
+                    break;
+                case error.TIMEOUT:
+                    errorMessage = 'Vaqt tugadi';
+                    break;
+                default:
+                    errorMessage = 'Noma\'lum xatolik';
+                    break;
+            }
+
+            document.getElementById('locationText').textContent = `❌ ${errorMessage}`;
+            document.getElementById('statusIcon').textContent = '🔴';
+            document.getElementById('statusText').textContent = 'GPS Xatolik';
+            document.getElementById('statusSubtitle').textContent = errorMessage;
+
+            updateConnectionStatus(false);
+            showNotification(`GPS xatolik: ${errorMessage}`, 'error');
+        }
+
+        async function sendLocationToServer(locationData) {
+            try {
+                const response = await fetch(`${serverUrl}/api/dashboard/driver/location`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(locationData)
+                });
+
+                if (response.ok) {
+                    console.log('📡 Lokatsiya yuborildi:', locationData);
+                } else {
+                    console.error('❌ Server xatolik:', response.status);
+                    showNotification('⚠️ Server bilan aloqa yo\'q', 'warning');
+                }
+            } catch (error) {
+                console.error('🌐 Network xatolik:', error);
+                showNotification('🔌 Internet aloqasini tekshiring', 'error');
+            }
+        }
+
+        function updateConnectionStatus(isOnline) {
+            const statusElements = document.querySelectorAll('.connection-status');
+            const connectionText = document.getElementById('connectionText');
+
+            statusElements.forEach(element => {
+                element.classList.toggle('online', isOnline);
+                element.classList.toggle('offline', !isOnline);
+            });
+
+            if (connectionText) {
+                connectionText.textContent = isOnline ? 'GPS signal kuchli' : 'GPS signal yo\'q';
+            }
+        }
+
+        function updateSignalStrength(accuracy) {
+            const signalBars = document.getElementById('signalBars');
+
+            if (accuracy < 10) {
+                signalBars.className = 'signal-bars strong';
+            } else if (accuracy < 50) {
+                signalBars.className = 'signal-bars medium';
+            } else {
+                signalBars.className = 'signal-bars weak';
+            }
+        }
+
+        function startSessionTimer() {
+            sessionTimer = setInterval(() => {
+                const elapsed = Date.now() - sessionStartTime;
+                const minutes = Math.floor(elapsed / 60000);
+                const seconds = Math.floor((elapsed % 60000) / 1000);
+
+                document.getElementById('sessionTime').textContent =
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function showNotification(message, type = 'info') {
+            // Simple notification system
+            const notification = document.createElement('div');
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: ${type === 'success' ? '#2ecc71' : type === 'error' ? '#e74c3c' : '#f39c12'};
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-weight: 600;
+                z-index: 10000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                animation: slideDown 0.3s ease;
+            `;
+
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideUp 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Initialize app
+        window.onload = function() {
+            const savedDriverId = localStorage.getItem('driverId');
+            if (savedDriverId) {
+                document.getElementById('driverIdInput').value = savedDriverId;
+            }
+
+            // Add animation styles
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideDown {
+                    from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+                    to { transform: translateX(-50%) translateY(0); opacity: 1; }
+                }
+                @keyframes slideUp {
+                    from { transform: translateX(-50%) translateY(0); opacity: 1; }
+                    to { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        };
+
+        // Prevent accidental closing
+        window.addEventListener('beforeunload', function(e) {
+            if (trackingInterval) {
+                e.preventDefault();
+                e.returnValue = '⚠️ Ilovani yopsangiz bot sizga zakazlar bermaydi!';
+            }
+        });
+
+        // Handle visibility change
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && trackingInterval) {
+                showNotification('🔄 Ilova background\'da ishlayapti', 'info');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -60,7 +60,12 @@
       "Bash(start http://localhost:3004/dashboard)",
       "Bash(python:*)",
       "Bash(start http://localhost:3004/dashboard/users)",
-      "Bash(start http://localhost:3004/dashboard/staff)"
+      "Bash(start http://localhost:3004/dashboard/staff)",
+      "Bash(scp:*)",
+      "Bash(ssh:*)",
+      "Bash(set PORT=3004)",
+      "Bash(tar:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

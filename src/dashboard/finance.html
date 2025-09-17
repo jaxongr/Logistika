@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moliyaviy Boshqaruv - LogiMaster</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .finance-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .revenue-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .commission-card {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        .pending-card {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #333;
+        }
+        .balance-card {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #333;
+        }
+        .payment-item {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid #007bff;
+        }
+        .payment-pending {
+            border-left-color: #ffc107;
+        }
+        .payment-approved {
+            border-left-color: #28a745;
+        }
+        .payment-rejected {
+            border-left-color: #dc3545;
+        }
+        .transaction-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 3px solid #6c757d;
+        }
+        .transaction-income {
+            border-left-color: #28a745;
+            background: linear-gradient(90deg, #d4edda 0%, #f8f9fa 100%);
+        }
+        .transaction-expense {
+            border-left-color: #dc3545;
+            background: linear-gradient(90deg, #f8d7da 0%, #f8f9fa 100%);
+        }
+        .nav-tabs .nav-link {
+            color: #495057;
+            border: none;
+            border-bottom: 2px solid transparent;
+            font-weight: 500;
+        }
+        .nav-tabs .nav-link.active {
+            background: none;
+            border-bottom: 2px solid #007bff;
+            color: #007bff;
+        }
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .badge-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .badge-approved {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+        .badge-rejected {
+            background: #f8d7da;
+            color: #842029;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar">
+                <div class="sidebar-header">
+                    <h4><i class="fas fa-chart-line"></i> LogiMaster</h4>
+                </div>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">
+                            <i class="fas fa-home"></i> Asosiy Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="users.html">
+                            <i class="fas fa-users"></i> Foydalanuvchilar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="staff.html">
+                            <i class="fas fa-user-tie"></i> Xodimlar
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="finance.html">
+                            <i class="fas fa-money-bill-wave"></i> Moliyaviy Boshqaruv
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="map.html">
+                            <i class="fas fa-map-marker-alt"></i> Xarita
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2"><i class="fas fa-money-bill-wave text-success"></i> Moliyaviy Boshqaruv</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <div class="btn-group me-2">
+                            <button type="button" class="btn btn-success" onclick="exportFinanceReport()">
+                                <i class="fas fa-download"></i> Hisobot Yuklab Olish
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="refreshFinanceData()">
+                                <i class="fas fa-sync-alt"></i> Yangilash
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Finance Statistics -->
+                <div class="row mb-4">
+                    <div class="col-xl-3 col-md-6">
+                        <div class="finance-card revenue-card">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6>Umumiy Daromad</h6>
+                                    <h3 id="totalRevenue">45,600,000</h3>
+                                    <small>so'm</small>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-chart-line fa-3x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="finance-card commission-card">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6>Komissiya</h6>
+                                    <h3 id="commissionEarned">1,800,000</h3>
+                                    <small>so'm</small>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-percentage fa-3x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="finance-card pending-card">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6>Kutilayotgan To'lovlar</h6>
+                                    <h3 id="pendingPayments">2,300,000</h3>
+                                    <small>so'm</small>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-clock fa-3x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-md-6">
+                        <div class="finance-card balance-card">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6>Haydovchi To'lovlari</h6>
+                                    <h3 id="driverPayouts">8,900,000</h3>
+                                    <small>so'm</small>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-wallet fa-3x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs Navigation -->
+                <ul class="nav nav-tabs" id="financeTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="payments-tab" data-bs-toggle="tab" data-bs-target="#payments" type="button" role="tab">
+                            <i class="fas fa-credit-card"></i> To'lovlar
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="transactions-tab" data-bs-toggle="tab" data-bs-target="#transactions" type="button" role="tab">
+                            <i class="fas fa-exchange-alt"></i> Tranzaksiyalar
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="balances-tab" data-bs-toggle="tab" data-bs-target="#balances" type="button" role="tab">
+                            <i class="fas fa-wallet"></i> Balanslar
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="reports-tab" data-bs-toggle="tab" data-bs-target="#reports" type="button" role="tab">
+                            <i class="fas fa-chart-bar"></i> Hisobotlar
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings" type="button" role="tab">
+                            <i class="fas fa-cog"></i> Sozlamalar
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tabs Content -->
+                <div class="tab-content" id="financeTabsContent">
+                    <!-- To'lovlar Tab -->
+                    <div class="tab-pane fade show active" id="payments" role="tabpanel">
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-credit-card"></i> Kutilayotgan To'lovlar</h5>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="filterPayments('all')">Barchasi</button>
+                                            <button type="button" class="btn btn-outline-warning btn-sm" onclick="filterPayments('balance_topup')">Balans</button>
+                                            <button type="button" class="btn btn-outline-info btn-sm" onclick="filterPayments('withdrawal')">Yechish</button>
+                                            <button type="button" class="btn btn-outline-success btn-sm" onclick="filterPayments('order_payment')">Buyurtma</button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="pendingPaymentsList">
+                                            <!-- To'lovlar bu yerga yuklanadi -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tranzaksiyalar Tab -->
+                    <div class="tab-pane fade" id="transactions" role="tabpanel">
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-exchange-alt"></i> Tranzaksiya Tarixi</h5>
+                                        <div class="d-flex gap-2">
+                                            <select class="form-select form-select-sm" id="transactionTypeFilter" onchange="filterTransactions()">
+                                                <option value="">Barcha turlar</option>
+                                                <option value="commission">Komissiya</option>
+                                                <option value="balance_topup">Balans to'ldirish</option>
+                                                <option value="penalty">Jarima</option>
+                                                <option value="withdrawal">Yechish</option>
+                                            </select>
+                                            <input type="date" class="form-control form-control-sm" id="transactionDateFilter" onchange="filterTransactions()">
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="transactionsList">
+                                            <!-- Tranzaksiyalar bu yerga yuklanadi -->
+                                        </div>
+                                        <nav>
+                                            <ul class="pagination justify-content-center" id="transactionPagination">
+                                            </ul>
+                                        </nav>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Balanslar Tab -->
+                    <div class="tab-pane fade" id="balances" role="tabpanel">
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-wallet"></i> Foydalanuvchi Balanslari</h5>
+                                        <div class="d-flex gap-2">
+                                            <select class="form-select form-select-sm" id="balanceUserTypeFilter" onchange="filterBalances()">
+                                                <option value="">Barcha turlar</option>
+                                                <option value="driver">Haydovchilar</option>
+                                                <option value="dispatcher">Dispecherlar</option>
+                                                <option value="customer">Mijozlar</option>
+                                            </select>
+                                            <input type="text" class="form-control form-control-sm" id="balanceSearchFilter" placeholder="Ism yoki telefon..." onkeyup="filterBalances()">
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Foydalanuvchi</th>
+                                                        <th>Turi</th>
+                                                        <th>Balans</th>
+                                                        <th>Kutilayotgan</th>
+                                                        <th>Jami Topgan</th>
+                                                        <th>Amallar</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="balancesTable">
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hisobotlar Tab -->
+                    <div class="tab-pane fade" id="reports" role="tabpanel">
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-chart-line"></i> Daromad Dinamikasi</h5>
+                                        <select class="form-select form-select-sm" id="revenuePeriodSelect" onchange="updateRevenueChart()">
+                                            <option value="7days">7 kun</option>
+                                            <option value="30days" selected>30 kun</option>
+                                            <option value="3months">3 oy</option>
+                                            <option value="6months">6 oy</option>
+                                        </select>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="revenueChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-pie-chart"></i> To'lov Turlari</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="paymentTypesChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-table"></i> Moliyaviy Xulosa</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-3">
+                                                <div class="text-center p-3 border rounded">
+                                                    <h4 class="text-success" id="totalIncome">0</h4>
+                                                    <p class="mb-0">Jami Daromad</p>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="text-center p-3 border rounded">
+                                                    <h4 class="text-danger" id="totalExpenses">0</h4>
+                                                    <p class="mb-0">Jami Xarajat</p>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="text-center p-3 border rounded">
+                                                    <h4 class="text-primary" id="netProfit">0</h4>
+                                                    <p class="mb-0">Sof Foyda</p>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="text-center p-3 border rounded">
+                                                    <h4 class="text-warning" id="profitMargin">0%</h4>
+                                                    <p class="mb-0">Foyda Darajasi</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sozlamalar Tab -->
+                    <div class="tab-pane fade" id="settings" role="tabpanel">
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-percentage"></i> Komissiya Sozlamalari</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <form id="commissionSettingsForm">
+                                            <div class="mb-3">
+                                                <label class="form-label">Haydovchi Komissiyasi (%)</label>
+                                                <input type="number" class="form-control" id="driverCommissionPercent" value="15">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Dispecher Komissiyasi (%)</label>
+                                                <input type="number" class="form-control" id="dispatcherCommissionPercent" value="5">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Tizim Yig'imi (%)</label>
+                                                <input type="number" class="form-control" id="systemFeePercent" value="3">
+                                            </div>
+                                            <button type="submit" class="btn btn-primary">Saqlash</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-credit-card"></i> To'lov Uslublari</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="paymentMethodsSettings">
+                                            <div class="form-check d-flex justify-content-between align-items-center mb-3">
+                                                <div>
+                                                    <input type="checkbox" class="form-check-input" id="bankTransferEnabled" checked>
+                                                    <label class="form-check-label" for="bankTransferEnabled">Bank o'tkazmasi</label>
+                                                </div>
+                                                <input type="number" class="form-control form-control-sm" style="width: 100px;" placeholder="2000" value="2000">
+                                            </div>
+                                            <div class="form-check d-flex justify-content-between align-items-center mb-3">
+                                                <div>
+                                                    <input type="checkbox" class="form-check-input" id="uzcardEnabled" checked>
+                                                    <label class="form-check-label" for="uzcardEnabled">UzCard</label>
+                                                </div>
+                                                <input type="number" class="form-control form-control-sm" style="width: 100px;" placeholder="1500" value="1500">
+                                            </div>
+                                            <div class="form-check d-flex justify-content-between align-items-center mb-3">
+                                                <div>
+                                                    <input type="checkbox" class="form-check-input" id="humoEnabled" checked>
+                                                    <label class="form-check-label" for="humoEnabled">Humo</label>
+                                                </div>
+                                                <input type="number" class="form-control form-control-sm" style="width: 100px;" placeholder="1500" value="1500">
+                                            </div>
+                                            <div class="form-check d-flex justify-content-between align-items-center mb-3">
+                                                <div>
+                                                    <input type="checkbox" class="form-check-input" id="cashEnabled" checked>
+                                                    <label class="form-check-label" for="cashEnabled">Naqd</label>
+                                                </div>
+                                                <input type="number" class="form-control form-control-sm" style="width: 100px;" placeholder="0" value="0">
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn btn-success" onclick="savePaymentMethodSettings()">Saqlash</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Payment Action Modal -->
+    <div class="modal fade" id="paymentActionModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">To'lov Amaliyoti</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="paymentActionContent">
+                        <!-- Modal content will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="button" class="btn btn-success" id="approvePaymentBtn" onclick="processPaymentAction('approve')">Tasdiqlash</button>
+                    <button type="button" class="btn btn-danger" id="rejectPaymentBtn" onclick="processPaymentAction('reject')">Rad etish</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Balance Adjustment Modal -->
+    <div class="modal fade" id="balanceAdjustModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Balansni O'zgartirish</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="balanceAdjustForm">
+                        <input type="hidden" id="adjustUserId">
+                        <div class="mb-3">
+                            <label class="form-label">Foydalanuvchi</label>
+                            <input type="text" class="form-control" id="adjustUserName" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Amal turi</label>
+                            <select class="form-select" id="adjustmentType" required>
+                                <option value="">Tanlang...</option>
+                                <option value="add">Qo'shish</option>
+                                <option value="deduct">Ayirish</option>
+                                <option value="set">Belgilash</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Miqdor (so'm)</label>
+                            <input type="number" class="form-control" id="adjustmentAmount" required min="0">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Sabab</label>
+                            <textarea class="form-control" id="adjustmentReason" rows="3" required></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bekor qilish</button>
+                    <button type="button" class="btn btn-primary" onclick="processBalanceAdjustment()">O'zgartirish</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/finance.js"></script>
+</body>
+</html>

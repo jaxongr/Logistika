@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .nav-item {
+            display: block;
+            padding: 10px;
+            margin: 5px 0;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .nav-item:hover { background: #2563eb; }
+        #content {
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            min-height: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Navigation Test</h1>
+
+    <div class="nav-item" data-page="dashboard">Dashboard</div>
+    <div class="nav-item" data-page="staff">Xodimlar</div>
+
+    <div id="content">
+        Click a menu item above
+    </div>
+
+    <script>
+        console.log('🚀 Script loaded');
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📄 DOM ready');
+
+            const navItems = document.querySelectorAll('.nav-item[data-page]');
+            console.log('📋 Found nav items:', navItems.length);
+
+            navItems.forEach(item => {
+                const page = item.getAttribute('data-page');
+                console.log('🔧 Setting up:', page);
+
+                item.addEventListener('click', function() {
+                    console.log('🖱️ Clicked:', page);
+
+                    const content = document.getElementById('content');
+                    if (page === 'staff') {
+                        content.innerHTML = `
+                            <h2>Xodimlar sahifasi</h2>
+                            <p>Bu yerda xodimlar ro'yxati bo'ladi</p>
+                            <ul>
+                                <li>Test Xodim 1</li>
+                                <li>Test Xodim 2</li>
+                            </ul>
+                        `;
+                    } else {
+                        content.innerHTML = `<h2>${page} sahifasi</h2><p>Bu ${page} sahifasi</p>`;
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

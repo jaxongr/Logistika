@@ -3,6 +3,8 @@ import { Response } from 'express';
 import { BotService } from '../bot/bot.service';
 import { DataService } from '../services/data.service';
 import { PerformanceService } from '../services/performance.service';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Controller('api/dashboard')
 export class DashboardApiController {
@@ -15,18 +17,19 @@ export class DashboardApiController {
     @Get('stats')
     async getDashboardStats() {
         try {
-            // Bot service'dan real ma'lumotlarni olish
-            const stats = await this.getSystemStats();
+            // Tarix faylidan statistikalarni olish
+            const historyStats = await this.getStatsFromHistory();
+            const liveStats = await this.getSystemStats();
 
             return {
                 success: true,
                 data: {
-                    orders: stats.totalOrders || 234,
-                    drivers: stats.activeDrivers || 45,
-                    dispatchers: stats.dispatchers || 8,
-                    customers: stats.customers || 156,
-                    revenue: stats.monthlyRevenue || 2400000,
-                    completedOrders: stats.completedOrders || 177
+                    orders: historyStats.totalOrders || 0,
+                    drivers: liveStats.activeDrivers || 45,
+                    dispatchers: liveStats.dispatchers || 8,
+                    customers: historyStats.totalCustomers || 0,
+                    revenue: historyStats.totalRevenue || 0,
+                    completedOrders: historyStats.completedOrders || 0
                 }
             };
         } catch (error) {
@@ -34,12 +37,12 @@ export class DashboardApiController {
                 success: false,
                 error: 'Ma\'lumotlarni olishda xatolik',
                 data: {
-                    orders: 234,
+                    orders: 0,
                     drivers: 45,
                     dispatchers: 8,
-                    customers: 156,
-                    revenue: 2400000,
-                    completedOrders: 177
+                    customers: 0,
+                    revenue: 0,
+                    completedOrders: 0
                 }
             };
         }
@@ -48,7 +51,7 @@ export class DashboardApiController {
     @Get('orders')
     async getOrders(@Query('status') status?: string, @Query('limit') limit?: number) {
         try {
-            // Bot service orqali buyurtmalarni olish
+            // History va active buyurtmalarni birlashtirish
             const orders = await this.getOrdersData(status, limit);
 
             return {
@@ -57,32 +60,11 @@ export class DashboardApiController {
                 total: orders.length
             };
         } catch (error) {
-            // Demo ma'lumotlar
+            console.error('❌ Error getting orders:', error);
             return {
                 success: true,
-                data: [
-                    {
-                        id: '#12345',
-                        customer: 'Alisher Rahmonov',
-                        driver: 'Bekzod Karimov',
-                        route: 'Toshkent → Samarqand',
-                        cargoType: 'Oziq-ovqat',
-                        amount: 450000,
-                        date: '2024-01-15',
-                        status: 'active'
-                    },
-                    {
-                        id: '#12344',
-                        customer: 'Nodira Yusupova',
-                        driver: 'Aziz Toshev',
-                        route: 'Buxoro → Navoiy',
-                        cargoType: 'Qurilish materiallari',
-                        amount: 850000,
-                        date: '2024-01-14',
-                        status: 'pending'
-                    }
-                ],
-                total: 2
+                data: [],
+                total: 0
             };
         }
     }
@@ -207,6 +189,231 @@ export class DashboardApiController {
         }
     }
 
+    // MIJOZNI TELEFON RAQAMI BO'YICHA QIDIRISH
+    @Get('customers/search')
+    async searchCustomerByPhone(@Query('phone') phone: string) {
+        try {
+            if (!phone) {
+                return {
+                    success: false,
+                    error: 'Telefon raqami kiritilmagan'
+                };
+            }
+
+            // 1. Avval mijozlar bazasidan qidirish
+            const customersFilePath = path.join(process.cwd(), 'customers-database.json');
+            let savedCustomer = null;
+
+            if (fs.existsSync(customersFilePath)) {
+                try {
+                    const customersData = fs.readFileSync(customersFilePath, 'utf-8');
+                    const customersDb = JSON.parse(customersData);
+                    savedCustomer = customersDb.customers.find(customer =>
+                        customer.phone === phone
+                    );
+                } catch (error) {
+                    console.log('Error reading customers database:', error);
+                }
+            }
+
+            // 2. Orders tarixidan ham qidirish
+            const orders = await this.getOrdersData();
+            const customerOrders = orders.filter(order =>
+                order.phone === phone || order.customer === phone ||
+                (order.customerPhone && order.customerPhone === phone)
+            );
+
+            if (savedCustomer || customerOrders.length > 0) {
+                // Mavjud mijoz - statistikalarni hisoblash
+                const totalSpent = customerOrders
+                    .filter(order => order.status === 'completed')
+                    .reduce((sum, order) => sum + (order.amount || 0), 0);
+
+                const completedOrders = customerOrders.filter(order => order.status === 'completed').length;
+
+                // Mijoz ismini topish (birinchi navbatda saqlangan mijozdan, keyin buyurtmalardan)
+                let customerName = '';
+                if (savedCustomer) {
+                    customerName = savedCustomer.name;
+                } else if (customerOrders.length > 0) {
+                    const latestOrder = customerOrders
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+                    customerName = latestOrder.customerName || latestOrder.customer || '';
+                }
+
+                const customer = {
+                    id: savedCustomer?.id || `C_${phone.replace(/[^0-9]/g, '')}`,
+                    name: customerName,
+                    phone: phone,
+                    orderCount: customerOrders.length,
+                    totalSpent: totalSpent,
+                    completedOrders: completedOrders,
+                    lastOrderDate: customerOrders.length > 0 ? customerOrders[0].date : savedCustomer?.joinDate,
+                    status: 'active'
+                };
+
+                return {
+                    success: true,
+                    found: true,
+                    customer: customer
+                };
+            } else {
+                // Yangi mijoz
+                return {
+                    success: true,
+                    found: false,
+                    message: 'Yangi mijoz'
+                };
+            }
+        } catch (error) {
+            console.error('Customer search error:', error);
+            return {
+                success: false,
+                error: 'Mijozni qidirishda xatolik'
+            };
+        }
+    }
+
+    // MIJOZ TARIXINI OLISH
+    @Get('customers/:customerId/history')
+    async getCustomerHistory(@Param('customerId') customerId: string) {
+        try {
+            // Customer ID dan telefon raqamini ajratish
+            const phoneNumber = customerId.replace('C_', '').replace(/[^0-9]/g, '');
+
+            // Orders tarixidan mijoz buyurtmalarini olish
+            const allOrders = await this.getOrdersData();
+            const customerOrders = allOrders.filter(order => {
+                const orderPhone = (order.phone || order.customerPhone || '').replace(/[^0-9]/g, '');
+                return orderPhone === phoneNumber;
+            });
+
+            if (customerOrders.length === 0) {
+                return {
+                    success: true,
+                    orders: [],
+                    stats: {
+                        totalOrders: 0,
+                        completedOrders: 0,
+                        totalSpent: 0
+                    }
+                };
+            }
+
+            // Buyurtmalarni sanalar bo'yicha tartiblash
+            const sortedOrders = customerOrders
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .map(order => ({
+                    id: order.id,
+                    date: order.date,
+                    route: order.route || `${order.fromCity} → ${order.toCity}`,
+                    cargoType: order.cargoType || 'Noma\'lum',
+                    amount: order.amount || 0,
+                    status: order.status,
+                    driver: order.driver || 'Tayinlanmagan'
+                }));
+
+            // Statistikalar
+            const completedOrders = customerOrders.filter(order => order.status === 'completed');
+            const totalSpent = completedOrders.reduce((sum, order) => sum + (order.amount || 0), 0);
+
+            return {
+                success: true,
+                orders: sortedOrders,
+                stats: {
+                    totalOrders: customerOrders.length,
+                    completedOrders: completedOrders.length,
+                    totalSpent: totalSpent
+                }
+            };
+        } catch (error) {
+            console.error('Customer history error:', error);
+            return {
+                success: false,
+                error: 'Mijoz tarixini olishda xatolik'
+            };
+        }
+    }
+
+    @Get('customers/orders-history')
+    async getCustomersOrdersHistory() {
+        try {
+            const historyPath = path.join(process.cwd(), 'completed-orders-history.json');
+
+            if (!fs.existsSync(historyPath)) {
+                return [];
+            }
+
+            const historyData = JSON.parse(fs.readFileSync(historyPath, 'utf8'));
+            return historyData || [];
+        } catch (error) {
+            console.error('Error loading customers orders history:', error);
+            return [];
+        }
+    }
+
+    // Dashboard'dan mijoz saqlash uchun maxsus funksiya
+    private async saveCustomerFromDashboard(customerData: any) {
+        try {
+            const customersPath = path.join(process.cwd(), 'customers-database.json');
+            let customers = [];
+
+            // Mavjud mijozlar ro'yxatini yuklash
+            if (fs.existsSync(customersPath)) {
+                const fileData = JSON.parse(fs.readFileSync(customersPath, 'utf8'));
+                // Fayl struktura tekshirish
+                if (Array.isArray(fileData)) {
+                    customers = fileData;
+                } else if (fileData && Array.isArray(fileData.customers)) {
+                    customers = fileData.customers;
+                } else {
+                    customers = [];
+                }
+            }
+
+            // Mijoz allaqachon mavjudligini tekshirish
+            const existingCustomer = customers.find(c => c.phone === customerData.phone);
+            if (existingCustomer) {
+                console.log('📝 Customer already exists:', customerData.phone);
+                return existingCustomer;
+            }
+
+            // Yangi mijoz yaratish
+            const newCustomer = {
+                id: `CUST_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                phone: customerData.phone,
+                name: customerData.name,
+                joinDate: customerData.joinDate || new Date().toISOString(),
+                status: customerData.status || 'active',
+                source: customerData.source || 'Dashboard',
+                totalOrders: 0,
+                totalSpent: 0,
+                createdAt: new Date().toISOString()
+            };
+
+            customers.push(newCustomer);
+
+            // Faylga saqlash - array formatida
+            fs.writeFileSync(customersPath, JSON.stringify(customers, null, 2));
+            console.log('✅ New customer saved:', newCustomer.id, newCustomer.name);
+
+            return newCustomer;
+        } catch (error) {
+            console.error('Error saving customer from dashboard:', error);
+            return null;
+        }
+    }
+
+    // MIJOZLARNI TAHRIRLASH TAQIQLANDI
+    @Post('customers')
+    async createCustomer(@Body() customerData: any) {
+        return {
+            success: false,
+            error: 'Mijozlar ma\'lumotlarini qo\'lda o\'zgartirish taqiqlangan',
+            message: 'Mijozlar buyurtma yaratish vaqtida avtomatik qo\'shiladi'
+        };
+    }
+
     @Get('payments')
     async getPayments(@Query('status') status?: string) {
         try {
@@ -327,10 +534,38 @@ export class DashboardApiController {
     @Post('orders')
     async createOrder(@Body() orderData: any) {
         try {
-            console.log('📝 Creating new order via dashboard:', orderData);
+            console.log('📝 [API] Received order creation request:', JSON.stringify(orderData, null, 2));
+
+            // Validate required fields
+            if (!orderData.customerPhone || !orderData.fromCity || !orderData.toCity) {
+                console.error('❌ [API] Missing required fields:', {
+                    customerPhone: !!orderData.customerPhone,
+                    fromCity: !!orderData.fromCity,
+                    toCity: !!orderData.toCity
+                });
+                return {
+                    success: false,
+                    message: 'Majburiy maydonlar to\'ldirilmagan (mijoz telefoni, qayerdan, qayerga)',
+                    error: 'Missing required fields'
+                };
+            }
+
+            // Dashboard'dan buyurtma yaratilganda mijozni avtomatik saqlash
+            if (orderData.customerName && orderData.customerPhone) {
+                await this.saveCustomerFromDashboard({
+                    phone: orderData.customerPhone,
+                    name: orderData.customerName,
+                    joinDate: new Date().toISOString(),
+                    status: 'active',
+                    source: 'Dashboard'
+                });
+            }
+
+            console.log('✅ [API] Validation passed, calling BotService...');
 
             // BotService orqali yangi buyurtma yaratish
             const result = await this.botService.createOrderFromDashboard(orderData);
+            console.log('✅ [API] BotService result:', result);
 
             return {
                 success: true,
@@ -349,25 +584,11 @@ export class DashboardApiController {
 
     @Delete('orders/clear-demo')
     async clearDemoOrders() {
-        try {
-            console.log('🗑️ Clearing demo orders...');
-
-            // Demo buyurtmalarni tozalash
-            const result = await this.botService.clearDemoOrders();
-
-            return {
-                success: true,
-                message: 'Demo buyurtmalar tozalandi',
-                data: result
-            };
-        } catch (error) {
-            console.error('❌ Error clearing demo orders:', error);
-            return {
-                success: false,
-                message: 'Demo buyurtmalarni tozalashda xatolik',
-                error: error.message
-            };
-        }
+        return {
+            success: false,
+            error: 'Buyurtmalar tarixini o\'zgartirish taqiqlangan',
+            message: 'Bu ma\'lumotlar himoyalangan'
+        };
     }
 
     @Delete('drivers/clear-demo')
@@ -435,6 +656,131 @@ export class DashboardApiController {
         }
     }
 
+    @Get('orders/history')
+    async getOrdersHistory(@Query('page') page: number = 1, @Query('limit') limit: number = 50) {
+        try {
+            const historyFilePath = path.join(process.cwd(), 'completed-orders-history.json');
+
+            if (!fs.existsSync(historyFilePath)) {
+                return {
+                    success: true,
+                    data: [],
+                    total: 0,
+                    page: page,
+                    limit: limit
+                };
+            }
+
+            const historyData = fs.readFileSync(historyFilePath, 'utf-8');
+            const allHistory = JSON.parse(historyData);
+
+            // Pagination
+            const startIndex = (page - 1) * limit;
+            const endIndex = startIndex + limit;
+            const paginatedHistory = allHistory.slice(startIndex, endIndex);
+
+            return {
+                success: true,
+                data: paginatedHistory,
+                total: allHistory.length,
+                page: page,
+                limit: limit,
+                totalPages: Math.ceil(allHistory.length / limit)
+            };
+
+        } catch (error) {
+            console.error('❌ Error loading orders history:', error);
+            return {
+                success: false,
+                message: 'Buyurtmalar tarixini yuklashda xatolik',
+                error: error.message,
+                data: []
+            };
+        }
+    }
+
+    @Get('drivers/:driverId/orders')
+    async getDriverOrders(@Param('driverId') driverId: string) {
+        try {
+            const historyFilePath = path.join(process.cwd(), 'completed-orders-history.json');
+
+            if (!fs.existsSync(historyFilePath)) {
+                return {
+                    success: true,
+                    data: [],
+                    stats: {
+                        totalOrders: 0,
+                        totalRevenue: 0,
+                        totalCommission: 0
+                    }
+                };
+            }
+
+            const historyData = fs.readFileSync(historyFilePath, 'utf-8');
+            const allHistory = JSON.parse(historyData);
+
+            // Parse driver ID (remove prefix if exists)
+            const cleanDriverId = driverId.replace(/^#?D/, '');
+
+            // Filter orders by driver
+            const driverOrders = allHistory.filter(order => {
+                const orderDriverId = String(order.driverId).replace(/^#?D/, '');
+                return orderDriverId === cleanDriverId;
+            });
+
+            // Sort by completion date (newest first)
+            driverOrders.sort((a, b) => {
+                const dateA = new Date(a.completedAt || a.completedDate || a.savedAt);
+                const dateB = new Date(b.completedAt || b.completedDate || b.savedAt);
+                return dateB.getTime() - dateA.getTime();
+            });
+
+            // Calculate commission (10% of order price)
+            const processedOrders = driverOrders.map(order => {
+                const commission = Math.round((order.price || 0) * 0.1); // 10% komisya
+                return {
+                    id: order.cargoId || order.id,
+                    customerName: order.customerName || 'Noma\'lum mijoz',
+                    route: `${order.fromCity || 'N/A'} → ${order.toCity || 'N/A'}`,
+                    cargoType: order.cargoType || 'Noma\'lum',
+                    price: order.price || 0,
+                    commission: commission,
+                    completedDate: order.completedAt || order.completedDate,
+                    rating: order.rating || null,
+                    description: order.description || ''
+                };
+            });
+
+            // Calculate statistics
+            const totalRevenue = driverOrders.reduce((sum, order) => sum + (order.price || 0), 0);
+            const totalCommission = Math.round(totalRevenue * 0.1); // 10% jami komisya
+
+            return {
+                success: true,
+                data: processedOrders,
+                stats: {
+                    totalOrders: driverOrders.length,
+                    totalRevenue: totalRevenue,
+                    totalCommission: totalCommission
+                }
+            };
+
+        } catch (error) {
+            console.error('❌ Error loading driver orders:', error);
+            return {
+                success: false,
+                message: 'Haydovchi buyurtmalarini yuklashda xatolik',
+                error: error.message,
+                data: [],
+                stats: {
+                    totalOrders: 0,
+                    totalRevenue: 0,
+                    totalCommission: 0
+                }
+            };
+        }
+    }
+
     // Private helper methods
     private async getSystemStats() {
         try {
@@ -453,14 +799,193 @@ export class DashboardApiController {
         }
     }
 
+    // History faylidan statistikalarni olish
+    private async getStatsFromHistory(): Promise<any> {
+        try {
+            const historyFilePath = path.join(process.cwd(), 'completed-orders-history.json');
+
+            if (!fs.existsSync(historyFilePath)) {
+                return {
+                    totalOrders: 0,
+                    completedOrders: 0,
+                    totalRevenue: 0,
+                    totalCustomers: 0
+                };
+            }
+
+            const historyData = fs.readFileSync(historyFilePath, 'utf-8');
+            const allHistory = JSON.parse(historyData);
+
+            const totalOrders = allHistory.length;
+            const completedOrders = allHistory.filter(order => order.status === 'completed').length;
+            const totalRevenue = allHistory.reduce((sum, order) => sum + (order.price || 0), 0);
+            const uniqueCustomers = new Set(allHistory.map(order => order.customerId)).size;
+
+            return {
+                totalOrders,
+                completedOrders,
+                totalRevenue,
+                totalCustomers: uniqueCustomers
+            };
+
+        } catch (error) {
+            console.error('❌ Error reading history stats:', error);
+            return {
+                totalOrders: 0,
+                completedOrders: 0,
+                totalRevenue: 0,
+                totalCustomers: 0
+            };
+        }
+    }
+
+    // History faylidan buyurtmalarni olish (eng oxirgisi tepada)
+    private async getOrdersFromHistory(status?: string, limit: number = 20): Promise<any[]> {
+        try {
+            const historyFilePath = path.join(process.cwd(), 'completed-orders-history.json');
+
+            if (!fs.existsSync(historyFilePath)) {
+                return [];
+            }
+
+            const historyData = fs.readFileSync(historyFilePath, 'utf-8');
+            let allHistory = JSON.parse(historyData);
+
+            // Oxirgi buyurtmalar tepada bo'lishi uchun tartib
+            allHistory.sort((a, b) => {
+                const dateA = new Date(a.completedAt || a.completedDate || a.savedAt);
+                const dateB = new Date(b.completedAt || b.completedDate || b.savedAt);
+                return dateB.getTime() - dateA.getTime(); // Newest first
+            });
+
+            // Status filter
+            if (status) {
+                allHistory = allHistory.filter(order => order.status === status);
+            }
+
+            // Limit
+            const limitedHistory = allHistory.slice(0, limit);
+
+            // Dashboard formatiga o'tkazish
+            return limitedHistory.map(order => ({
+                id: order.cargoId || order.id,
+                customer: order.customerName || 'Noma\'lum mijoz',
+                driver: order.driverName || 'Noma\'lum haydovchi',
+                route: `${order.fromCity || 'N/A'} → ${order.toCity || 'N/A'}`,
+                cargoType: order.cargoType || 'Noma\'lum',
+                amount: order.price || 0,
+                date: this.formatDate(order.completedAt || order.completedDate || order.orderDate),
+                status: 'completed',
+                completedAt: order.completedAt,
+                rating: order.rating || null
+            }));
+
+        } catch (error) {
+            console.error('❌ Error reading orders from history:', error);
+            return [];
+        }
+    }
+
+    // Sana formatini yaratish
+    private formatDate(dateString: string): string {
+        if (!dateString) return new Date().toISOString().split('T')[0];
+
+        try {
+            const date = new Date(dateString);
+            return date.toISOString().split('T')[0];
+        } catch {
+            return new Date().toISOString().split('T')[0];
+        }
+    }
+
     private async getOrdersData(status?: string, limit?: number) {
-        // Bot service orqali real buyurtmalarni olish
-        return this.botService.getDashboardOrders(status, limit);
+        try {
+            // 1. History faylidan tugallangan buyurtmalarni olish
+            const historyOrders = await this.getOrdersFromHistory(status, limit);
+            console.log(`📊 [API] History orders: ${historyOrders.length}`);
+
+            // 2. Faol buyurtmalarni botService orqali olish
+            const activeOrders = await this.botService.getDashboardOrders();
+            console.log(`📊 [API] Active orders from botService: ${activeOrders.length}`);
+            console.log(`🔍 [API DEBUG] First active order:`, activeOrders[0] ? JSON.stringify(activeOrders[0], null, 2) : 'NONE');
+
+            // 3. Barcha buyurtmalarni birlashtirish
+            const allOrders = [...historyOrders, ...activeOrders];
+            console.log(`📊 [API] Combined orders: ${allOrders.length}`);
+
+            // 4. Status bo'yicha filter qilish
+            let filteredOrders = allOrders;
+            if (status) {
+                filteredOrders = allOrders.filter(order => order.status === status);
+                console.log(`📊 [API] Filtered by status '${status}': ${allOrders.length} -> ${filteredOrders.length}`);
+            }
+
+            // 5. Takrorlanuvchi buyurtmalarni olib tashlash (active buyurtmalar ustun bo'lishi kerak)
+            const uniqueOrdersMap = new Map();
+            filteredOrders.forEach(order => {
+                const existingOrder = uniqueOrdersMap.get(order.id);
+                if (!existingOrder || order.status === 'active') {
+                    // Yangi buyurtma yoki active status ustunlik qiladi
+                    uniqueOrdersMap.set(order.id, order);
+                }
+            });
+            const uniqueOrders = Array.from(uniqueOrdersMap.values());
+
+            // 6. Vaqt bo'yicha tartiblash (yangi birinchi)
+            uniqueOrders.sort((a, b) => {
+                const dateA = new Date(a.createdAt || a.date || 0);
+                const dateB = new Date(b.createdAt || b.date || 0);
+                return dateB.getTime() - dateA.getTime();
+            });
+
+            const finalOrders = limit ? uniqueOrders.slice(0, limit) : uniqueOrders;
+            console.log(`📊 [API] Final orders returned: ${finalOrders.length}`);
+            return finalOrders;
+
+        } catch (error) {
+            console.error('Error in getOrdersData:', error);
+            // Fallback to history only
+            return this.getOrdersFromHistory(status, limit);
+        }
     }
 
     private async getDriversData(status?: string) {
-        // Bot service orqali real haydovchilarni olish
-        return this.botService.getDashboardDrivers(status);
+        try {
+            // Bot service orqali real haydovchilarni olish
+            const drivers = await this.botService.getDashboardDrivers(status);
+
+            // Har bir haydovchi uchun komisya summasini hisoblash
+            const historyFilePath = path.join(process.cwd(), 'completed-orders-history.json');
+
+            if (fs.existsSync(historyFilePath)) {
+                const historyData = fs.readFileSync(historyFilePath, 'utf-8');
+                const allHistory = JSON.parse(historyData);
+
+                // Har bir haydovchi uchun komisya hisoblash
+                drivers.forEach((driver: any) => {
+                    const cleanDriverId = String(driver.realId || driver.id).replace(/^#?D/, '');
+
+                    const driverOrders = allHistory.filter(order => {
+                        const orderDriverId = String(order.driverId).replace(/^#?D/, '');
+                        return orderDriverId === cleanDriverId;
+                    });
+
+                    const totalRevenue = driverOrders.reduce((sum, order) => sum + (order.price || 0), 0);
+                    driver.totalCommission = Math.round(totalRevenue * 0.1); // 10% komisya
+                });
+            } else {
+                // Agar tarix fayli bo'lmasa, barcha haydovchilar uchun 0
+                drivers.forEach((driver: any) => {
+                    driver.totalCommission = 0;
+                });
+            }
+
+            return drivers;
+
+        } catch (error) {
+            console.error('❌ Error in getDriversData:', error);
+            return this.botService.getDashboardDrivers(status);
+        }
     }
 
     private async getDispatchersData(status?: string) {
@@ -469,8 +994,78 @@ export class DashboardApiController {
     }
 
     private async getCustomersData(status?: string) {
-        // Bot service orqali real mijozlarni olish
-        return this.botService.getDashboardCustomers(status);
+        try {
+            // Saqlangan mijozlar faylini o'qish
+            const customersFilePath = path.join(process.cwd(), 'customers-database.json');
+            let savedCustomers = [];
+
+            if (fs.existsSync(customersFilePath)) {
+                try {
+                    const customersData = fs.readFileSync(customersFilePath, 'utf-8');
+                    const customersDb = JSON.parse(customersData);
+                    savedCustomers = customersDb.customers || [];
+                } catch (error) {
+                    console.log('Error reading customers database:', error);
+                }
+            }
+
+            // Orders tarixidan qo'shimcha mijozlarni olish
+            const orders = await this.getOrdersData();
+            const orderCustomers = new Map();
+
+            orders.forEach(order => {
+                const phone = order.customerPhone || order.phone;
+                if (phone && !savedCustomers.find(c => c.phone === phone)) {
+                    if (!orderCustomers.has(phone)) {
+                        orderCustomers.set(phone, {
+                            id: `C_${phone.replace(/[^0-9]/g, '')}`,
+                            phone: phone,
+                            name: order.customerName || order.customer || 'Noma\'lum',
+                            joinDate: order.date || new Date().toISOString(),
+                            status: 'active',
+                            totalOrders: 0,
+                            totalSpent: 0,
+                            source: 'orders'
+                        });
+                    }
+                    const customer = orderCustomers.get(phone);
+                    customer.totalOrders++;
+                    if (order.status === 'completed') {
+                        customer.totalSpent += order.amount || 0;
+                    }
+                }
+            });
+
+            // Saqlangan mijozlar uchun statistikalarni yangilash
+            savedCustomers.forEach(customer => {
+                const customerOrders = orders.filter(order =>
+                    (order.customerPhone || order.phone) === customer.phone
+                );
+                customer.totalOrders = customerOrders.length;
+                customer.totalSpent = customerOrders
+                    .filter(order => order.status === 'completed')
+                    .reduce((sum, order) => sum + (order.amount || 0), 0);
+                customer.lastOrder = customerOrders.length > 0 ?
+                    customerOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date :
+                    null;
+            });
+
+            // Barcha mijozlarni birlashtirish
+            const allCustomers = [...savedCustomers, ...Array.from(orderCustomers.values())];
+
+            // Status bo'yicha filter
+            let filteredCustomers = allCustomers;
+            if (status) {
+                filteredCustomers = allCustomers.filter(customer => customer.status === status);
+            }
+
+            return filteredCustomers.sort((a, b) => new Date(b.joinDate).getTime() - new Date(a.joinDate).getTime());
+
+        } catch (error) {
+            console.error('Error in getCustomersData:', error);
+            // Fallback to bot service
+            return this.botService.getDashboardCustomers(status);
+        }
     }
 
     private async getPaymentsData(status?: string) {
@@ -494,21 +1089,88 @@ export class DashboardApiController {
     }
 
     private async getRevenueReportData(period: string) {
-        // Bot service orqali daromad hisobotini olish
-        return {
-            labels: ['Dush', 'Sesh', 'Chor', 'Pay', 'Juma', 'Shan', 'Yak'],
-            values: [1.2, 1.9, 3.0, 5.0, 2.0, 3.0, 4.5],
-            total: 20.9
-        };
+        try {
+            const historyFilePath = path.join(process.cwd(), 'completed-orders-history.json');
+
+            if (!fs.existsSync(historyFilePath)) {
+                return {
+                    labels: ['Dush', 'Sesh', 'Chor', 'Pay', 'Juma', 'Shan', 'Yak'],
+                    values: [0, 0, 0, 0, 0, 0, 0],
+                    total: 0
+                };
+            }
+
+            const historyData = fs.readFileSync(historyFilePath, 'utf-8');
+            const allHistory = JSON.parse(historyData);
+
+            // Oxirgi 7 kunlik ma'lumotlar
+            const today = new Date();
+            const last7Days = [];
+            const revenues = [];
+
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+
+                const dayRevenue = allHistory
+                    .filter(order => {
+                        const orderDate = new Date(order.completedAt || order.completedDate || order.savedAt).toISOString().split('T')[0];
+                        return orderDate === dateStr;
+                    })
+                    .reduce((sum, order) => sum + (order.price || 0), 0);
+
+                last7Days.push(date.toLocaleDateString('uz-UZ', { weekday: 'short' }));
+                revenues.push(dayRevenue / 1000000); // Million so'mda
+            }
+
+            return {
+                labels: last7Days,
+                values: revenues,
+                total: revenues.reduce((sum, val) => sum + val, 0)
+            };
+
+        } catch (error) {
+            console.error('❌ Error getting revenue report:', error);
+            return {
+                labels: ['Dush', 'Sesh', 'Chor', 'Pay', 'Juma', 'Shan', 'Yak'],
+                values: [0, 0, 0, 0, 0, 0, 0],
+                total: 0
+            };
+        }
     }
 
     private async getOrdersByStatusData() {
-        // Bot service orqali buyurtmalar statistikasini olish
-        return {
-            labels: ['Faol', 'Yakunlangan', 'Kutilayotgan', 'Bekor qilingan'],
-            values: [45, 177, 12, 8],
-            colors: ['#059669', '#2563eb', '#d97706', '#dc2626']
-        };
+        try {
+            const historyFilePath = path.join(process.cwd(), 'completed-orders-history.json');
+
+            if (!fs.existsSync(historyFilePath)) {
+                return {
+                    labels: ['Yakunlangan'],
+                    values: [0],
+                    colors: ['#2563eb']
+                };
+            }
+
+            const historyData = fs.readFileSync(historyFilePath, 'utf-8');
+            const allHistory = JSON.parse(historyData);
+
+            const completed = allHistory.filter(order => order.status === 'completed').length;
+
+            return {
+                labels: ['Yakunlangan'],
+                values: [completed],
+                colors: ['#2563eb']
+            };
+
+        } catch (error) {
+            console.error('❌ Error getting orders by status:', error);
+            return {
+                labels: ['Yakunlangan'],
+                values: [0],
+                colors: ['#2563eb']
+            };
+        }
     }
 
     @Get('performance')

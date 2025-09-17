@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buyurtmalar Tarixi - LogiMaster Pro</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
+            --blue-gradient: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            --green-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            --orange-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f9fafb 0%, #e0f2fe 50%, #f3e8ff 100%);
+            min-height: 100vh;
+            color: var(--gray-900);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header-icon {
+            width: 4rem;
+            height: 4rem;
+            background: var(--primary-gradient);
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
+        }
+
+        .header-text h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .header-text p {
+            color: var(--gray-600);
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .back-btn {
+            padding: 1rem 2rem;
+            background: rgba(255, 255, 255, 0.8);
+            color: var(--gray-700);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 1.5rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .stat-icon {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.25rem;
+        }
+
+        .stat-icon.completed {
+            background: var(--green-gradient);
+        }
+
+        .stat-icon.pending {
+            background: var(--orange-gradient);
+        }
+
+        .stat-icon.total {
+            background: var(--blue-gradient);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            color: var(--gray-600);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .filters-section {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            align-items: end;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .filter-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--gray-700);
+        }
+
+        .filter-input, .filter-select {
+            padding: 0.75rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 0.75rem;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.7);
+        }
+
+        .filter-input:focus, .filter-select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .filter-btn {
+            padding: 0.75rem 1.5rem;
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+        }
+
+        .filter-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.4);
+        }
+
+        .filter-btn.secondary {
+            background: rgba(255, 255, 255, 0.8);
+            color: var(--gray-700);
+            border: 1px solid var(--gray-200);
+            box-shadow: none;
+        }
+
+        .filter-btn.secondary:hover {
+            background: rgba(255, 255, 255, 1);
+        }
+
+        .history-table-container {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .table-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .export-btn {
+            padding: 0.75rem 1.5rem;
+            background: var(--green-gradient);
+            color: white;
+            border: none;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .export-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(16, 185, 129, 0.3);
+        }
+
+        .table-container {
+            overflow-x: auto;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .history-table thead th {
+            background: rgba(0, 0, 0, 0.02);
+            padding: 1rem 1.5rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            position: sticky;
+            top: 0;
+            backdrop-filter: blur(10px);
+        }
+
+        .history-table tbody td {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            vertical-align: middle;
+            font-size: 0.875rem;
+        }
+
+        .history-table tbody tr {
+            transition: all 0.3s ease;
+        }
+
+        .history-table tbody tr:hover {
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .order-id {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: var(--gray-900);
+            background: rgba(59, 130, 246, 0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+        }
+
+        .route {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+        }
+
+        .route-arrow {
+            color: var(--gray-400);
+            font-size: 0.75rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            padding: 0.375rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid;
+        }
+
+        .status-completed {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            color: #065f46;
+            border-color: #10b981;
+        }
+
+        .price {
+            font-weight: 700;
+            color: var(--gray-900);
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .date-time {
+            color: var(--gray-600);
+            font-size: 0.75rem;
+            line-height: 1.4;
+        }
+
+        .rating-display {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .star {
+            color: #fbbf24;
+            font-size: 0.875rem;
+        }
+
+        .star.empty {
+            color: var(--gray-300);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--gray-500);
+        }
+
+        .loading-spinner {
+            width: 2rem;
+            height: 2rem;
+            border: 3px solid var(--gray-200);
+            border-left: 3px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--gray-500);
+        }
+
+        .empty-icon {
+            width: 4rem;
+            height: 4rem;
+            background: var(--gray-100);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            color: var(--gray-400);
+            font-size: 1.5rem;
+        }
+
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1.5rem;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .page-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--gray-300);
+            background: white;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.875rem;
+        }
+
+        .page-btn:hover {
+            background: var(--gray-50);
+            border-color: var(--gray-400);
+        }
+
+        .page-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+
+            .filters-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-buttons {
+                flex-direction: column;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .history-table {
+                font-size: 0.75rem;
+            }
+
+            .history-table thead th,
+            .history-table tbody td {
+                padding: 0.75rem 0.5rem;
+            }
+
+            .table-header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <div class="header-icon">
+                    <i class="fas fa-history"></i>
+                </div>
+                <div class="header-text">
+                    <h1>Buyurtmalar Tarixi (Faqat Ko'rish)</h1>
+                    <p>Bajarilgan buyurtmalar va to'liq ma'lumotlar - o'zgartirib bo'lmaydi</p>
+                </div>
+            </div>
+            <a href="/dashboard" class="back-btn">
+                <i class="fas fa-arrow-left"></i>
+                Dashboard
+            </a>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div>
+                        <div class="stat-value" id="totalOrders">0</div>
+                        <div class="stat-label">Jami buyurtmalar</div>
+                    </div>
+                    <div class="stat-icon total">
+                        <i class="fas fa-boxes"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div>
+                        <div class="stat-value" id="completedOrders">0</div>
+                        <div class="stat-label">Bajarilgan</div>
+                    </div>
+                    <div class="stat-icon completed">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div>
+                        <div class="stat-value" id="totalRevenue">0</div>
+                        <div class="stat-label">Jami daromad (so'm)</div>
+                    </div>
+                    <div class="stat-icon pending">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div>
+                        <div class="stat-value" id="averageRating">0.0</div>
+                        <div class="stat-label">O'rtacha reyting</div>
+                    </div>
+                    <div class="stat-icon completed">
+                        <i class="fas fa-star"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters-section">
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label class="filter-label">Qidiruv</label>
+                    <input type="text" class="filter-input" id="searchInput" placeholder="Buyurtma ID, mijoz, haydovchi...">
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Sana (dan)</label>
+                    <input type="date" class="filter-input" id="dateFrom">
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Sana (gacha)</label>
+                    <input type="date" class="filter-input" id="dateTo">
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Haydovchi</label>
+                    <select class="filter-select" id="driverFilter">
+                        <option value="">Barcha haydovchilar</option>
+                    </select>
+                </div>
+
+                <div class="filter-buttons">
+                    <button class="filter-btn" onclick="applyFilters()">
+                        <i class="fas fa-search"></i>
+                        Qidiruv
+                    </button>
+                    <button class="filter-btn secondary" onclick="clearFilters()">
+                        <i class="fas fa-times"></i>
+                        Tozalash
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Table -->
+        <div class="history-table-container">
+            <div class="table-header">
+                <div class="table-title">
+                    <i class="fas fa-table"></i>
+                    Buyurtmalar tarixi (faqat ko'rish)
+                </div>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: #fef3cd; color: #92400e; border-radius: 0.5rem; font-size: 0.875rem;">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Himoyalangan ma'lumot</span>
+                    </div>
+                    <button class="export-btn" onclick="exportToCSV()">
+                        <i class="fas fa-download"></i>
+                        Excel yuklash
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <div class="loading" id="loadingIndicator">
+                    <div class="loading-spinner"></div>
+                    Ma'lumotlar yuklanmoqda...
+                </div>
+
+                <table class="history-table" id="historyTable" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>Buyurtma ID</th>
+                            <th>Mijoz</th>
+                            <th>Haydovchi</th>
+                            <th>Marshrut</th>
+                            <th>Yuk turi</th>
+                            <th>Transport</th>
+                            <th>Narx</th>
+                            <th>Buyurtma sanasi</th>
+                            <th>Bajarilgan sana</th>
+                            <th>Reyting</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                    </tbody>
+                </table>
+
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">
+                        <i class="fas fa-inbox"></i>
+                    </div>
+                    <h3>Ma'lumotlar topilmadi</h3>
+                    <p>Hozircha bajarilgan buyurtmalar yo'q yoki filtr shartlariga mos keluvchi ma'lumotlar mavjud emas.</p>
+                </div>
+            </div>
+
+            <div class="pagination" id="pagination" style="display: none;">
+                <!-- Pagination buttons will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allHistory = [];
+        let filteredHistory = [];
+        let currentPage = 1;
+        const itemsPerPage = 50;
+
+        // Load history data (READ-ONLY)
+        async function loadHistory() {
+            try {
+                // Show read-only warning
+                console.log('🔒 READ-ONLY MODE: History data is protected from modifications');
+
+                const response = await fetch('/api/dashboard/orders/history');
+                if (!response.ok) throw new Error('Failed to load history');
+
+                const result = await response.json();
+                if (!result.success) throw new Error(result.message);
+
+                allHistory = result.data;
+                filteredHistory = [...allHistory];
+
+                updateStats();
+                populateDriverFilter();
+                renderTable();
+
+                // Display read-only notice
+                if (allHistory.length === 0) {
+                    const emptyState = document.getElementById('emptyState');
+                    if (emptyState) {
+                        emptyState.innerHTML = `
+                            <div class="empty-icon">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <h3>Himoyalangan ma'lumotlar</h3>
+                            <p>Hozircha bajarilgan buyurtmalar yo'q. Bu bo'lim faqat ko'rish uchun himoyalangan.</p>
+                        `;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error loading history:', error);
+                showError('Ma\'lumotlarni yuklashda xatolik yuz berdi');
+            }
+        }
+
+        // Update statistics
+        function updateStats() {
+            const totalOrders = allHistory.length;
+            const completedOrders = allHistory.filter(order => order.status === 'completed').length;
+            const totalRevenue = allHistory.reduce((sum, order) => sum + (order.price || 0), 0);
+            const ratingsSum = allHistory.filter(order => order.rating).reduce((sum, order) => sum + order.rating, 0);
+            const ratingsCount = allHistory.filter(order => order.rating).length;
+            const averageRating = ratingsCount > 0 ? (ratingsSum / ratingsCount) : 0;
+
+            document.getElementById('totalOrders').textContent = totalOrders.toLocaleString();
+            document.getElementById('completedOrders').textContent = completedOrders.toLocaleString();
+            document.getElementById('totalRevenue').textContent = totalRevenue.toLocaleString();
+            document.getElementById('averageRating').textContent = averageRating.toFixed(1);
+        }
+
+        // Populate driver filter
+        function populateDriverFilter() {
+            const drivers = [...new Set(allHistory.map(order => order.driverName))].filter(Boolean).sort();
+            const driverSelect = document.getElementById('driverFilter');
+
+            driverSelect.innerHTML = '<option value="">Barcha haydovchilar</option>';
+            drivers.forEach(driver => {
+                const option = document.createElement('option');
+                option.value = driver;
+                option.textContent = driver;
+                driverSelect.appendChild(option);
+            });
+        }
+
+        // Apply filters
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo = document.getElementById('dateTo').value;
+            const driverFilter = document.getElementById('driverFilter').value;
+
+            filteredHistory = allHistory.filter(order => {
+                // Search filter
+                if (searchTerm && !order.cargoId.toLowerCase().includes(searchTerm) &&
+                    !order.customerName.toLowerCase().includes(searchTerm) &&
+                    !order.driverName.toLowerCase().includes(searchTerm)) {
+                    return false;
+                }
+
+                // Date filter
+                if (dateFrom && order.completedDate && new Date(order.completedDate) < new Date(dateFrom)) {
+                    return false;
+                }
+                if (dateTo && order.completedDate && new Date(order.completedDate) > new Date(dateTo)) {
+                    return false;
+                }
+
+                // Driver filter
+                if (driverFilter && order.driverName !== driverFilter) {
+                    return false;
+                }
+
+                return true;
+            });
+
+            currentPage = 1;
+            renderTable();
+        }
+
+        // Clear filters
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            document.getElementById('driverFilter').value = '';
+
+            filteredHistory = [...allHistory];
+            currentPage = 1;
+            renderTable();
+        }
+
+        // Render table
+        function renderTable() {
+            const tableBody = document.getElementById('historyTableBody');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const historyTable = document.getElementById('historyTable');
+            const emptyState = document.getElementById('emptyState');
+            const pagination = document.getElementById('pagination');
+
+            loadingIndicator.style.display = 'none';
+
+            if (filteredHistory.length === 0) {
+                historyTable.style.display = 'none';
+                emptyState.style.display = 'block';
+                pagination.style.display = 'none';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            historyTable.style.display = 'table';
+
+            // Pagination
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const pageData = filteredHistory.slice(startIndex, endIndex);
+
+            // Render rows
+            tableBody.innerHTML = '';
+            pageData.forEach(order => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><span class="order-id">${order.cargoId || order.id}</span></td>
+                    <td>${order.customerName || 'Noma\'lum'}</td>
+                    <td>${order.driverName || 'Noma\'lum'}</td>
+                    <td>
+                        <div class="route">
+                            <span>${order.fromCity || 'N/A'}</span>
+                            <i class="fas fa-arrow-right route-arrow"></i>
+                            <span>${order.toCity || 'N/A'}</span>
+                        </div>
+                    </td>
+                    <td>${order.cargoType || 'Noma\'lum'}</td>
+                    <td>${order.truckInfo || 'Noma\'lum'}</td>
+                    <td>
+                        <div class="price">
+                            <i class="fas fa-money-bill-wave"></i>
+                            ${(order.price || 0).toLocaleString()} so'm
+                        </div>
+                    </td>
+                    <td>
+                        <div class="date-time">
+                            ${formatDate(order.orderDate)}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="date-time">
+                            ${formatDate(order.completedDate)}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="rating-display">
+                            ${renderRating(order.rating)}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="status-badge status-completed">
+                            <i class="fas fa-check"></i>
+                            Bajarildi
+                        </span>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            // Render pagination
+            renderPagination();
+        }
+
+        // Render pagination
+        function renderPagination() {
+            const pagination = document.getElementById('pagination');
+            const totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
+
+            if (totalPages <= 1) {
+                pagination.style.display = 'none';
+                return;
+            }
+
+            pagination.style.display = 'flex';
+            pagination.innerHTML = '';
+
+            // Previous button
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'page-btn';
+            prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            prevBtn.disabled = currentPage === 1;
+            prevBtn.onclick = () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderTable();
+                }
+            };
+            pagination.appendChild(prevBtn);
+
+            // Page numbers
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+
+            for (let i = startPage; i <= endPage; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.className = `page-btn ${i === currentPage ? 'active' : ''}`;
+                pageBtn.textContent = i;
+                pageBtn.onclick = () => {
+                    currentPage = i;
+                    renderTable();
+                };
+                pagination.appendChild(pageBtn);
+            }
+
+            // Next button
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'page-btn';
+            nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            nextBtn.disabled = currentPage === totalPages;
+            nextBtn.onclick = () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderTable();
+                }
+            };
+            pagination.appendChild(nextBtn);
+        }
+
+        // Format date
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('uz-UZ', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Render rating stars
+        function renderRating(rating) {
+            if (!rating) return '<span class="date-time">Baholanmagan</span>';
+
+            let stars = '';
+            for (let i = 1; i <= 5; i++) {
+                if (i <= rating) {
+                    stars += '<i class="fas fa-star star"></i>';
+                } else {
+                    stars += '<i class="far fa-star star empty"></i>';
+                }
+            }
+            return stars + ` <span>${rating}</span>`;
+        }
+
+        // Export to CSV
+        function exportToCSV() {
+            const headers = [
+                'Buyurtma ID', 'Mijoz', 'Haydovchi', 'Dan', 'Ga', 'Yuk turi',
+                'Transport', 'Narx', 'Buyurtma sanasi', 'Bajarilgan sana', 'Reyting', 'Status'
+            ];
+
+            const csvContent = [
+                headers.join(','),
+                ...filteredHistory.map(order => [
+                    order.cargoId || order.id,
+                    order.customerName || 'Noma\'lum',
+                    order.driverName || 'Noma\'lum',
+                    order.fromCity || 'N/A',
+                    order.toCity || 'N/A',
+                    order.cargoType || 'Noma\'lum',
+                    order.truckInfo || 'Noma\'lum',
+                    order.price || 0,
+                    formatDate(order.orderDate),
+                    formatDate(order.completedDate),
+                    order.rating || 'Baholanmagan',
+                    'Bajarildi'
+                ].join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `buyurtmalar_tarixi_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+
+        // Show error
+        function showError(message) {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            loadingIndicator.innerHTML = `
+                <div style="color: #dc2626; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    ${message}
+                </div>
+            `;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadHistory();
+
+            // Set default date range (last 30 days)
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
+
+            document.getElementById('dateTo').value = today.toISOString().split('T')[0];
+            document.getElementById('dateFrom').value = thirtyDaysAgo.toISOString().split('T')[0];
+        });
+    </script>
+</body>
+</html>

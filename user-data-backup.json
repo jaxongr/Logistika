@@ -151,10 +151,6 @@
       }
     }
   },
-  "userBalances": {
-    "6099086283": 100000,
-    "8398872102": 1500000
-  },
   "driverOffers": {},
   "cargoOffers": {
     "cargo_1757936326631_dashboard": {
@@ -197,10 +193,24 @@
       "assignedDriverId": 6099086283,
       "acceptedDate": "2025-09-15T14:37:18.103Z",
       "completedDate": "2025-09-15T14:37:24.900Z"
+    },
+    "cargo_1757947417344_7242115909": {
+      "id": "cargo_1757947417344_7242115909",
+      "userId": 7242115909,
+      "username": "Hushnud",
+      "fromCity": "Toshkent",
+      "toCity": "Farg'ona",
+      "cargoType": "25 tonna taxta",
+      "truckInfo": "Katta furgon",
+      "price": 20000000,
+      "loadingDate": "🌅 Ertaga ertalab",
+      "phone": "+998930383190",
+      "status": "active",
+      "date": "2025-09-15T14:43:37.344Z",
+      "description": "",
+      "photo": "",
+      "completedAt": null
     }
   },
-  "customerOrderHistory": {},
-  "driverPerformance": {},
-  "activeOrders": {},
-  "timestamp": "2025-09-17T10:31:25.531Z"
+  "timestamp": "2025-09-16T06:49:03.810Z"
 }

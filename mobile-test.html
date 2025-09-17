@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>📱 Mobile Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 100%;
+            text-align: center;
+        }
+        .test-card {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 10px;
+            background: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background: #45a049;
+        }
+        @media (max-width: 768px) {
+            .test-card {
+                padding: 15px;
+                margin: 10px 0;
+            }
+            .btn {
+                padding: 20px;
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 MOBILE TEST</h1>
+        <div class="test-card">
+            <h2>✅ Responsive Test</h2>
+            <p>Agar bu sahifa telefonda chiroyli ko'rinsa, mobile CSS ishlayapti!</p>
+        </div>
+
+        <div class="test-card">
+            <h2>🔗 Dashboard Test</h2>
+            <a href="http://185.207.251.184:3004/dashboard?v=mobile123" class="btn">
+                📊 Dashboard ochish
+            </a>
+            <a href="http://localhost:3004/dashboard?v=mobile123" class="btn">
+                💻 Local Dashboard
+            </a>
+        </div>
+
+        <div class="test-card">
+            <h2>📋 Mobile Checklist</h2>
+            <p>✅ Bu sahifa telefonda chiroyli ko'rinadi</p>
+            <p>✅ Tugmalar katta va bosish oson</p>
+            <p>✅ Matn o'qish oson</p>
+        </div>
+    </div>
+</body>
+</html>

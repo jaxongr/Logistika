@@ -36,7 +36,6 @@ interface CargoPostingData {
 @Injectable()
 export class BotService implements OnModuleInit {
   private readonly logger = new Logger(BotService.name);
-  private readonly historyFilePath = path.join(process.cwd(), 'completed-orders-history.json');
 
   constructor(
     private readonly dataService: DataService,
@@ -451,7 +450,7 @@ export class BotService implements OnModuleInit {
           await this.showBalanceHistory(ctx);
           break;
         case 'balance_info':
-          await this.showMyBalance(ctx);
+          await this.showVirtualBalance(ctx);
           break;
         case 'back_to_menu':
           await this.showMainMenu(ctx);
@@ -878,7 +877,7 @@ export class BotService implements OnModuleInit {
             const cargoId = data.replace('cargo_details_', '');
             await this.showCargoDetails(ctx, cargoId);
           } else if (data === 'my_balance') {
-            await this.showMyBalance(ctx);
+            await this.showVirtualBalance(ctx);
           } else if (data === 'withdraw_money') {
             await this.handleWithdrawal(ctx);
           } else if (data === 'detailed_transactions') {
@@ -1145,7 +1144,7 @@ export class BotService implements OnModuleInit {
         case '💰 Balansim':
           this.logger.log(`💰 Balansim button pressed by user ${userId}`);
           this.logger.log(`💰 User role data: ${JSON.stringify(this.userRoles.get(userId))}`);
-          await this.showMyBalance(ctx);
+          await this.showVirtualBalance(ctx);
           return;
           
         case '🔍 Yuk kuzatuvi':
@@ -1412,8 +1411,8 @@ export class BotService implements OnModuleInit {
 
       if (adminUsers.includes(user.id) || userRole?.role === 'admin') {
         // Kompanya balansini hisoblash
-        const companyBalance = Array.from(this.userBalances.values())
-          .reduce((sum, balance) => sum + (balance || 0), 0);
+        const companyBalance = Array.from(this.virtualBalances.values())
+          .reduce((sum, balance) => sum + (balance.balance || 0), 0);
 
         const welcomeMessage = `
 🖥️ <b>YO'LDA ADMIN CONTROL CENTER</b>
@@ -1465,8 +1464,8 @@ export class BotService implements OnModuleInit {
       // Admin users handled separately above - if still here, it's a role-based admin
       if ((userRole as any)?.role === 'admin') {
         // Kompanya balansini hisoblash
-        const companyBalance = Array.from(this.userBalances.values())
-          .reduce((sum, balance) => sum + (balance || 0), 0);
+        const companyBalance = Array.from(this.virtualBalances.values())
+          .reduce((sum, balance) => sum + (balance.balance || 0), 0);
 
         welcomeMessage = `
 🖥️ <b>YO'LDA ADMIN CONTROL CENTER</b>
@@ -6324,7 +6323,7 @@ Hozirda mijoz referral tizimi yangilanmoqda. Tez orada yangi va yaxshilangan tiz
 
   // REFERRAL FUNCTION REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
 
-  // Show real balance overview (not virtual)
+  // Show balance overview
   private async showMyBalance(ctx: any) {
     const userId = ctx.from.id;
     const currentBalance = await this.getUserBalance(userId);
@@ -6332,37 +6331,45 @@ Hozirda mijoz referral tizimi yangilanmoqda. Tez orada yangi va yaxshilangan tiz
     // Get balance history from file
     const balanceHistory = await this.getBalanceHistory(userId);
 
-    // Calculate totals from history
-    const totalTopUps = balanceHistory
-      .filter(t => t.type === 'top_up')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const totalDeductions = balanceHistory
-      .filter(t => t.type === 'deduction')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const pendingWithdrawal = balance.balance > 0;
+    const nextWithdrawDate = this.getNextWithdrawDate();
 
     const message = `
-💳 <b>REAL BALANS</b>
+💰 <b>VIRTUAL BALANS</b>
 
 📊 <b>Sizning balansingiz:</b>
 
-💵 <b>Joriy balans:</b> ${currentBalance.toLocaleString()} so'm
-💎 <b>Jami to'ldirilgan:</b> ${totalTopUps.toLocaleString()} so'm
-📤 <b>Jami ishlatilgan:</b> ${totalDeductions.toLocaleString()} so'm
+💵 <b>Joriy balans:</b> ${balance.balance.toLocaleString()} so'm
+💎 <b>Jami ishlab topilgan:</b> ${balance.totalEarned.toLocaleString()} so'm  
+📤 <b>Yechib olingan:</b> ${balance.withdrawnAmount.toLocaleString()} so'm
+📅 <b>Oxirgi yechish:</b> ${balance.lastWithdrawal || 'Hali yechilmagan'}
 
-📈 <b>Oxirgi 5 ta operatsiya:</b>
-${balanceHistory.slice(-5).reverse().map((t, i) =>
-  `${i + 1}. ${t.type === 'top_up' ? '💰' : '📤'} ${t.amount.toLocaleString()} so'm
-     📝 ${t.description || (t.type === 'top_up' ? 'Balans to\'ldirish' : 'Chiqarim')}
+⏰ <b>Yechib olish:</b>
+• Kun: Shanba va Yakshanba
+• Vaqt: 09:00 - 18:00
+• Keyingi imkoniyat: ${nextWithdrawDate}
+
+📈 <b>Oxirgi 5 ta tranzaksiya:</b>
+${balance.transactions.slice(-5).map((t, i) => 
+  `${i + 1}. ${t.type === 'earning' ? '💰' : t.type === 'withdrawal' ? '📤' : '🎁'} ${t.amount.toLocaleString()} so'm
+     📝 ${t.description}
      📅 ${new Date(t.date).toLocaleDateString('uz-UZ')}`
-).join('\n\n') || '• Operatsiyalar yo\'q'}
+).join('\n\n') || '• Hozircha tranzaksiyalar yo\'q'}
 
-${currentBalance > 0 ? '✅ Balansingiz mavjud!' : '⏳ Balansni to\'ldiring'}
+${pendingWithdrawal ? '✅ Yechib olish uchun tayyor!' : '⏳ Daromad to\'plang'}
     `;
 
-    const keyboard = new InlineKeyboard()
-      .text('💳 Balans to\'ldirish', 'add_balance')
-      .text('📊 Batafsil tariх', 'balance_history').row()
+    const keyboard = new InlineKeyboard();
+    
+    if (pendingWithdrawal && this.isWeekend() && this.isWithdrawTime()) {
+      keyboard.text('💸 Yechib olish', 'withdraw_balance');
+    } else {
+      keyboard.text('⏰ Yechish vaqti: Dam olish kuni', 'withdraw_info');
+    }
+    
+    keyboard.row()
+      .text('📊 Batafsil hisobot', 'balance_report')
+      .text('🎯 Daromad strategiyasi', 'earning_strategy').row()
       .text('🔙 Orqaga', 'back_main');
 
     await this.safeEditMessage(ctx, message, {
@@ -6768,39 +6775,29 @@ ${cargoDetails.description ? `📝 <b>Qo'shimcha:</b> ${cargoDetails.description
     if (cargo) {
       cargo.status = 'completed';
       cargo.completedDate = new Date().toISOString();
-
-      // Update customer order history status
-      if (this.customerOrderHistory.has(cargo.userId)) {
-        const customerOrders = this.customerOrderHistory.get(cargo.userId)!;
-        const orderIndex = customerOrders.findIndex(order => order.id === cargoId);
-        if (orderIndex !== -1) {
-          customerOrders[orderIndex].status = 'completed';
-          customerOrders[orderIndex].completedDate = new Date().toISOString();
-        }
-      }
-
-      // Save to permanent history file
-      await this.saveCompletedOrderToHistory(cargo, driverId);
     }
 
-    // No virtual cashback system - using real balance only
+    // Add 10% cashback to virtual balance
+    await this.addDriverCashback(driverId, cargoId, 10);
 
     // Send rating request to customer (cargo owner)
     if (cargo && cargo.userId) {
       await this.sendRatingRequestToCustomer(cargo.userId, cargoId, driverId);
     }
 
-    await this.safeAnswerCallback(ctx, '🎉 Buyurtma bajarildi!');
+    await this.safeAnswerCallback(ctx, '🎉 Buyurtma bajarildi! Cashback qo\'shildi!');
 
-    const currentBalance = await this.getUserBalance(driverId);
+    const balance = this.virtualBalances.get(driverId);
     const message = `
 🎉 <b>BUYURTMA BAJARILDI!</b>
 
 ✅ <b>ID:</b> ${cargoId} - Bajarildi
+💰 <b>10% Cashback olindi!</b>
 
-💳 <b>Joriy balans:</b> ${currentBalance.toLocaleString()} so'm
+💳 <b>Virtual balans:</b> ${balance ? balance.balance.toLocaleString() : '0'} so'm
+📊 <b>Jami ishlab topilgan:</b> ${balance ? balance.totalEarned.toLocaleString() : '0'} so'm
 
-💡 <b>Balans to'ldirish:</b> Admin orqali yoki to'lov tizimi orqali
+💡 <b>Pul yechish:</b> Dam olish kunlari (Shanba-Yakshanba 9:00-18:00)
     `;
 
     await ctx.editMessageText(message, {
@@ -6972,14 +6969,38 @@ ${cargoDetails.description ? `📝 <b>Qo'shimcha:</b> ${cargoDetails.description
     });
   }
 
-  // Add cashback to driver's real balance
+  // Add cashback to driver's virtual balance
   private async addDriverCashback(driverId: number, cargoId: string, percentage: number) {
+    // Initialize balance if doesn't exist
+    if (!this.virtualBalances.has(driverId)) {
+      this.virtualBalances.set(driverId, {
+        userId: driverId,
+        balance: 0,
+        totalEarned: 0,
+        withdrawnAmount: 0,
+        lastWithdrawal: '',
+        transactions: []
+      });
+    }
+
+    const balance = this.virtualBalances.get(driverId)!;
+    
     // Simulate cargo price for cashback calculation (in real app, this would come from cargo data)
     const cargoPrice = Math.floor(Math.random() * 500000) + 100000; // 100k-600k range
     const cashbackAmount = Math.floor(cargoPrice * (percentage / 100));
 
-    // Add to real balance
-    await this.updateUserBalance(driverId, cashbackAmount, `${percentage}% cashback - Buyurtma #${cargoId}`);
+    // Add transaction
+    const transaction = {
+      id: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      amount: cashbackAmount,
+      type: 'earning' as const,
+      description: `${percentage}% cashback - Buyurtma #${cargoId}`,
+      date: new Date().toISOString()
+    };
+
+    balance.balance += cashbackAmount;
+    balance.totalEarned += cashbackAmount;
+    balance.transactions.push(transaction);
 
     // REFERRAL BONUS PROCESSING REMOVED - NEW SYSTEM WILL BE IMPLEMENTED
 
@@ -7194,9 +7215,9 @@ ${recentTransactions || 'Hali tranzaksiyalar yo\'q'}
   // Handle withdrawal request
   private async handleWithdrawal(ctx: any) {
     const userId = ctx.from.id;
-    const balance = await this.getUserBalance(userId);
+    const balance = this.virtualBalances.get(userId);
 
-    if (!balance || balance < 50000) {
+    if (!balance || balance.balance < 50000) {
       await this.safeAnswerCallback(ctx, '❌ Minimal 50,000 so\'m kerak!');
       return;
     }
@@ -7209,8 +7230,8 @@ ${recentTransactions || 'Hali tranzaksiyalar yo\'q'}
     const message = `
 💸 <b>PUL YECHISH</b>
 
-💰 <b>Mavjud balans:</b> ${balance.toLocaleString()} so'm
-💸 <b>Yechish miqdori:</b> ${balance.toLocaleString()} so'm
+💰 <b>Mavjud balans:</b> ${balance.balance.toLocaleString()} so'm
+💸 <b>Yechish miqdori:</b> ${balance.balance.toLocaleString()} so'm
 
 📋 <b>Yechish uchun ma'lumotlar:</b>
 💳 <b>Karta:</b> ${process.env.PAYMENT_CARD_NUMBER}
@@ -7233,9 +7254,9 @@ ${recentTransactions || 'Hali tranzaksiyalar yo\'q'}
   // Show detailed transactions
   private async showDetailedTransactions(ctx: any) {
     const userId = ctx.from.id;
-    const balanceHistory = await this.getBalanceHistory(userId);
+    const balance = this.virtualBalances.get(userId);
 
-    if (!balanceHistory || balanceHistory.length === 0) {
+    if (!balance || balance.transactions.length === 0) {
       const message = `
 📊 <b>BATAFSIL HISOBOT</b>
 
@@ -7252,25 +7273,22 @@ ${recentTransactions || 'Hali tranzaksiyalar yo\'q'}
       return;
     }
 
-    const currentBalance = await this.getUserBalance(userId);
-    const allTransactions = balanceHistory
+    const allTransactions = balance.transactions
       .slice(-20) // Last 20 transactions
       .reverse()
       .map((t, index) => {
         const date = new Date(t.date).toLocaleString('uz-UZ');
-        const typeIcon = t.amount > 0 ? '💰' : '💸';
-        return `${index + 1}. ${typeIcon} ${Math.abs(t.amount).toLocaleString()} so'm\n   ${t.reason}\n   📅 ${date}`;
+        const typeIcon = t.type === 'earning' ? '💰' : t.type === 'bonus' ? '🎯' : '💸';
+        return `${index + 1}. ${typeIcon} ${t.amount.toLocaleString()} so'm\n   ${t.description}\n   📅 ${date}`;
       })
       .join('\n\n');
-
-    const totalEarned = balanceHistory.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0);
 
     const message = `
 📊 <b>BATAFSIL HISOBOT</b>
 
-💳 <b>Joriy balans:</b> ${currentBalance.toLocaleString()} so'm
-📈 <b>Jami:</b> ${totalEarned.toLocaleString()} so'm
-💸 <b>Yechildi:</b> 0 so'm
+💳 <b>Joriy balans:</b> ${balance.balance.toLocaleString()} so'm
+📈 <b>Jami:</b> ${balance.totalEarned.toLocaleString()} so'm
+💸 <b>Yechildi:</b> ${balance.withdrawnAmount.toLocaleString()} so'm
 
 📝 <b>So'nggi 20 tranzaksiya:</b>
 
@@ -7287,10 +7305,9 @@ ${allTransactions}
   // Show earnings report
   private async showEarningsReport(ctx: any) {
     const userId = ctx.from.id;
-    const balance = await this.getUserBalance(userId);
-    const balanceHistory = await this.getBalanceHistory(userId);
+    const balance = this.virtualBalances.get(userId);
 
-    if (!balance && (!balanceHistory || balanceHistory.length === 0)) {
+    if (!balance) {
       await this.safeAnswerCallback(ctx, '');
       await ctx.reply('📊 Hali daromad yo\'q', {
         reply_markup: new InlineKeyboard().text('🔙 Orqaga', 'my_balance')
@@ -7298,25 +7315,25 @@ ${allTransactions}
       return;
     }
 
-    // Calculate statistics from balance history
-    const earningTransactions = balanceHistory.filter(t => t.type === 'earning' || t.amount > 0);
-    const totalEarned = earningTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    // Calculate statistics
+    const earningTransactions = balance.transactions.filter(t => t.type === 'earning');
+    const bonusTransactions = balance.transactions.filter(t => t.type === 'bonus');
     const totalOrders = earningTransactions.length;
-    const averageEarning = totalOrders > 0 ? Math.floor(totalEarned / totalOrders) : 0;
+    const averageEarning = totalOrders > 0 ? Math.floor(earningTransactions.reduce((sum, t) => sum + t.amount, 0) / totalOrders) : 0;
 
     const message = `
 📊 <b>DAROMAD HISOBOTI</b>
 
-💰 <b>Jami balans:</b> ${balance.toLocaleString()} so'm
-📈 <b>Jami ishlab topilgan:</b> ${totalEarned.toLocaleString()} so'm
-💸 <b>Yechildi:</b> 0 so'm
+💰 <b>Jami balans:</b> ${balance.balance.toLocaleString()} so'm
+📈 <b>Jami ishlab topilgan:</b> ${balance.totalEarned.toLocaleString()} so'm
+💸 <b>Yechildi:</b> ${balance.withdrawnAmount.toLocaleString()} so'm
 
 📋 <b>Statistika:</b>
 🚛 <b>Bajarilgan buyurtmalar:</b> ${totalOrders} ta
 💰 <b>O'rtacha cashback:</b> ${averageEarning.toLocaleString()} so'm
-🎯 <b>Bonus tranzaksiyalar:</b> 0 ta
+🎯 <b>Bonus tranzaksiyalar:</b> ${bonusTransactions.length} ta
 
-📅 <b>Faoliyat muddati:</b> ${balanceHistory.length > 0 ? new Date(balanceHistory[0]?.date || Date.now()).toLocaleDateString('uz-UZ') : 'Yangi'} dan
+📅 <b>Faoliyat muddati:</b> ${new Date(balance.transactions[0]?.date || Date.now()).toLocaleDateString('uz-UZ')} dan
     `;
 
     await ctx.reply(message, {
@@ -9479,8 +9496,8 @@ Use "🖥️ Admin Control Panel" for complete control!
       .reduce((sum, o) => sum + (o.price || 0), 0);
 
     // Kompanya balansini hisoblash - barcha virtual balanslar yig'indisi
-    const companyBalance = Array.from(this.userBalances.values())
-      .reduce((sum, balance) => sum + (balance || 0), 0);
+    const companyBalance = Array.from(this.virtualBalances.values())
+      .reduce((sum, balance) => sum + (balance.balance || 0), 0);
 
     // Kompaniya daromadi - to'lovlardan foyda
     const companyProfit = Array.from(this.pendingPayments.values())
@@ -10117,10 +10134,8 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
 
   private async loadUserData() {
     try {
-      this.logger.log(`🔄 Loading user data from: ${this.DATA_FILE_PATH}`);
       if (fs.existsSync(this.DATA_FILE_PATH)) {
         const data = JSON.parse(fs.readFileSync(this.DATA_FILE_PATH, 'utf8'));
-        this.logger.log(`📄 User data file loaded successfully. Keys: ${Object.keys(data).join(', ')}`);
         
         // Load userRoles
         if (data.userRoles) {
@@ -10130,34 +10145,12 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
           this.logger.log(`Loaded ${Object.keys(data.userRoles).length} user roles from file`);
         }
 
-        // Load userBalances - KUCHAYTIRILGAN YUKLASH
+        // Load userBalances
         if (data.userBalances) {
           Object.entries(data.userBalances).forEach(([userId, balance]: [string, any]) => {
             this.userBalances.set(parseInt(userId), balance);
           });
           this.logger.log(`Loaded ${Object.keys(data.userBalances).length} user balances from file`);
-        }
-
-        // DataService dan ham balanslarni yuklash
-        try {
-          const balanceData = await this.dataService.readData('balance-settings', {
-            balanceSettings: { enabled: true },
-            userBalances: {},
-            balanceHistory: {}
-          });
-
-          if (balanceData.userBalances) {
-            Object.entries(balanceData.userBalances).forEach(([userId, balance]: [string, any]) => {
-              const userIdNum = parseInt(userId);
-              // Agar memory da yo'q bo'lsa yoki DataService da katta bo'lsa
-              if (!this.userBalances.has(userIdNum) || this.userBalances.get(userIdNum) < balance) {
-                this.userBalances.set(userIdNum, balance);
-              }
-            });
-            this.logger.log(`✅ Synchronized ${Object.keys(balanceData.userBalances).length} balances from DataService`);
-          }
-        } catch (dataError) {
-          this.logger.warn(`⚠️ Could not load balances from DataService: ${dataError.message}`);
         }
         
         // Load driverOffers  
@@ -10169,15 +10162,11 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
         }
         
         // Load cargoOffers
-        this.logger.log(`🚛 Checking cargoOffers in data... Exists: ${!!data.cargoOffers}, Count: ${data.cargoOffers ? Object.keys(data.cargoOffers).length : 0}`);
         if (data.cargoOffers) {
           Object.entries(data.cargoOffers).forEach(([key, cargoInfo]: [string, any]) => {
             this.cargoOffers.set(key, cargoInfo);
-            this.logger.log(`  ✅ Loaded cargo: ${key} - Status: ${cargoInfo.status}`);
           });
-          this.logger.log(`🚛 Loaded ${Object.keys(data.cargoOffers).length} cargo offers from file. Current Map size: ${this.cargoOffers.size}`);
-        } else {
-          this.logger.warn(`⚠️ No cargoOffers found in user-data.json!`);
+          this.logger.log(`Loaded ${Object.keys(data.cargoOffers).length} cargo offers from file`);
         }
 
         // Load customerOrderHistory
@@ -10206,13 +10195,9 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
 
         // Clear any stuck registration steps for already registered users
         this.clearStuckRegistrationSteps();
-
-        this.logger.log(`✅ Data loading completed. Final state - cargoOffers: ${this.cargoOffers.size}, userRoles: ${this.userRoles.size}`);
-      } else {
-        this.logger.warn(`⚠️ User data file not found: ${this.DATA_FILE_PATH}`);
       }
     } catch (error) {
-      this.logger.error('❌ Error loading user data:', error);
+      this.logger.error('Error loading user data:', error);
     }
   }
 
@@ -10417,7 +10402,7 @@ ${paymentsText || 'Hozircha to\'lovlar yo\'q'}
       this.customerOrderHistory.clear();
       this.driverPerformance.clear();
       // this.dispatcherReferrals.clear(); // REFERRAL SYSTEM REMOVED
-      // Virtual balances removed - using real balance system only
+      this.virtualBalances.clear();
       this.userPayments.clear();
       this.pendingPayments.clear();
       this.paymentWaitingUsers.clear();
@@ -13798,22 +13783,10 @@ ${aiInsights.recommendations}
       return;
     }
     
-    // Get all orders - both active and completed
-    const allUserOrders: any[] = [];
-
-    // Add active orders from cargoOffers
-    const activeOrders = Array.from(this.cargoOffers.values())
-      .filter(cargo => cargo.userId === userId);
-    allUserOrders.push(...activeOrders);
-
-    // Add completed orders from customerOrderHistory (avoid duplicates)
-    const completedOrders = this.customerOrderHistory.get(userId) || [];
-    const uniqueCompletedOrders = completedOrders.filter(order =>
-      !allUserOrders.some(activeOrder => activeOrder.id === order.id)
-    );
-    allUserOrders.push(...uniqueCompletedOrders);
-
-    if (allUserOrders.length === 0) {
+    // Get customer order history
+    const orderHistory = this.customerOrderHistory.get(userId) || [];
+    
+    if (orderHistory.length === 0) {
       await ctx.reply(`
 📋 <b>MENING ORDERLARIM</b>
 
@@ -13834,26 +13807,22 @@ ${aiInsights.recommendations}
       });
       return;
     }
-
+    
     // Sort orders by date (newest first)
-    const sortedOrders = allUserOrders.sort((a, b) =>
-      new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime()
+    const sortedOrders = orderHistory.sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
     );
-
-    let ordersText = `📋 <b>MENING ORDERLARIM</b>\n\n📊 <b>Jami orderlar:</b> ${allUserOrders.length} ta\n\n`;
+    
+    let ordersText = `📋 <b>MENING ORDERLARIM</b>\n\n📊 <b>Jami orderlar:</b> ${orderHistory.length} ta\n\n`;
     
     for (let i = 0; i < Math.min(sortedOrders.length, 5); i++) {
       const order = sortedOrders[i];
-      const statusIcon = order.status === 'active' ? '🔍' :
-                        order.status === 'matched' ? '🔄' :
-                        order.status === 'in_progress' ? '🔄' :
-                        order.status === 'completed' ? '✅' :
+      const statusIcon = order.status === 'in_progress' ? '🔄' : 
+                        order.status === 'completed' ? '✅' : 
                         order.status === 'cancelled' ? '❌' : '📋';
-
-      const statusText = order.status === 'active' ? 'Haydovchi izlanmoqda' :
-                        order.status === 'matched' ? 'Haydovchi topildi' :
-                        order.status === 'in_progress' ? 'Jarayonda' :
-                        order.status === 'completed' ? 'Bajarildi' :
+      
+      const statusText = order.status === 'in_progress' ? 'Jarayonda' : 
+                        order.status === 'completed' ? 'Bajarildi' : 
                         order.status === 'cancelled' ? 'Bekor qilindi' : 'Noma\'lum';
       
       ordersText += `${statusIcon} <b>Order #${i + 1}</b>\n`;
@@ -13871,8 +13840,8 @@ ${aiInsights.recommendations}
       ordersText += '\n';
     }
     
-    if (allUserOrders.length > 5) {
-      ordersText += `📄 <b>Va yana ${allUserOrders.length - 5} ta order...</b>\n\n`;
+    if (orderHistory.length > 5) {
+      ordersText += `📄 <b>Va yana ${orderHistory.length - 5} ta order...</b>\n\n`;
     }
     
     ordersText += `🔄 <b>Yangi buyurtma berish uchun "📦 Yuk berish" tugmasini bosing.</b>`;
@@ -14523,20 +14492,7 @@ Hozircha tarix bo'sh.
         return memoryBalance;
       }
 
-      // 2. DataService orqali balance-settings.json dan olish
-      try {
-        const dataServiceBalance = await this.dataService.getUserBalance(userId.toString());
-        if (dataServiceBalance > 0) {
-          // DataService balansni memory ga ko'chirish
-          this.userBalances.set(userId, dataServiceBalance);
-          this.logger.log(`💾 Balance from DataService for user ${userId}: ${dataServiceBalance}, moved to memory`);
-          return dataServiceBalance;
-        }
-      } catch (dataError) {
-        this.logger.warn(`⚠️ DataService balance read error: ${dataError.message}`);
-      }
-
-      // 3. To'g'ridan-to'g'ri fayl ichidan olish (backup)
+      // Fayl ichidan olish (eski tizim uchun)
       const filePath = path.join(process.cwd(), 'src', 'data', 'balance-settings.json');
       if (fs.existsSync(filePath)) {
         const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -15660,30 +15616,13 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
     return this.paymentMethods.weekly.enabled ? this.paymentMethods.weekly.rate : 0;
   }
 
-  // Balans yangilash funksiyasi - KUCHAYTIRILGAN SAQLASH
+  // Balans yangilash funksiyasi
   private async updateUserBalance(userId: number, amount: number, reason: string = 'Balance update') {
     const currentBalance = this.userBalances.get(userId) || 0;
     const newBalance = currentBalance + amount;
 
-    // 1. Memory da saqlash
     this.userBalances.set(userId, newBalance);
-
-    // 2. Asosiy fayl (user-data.json) ga saqlash
     await this.savePaymentSettingsToFile();
-
-    // 3. DataService orqali balance-settings.json ga ham saqlash
-    try {
-      await this.dataService.setUserBalance(userId.toString(), newBalance);
-      await this.dataService.addBalanceHistory(
-        userId.toString(),
-        amount,
-        amount > 0 ? 'credit' : 'debit',
-        reason
-      );
-      this.logger.log(`💾 Balance saved to DataService: ${userId} -> ${newBalance}`);
-    } catch (error) {
-      this.logger.error(`❌ DataService balance save error: ${error.message}`);
-    }
 
     this.logger.log(`💰 Balance updated for user ${userId}: ${currentBalance} -> ${newBalance} (${reason})`);
     return newBalance;
@@ -15855,59 +15794,9 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
     }
   }
 
-  public async getDashboardOrders(status?: string, limit?: number) {
+  public getDashboardOrders(status?: string, limit?: number) {
     try {
-      this.logger.log(`🔍 getDashboardOrders called with status: ${status}, limit: ${limit}`);
-
-      // To'g'ridan-to'g'ri user-data.json faylidan o'qish
-      let orders = [];
-
-      try {
-        if (fs.existsSync(this.DATA_FILE_PATH)) {
-          const data = JSON.parse(fs.readFileSync(this.DATA_FILE_PATH, 'utf8'));
-          this.logger.log(`📄 Reading fresh data from disk. Available keys: ${Object.keys(data).join(', ')}`);
-
-          if (data.cargoOffers) {
-            const cargoArray = Object.values(data.cargoOffers);
-            this.logger.log(`🚛 Found ${cargoArray.length} cargo offers in user-data.json`);
-
-            // Faqat faol zakazlarni dashboard'da ko'rsatish (completed zakazlar History'da bo'ladi)
-            const activeCargoArray = cargoArray.filter((cargo: any) =>
-              cargo.status !== 'completed' && cargo.status !== 'cancelled'
-            );
-            this.logger.log(`📊 Filtered to ${activeCargoArray.length} active orders (excluding completed/cancelled)`);
-
-            // Dashboard format ga o'tkazish
-            orders = activeCargoArray.map((cargo: any) => ({
-              id: cargo.id,
-              customer: cargo.customerName || cargo.username || 'Noma\'lum mijoz',
-              driver: null, // faol buyurtmalarda haydovchi tayinlanmagan
-              route: `${cargo.fromCity} → ${cargo.toCity}`,
-              cargoType: cargo.cargoType,
-              amount: cargo.price,
-              date: cargo.date,
-              status: cargo.status,
-              createdAt: cargo.createdAt,
-              loadingDate: cargo.loadingDate,
-              phone: cargo.phone,
-              description: cargo.description
-            }));
-
-            this.logger.log(`✅ Converted ${orders.length} orders to dashboard format`);
-          } else {
-            this.logger.warn(`⚠️ No cargoOffers found in user-data.json!`);
-          }
-        } else {
-          this.logger.error(`❌ user-data.json file not found at: ${this.DATA_FILE_PATH}`);
-        }
-      } catch (diskError) {
-        this.logger.error(`❌ Error reading from disk: ${diskError.message}`);
-        // Fallback to memory Map
-        orders = Array.from(this.cargoOffers.values());
-        this.logger.log(`🔄 Fallback to memory Map: ${orders.length} orders`);
-      }
-
-      this.logger.log(`📊 getDashboardOrders - Processing ${orders.length} total orders`);
+      let orders = Array.from(this.cargoOffers.values());
 
       // Sort by completion date for completed orders, creation date for others (newest first)
       orders = orders.sort((a, b) => {
@@ -15938,16 +15827,12 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
       });
 
       if (status && status !== 'all') {
-        const originalCount = orders.length;
         orders = orders.filter(order => order.status === status);
-        this.logger.log(`🔍 Filtered orders by status '${status}': ${originalCount} -> ${orders.length}`);
       }
 
       // Default limit to 100 if not specified
       const finalLimit = limit || 100;
       orders = orders.slice(0, finalLimit);
-
-      this.logger.log(`🔍 Processing ${orders.length} orders for dashboard. First 3 orders status: ${orders.slice(0,3).map(o => `${o.id}:${o.status}`).join(', ')}`);
 
       return orders.map(order => {
         // Get driver information if assigned
@@ -15993,7 +15878,7 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
           minute: '2-digit'
         });
 
-        const result = {
+        return {
           id: order.id,
           customer: order.username || 'Noma\'lum',
           driver: driverName,
@@ -16013,12 +15898,6 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
           cancelledAt: orderAny.cancelledAt,
           resentAt: orderAny.resentAt
         };
-
-        if (result.id && result.id.includes('debug')) {
-          this.logger.log(`🐛 Debug order mapped: ${result.id} status: ${result.status}`);
-        }
-
-        return result;
       });
     } catch (error) {
       this.logger.error('Error getting orders:', error);
@@ -16099,7 +15978,7 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
             name: fullName,
             phone: userData.profile?.phone || driverOffer?.phone || '+998xxxxxxxxx',
             vehicle: userData.profile?.truckInfo || driverOffer?.truckType || 'Ma\'lumot yo\'q',
-            loadCapacity: userData.profile?.loadCapacity || driverOffer?.capacity || 'Aniqlanmagan',
+            loadCapacity: userData.profile?.loadCapacity || driverOffer?.loadCapacity || 'Aniqlanmagan',
             vehicleNumber: userData.profile?.vehicleNumber || 'Aniqlanmagan',
             balance: balance,
             orders: Array.from(this.cargoOffers.values()).filter(cargo =>
@@ -16309,59 +16188,18 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
       // Generate cargo ID
       const cargoId = `cargo_${Date.now()}_dashboard`;
 
-      // Find customer by phone number
-      let customerId = 0;
-      let customerName = 'Admin Dashboard';
-
-      if (orderData.customerPhone) {
-        // Clean phone number
-        const cleanPhone = orderData.customerPhone.replace(/[^0-9]/g, '');
-        this.logger.log(`🔍 Searching customer by phone: ${orderData.customerPhone} -> cleaned: ${cleanPhone}`);
-
-        // Search for existing customer by phone
-        for (const [userId, userRole] of this.userRoles.entries()) {
-          if (userRole.role === 'yukchi' && userRole.profile) {
-            // Extract all phone numbers from profile
-            const profilePhone = userRole.profile.phone || '';
-            const profileCompany = userRole.profile.company || '';
-            const profileContact = userRole.profile.contact || '';
-
-            // Clean all phone-like strings
-            const userPhones = [profilePhone, profileCompany, profileContact]
-              .map(field => (field || '').replace(/[^0-9]/g, ''))
-              .filter(phone => phone.length >= 12); // Valid phone length
-
-            if (userPhones.some(phone => phone === cleanPhone || phone.endsWith(cleanPhone.slice(-9)))) {
-              customerId = userId;
-              customerName = userRole.profile.name || userRole.profile.fullName || userRole.profile.contact || 'Mijoz';
-              this.logger.log(`✅ Found customer: ${customerId} - ${customerName} for phone ${cleanPhone}`);
-              break;
-            }
-          }
-        }
-
-        if (customerId === 0) {
-          this.logger.log(`❌ Customer not found for phone: ${cleanPhone}`);
-          this.logger.log(`📋 Available customers: ${Array.from(this.userRoles.entries())
-            .filter(([_, role]) => role.role === 'yukchi')
-            .map(([id, role]) => `${id}: ${role.profile?.phone || 'no phone'}`)
-            .join(', ')}`);
-        }
-      }
-
       // Create cargo offer from dashboard data
       const cargoOffer = {
         id: cargoId,
-        userId: customerId,
-        username: customerName,
-        customerName: orderData.customerName || customerName,
+        userId: 0, // Admin dashboard user ID
+        username: 'Admin Dashboard',
         fromCity: orderData.fromCity,
         toCity: orderData.toCity,
         cargoType: orderData.cargoType,
         truckInfo: orderData.truckType || 'Any truck type',
         price: Number(orderData.price),
         description: `${orderData.description || ''} ${orderData.weight ? `[Vazn: ${orderData.weight}]` : ''}`.trim(),
-        phone: orderData.customerPhone || orderData.phone || 'Admin',
+        phone: orderData.phone || 'Admin',
         date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
         status: 'active' as const,
         loadingDate: orderData.loadingDate,
@@ -16371,14 +16209,9 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
 
       // Add to cargo offers
       this.cargoOffers.set(cargoId, cargoOffer);
-      this.logger.log(`✅ Added cargo to cargoOffers: ${cargoId}. Total cargo offers: ${this.cargoOffers.size}`);
 
-      // Save data to file immediately and verify
-      await this.saveUserData();
-      this.logger.log(`💾 User data saved after creating cargo: ${cargoId}`);
-
-      // Verify the order was saved correctly
-      this.logger.log(`✅ Current cargoOffers size: ${this.cargoOffers.size}`);
+      // Save to file (remove this line as method doesn't exist)
+      // this.saveCargoOffers();
 
       // Notify all drivers about new cargo
       await this.notifyDriversAboutNewCargo(cargoOffer);
@@ -16507,16 +16340,6 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
       cargoOfferAny.cancelledAt = new Date().toISOString();
       cargoOfferAny.cancelledBy = 'admin_dashboard';
 
-      // Update customer order history status
-      if (this.customerOrderHistory.has(cargoOffer.userId)) {
-        const customerOrders = this.customerOrderHistory.get(cargoOffer.userId)!;
-        const orderIndex = customerOrders.findIndex(order => order.id === orderId);
-        if (orderIndex !== -1) {
-          customerOrders[orderIndex].status = 'cancelled';
-          customerOrders[orderIndex].cancelledDate = new Date().toISOString();
-        }
-      }
-
       // Remove from active offers and send cancellation message to all drivers
       this.cargoOffers.delete(orderId);
 
@@ -16575,17 +16398,6 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
       cargoOffer.status = 'active';
       cargoOfferAny.resentAt = new Date().toISOString();
       cargoOfferAny.resentBy = 'admin_dashboard';
-
-      // Update customer order history status back to active
-      if (this.customerOrderHistory.has(cargoOffer.userId)) {
-        const customerOrders = this.customerOrderHistory.get(cargoOffer.userId)!;
-        const orderIndex = customerOrders.findIndex(order => order.id === orderId);
-        if (orderIndex !== -1) {
-          customerOrders[orderIndex].status = 'active';
-          delete customerOrders[orderIndex].cancelledDate;
-          delete customerOrders[orderIndex].completedDate;
-        }
-      }
 
       // Get all available drivers
       const drivers = Array.from(this.userRoles.entries())
@@ -16732,75 +16544,6 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
     } catch (error) {
       this.logger.error('❌ Error getting driver details from dashboard:', error);
       throw error;
-    }
-  }
-
-  // Permanent history save method
-  private async saveCompletedOrderToHistory(cargo: any, driverId: number) {
-    try {
-      // Read existing history
-      let history = [];
-      if (fs.existsSync(this.historyFilePath)) {
-        const historyData = fs.readFileSync(this.historyFilePath, 'utf-8');
-        history = JSON.parse(historyData);
-      }
-
-      // Get driver info
-      const driverRole = this.userRoles.get(driverId);
-      const driverName = driverRole?.profile?.fullName || driverRole?.profile?.driverName || 'Noma\'lum haydovchi';
-
-      // Create history record
-      const historyRecord = {
-        id: cargo.id,
-        cargoId: cargo.id,
-        customerId: cargo.userId,
-        customerName: cargo.username || 'Noma\'lum mijoz',
-        driverId: driverId,
-        driverName: driverName,
-        fromCity: cargo.fromCity || cargo.from,
-        toCity: cargo.toCity || cargo.to,
-        cargoType: cargo.cargoType || cargo.type,
-        truckInfo: cargo.truckInfo,
-        price: cargo.price || cargo.budget,
-        description: cargo.description || '',
-        status: 'completed',
-        orderDate: cargo.date || cargo.createdAt,
-        completedDate: cargo.completedDate,
-        completedAt: new Date().toISOString(),
-        rating: cargo.rating || null,
-        feedback: cargo.feedback || null,
-        savedAt: new Date().toISOString()
-      };
-
-      // Add to history
-      history.unshift(historyRecord); // Add to beginning (newest first)
-
-      // Keep only last 10000 records (prevent file from growing too large)
-      if (history.length > 10000) {
-        history = history.slice(0, 10000);
-      }
-
-      // Save back to file
-      fs.writeFileSync(this.historyFilePath, JSON.stringify(history, null, 2));
-      this.logger.log(`📁 Completed order saved to history: ${cargo.id}`);
-
-    } catch (error) {
-      this.logger.error('❌ Error saving to order history:', error);
-    }
-  }
-
-  // Method to read completed orders history
-  private async getCompletedOrdersHistory(): Promise<any[]> {
-    try {
-      if (!fs.existsSync(this.historyFilePath)) {
-        return [];
-      }
-
-      const historyData = fs.readFileSync(this.historyFilePath, 'utf-8');
-      return JSON.parse(historyData);
-    } catch (error) {
-      this.logger.error('❌ Error reading order history:', error);
-      return [];
     }
   }
 
@@ -17206,19 +16949,5 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
     } catch (error) {
       this.logger.error('Error showing driver main menu:', error);
     }
-  }
-
-  // Get balance history for user
-  private async getBalanceHistory(userId: number): Promise<any[]> {
-    try {
-      const filePath = path.join(process.cwd(), 'src', 'data', 'balance-settings.json');
-      if (fs.existsSync(filePath)) {
-        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        return data.balanceHistory?.[userId] || [];
-      }
-    } catch (error) {
-      this.logger.error('❌ Error loading balance history:', error);
-    }
-    return [];
   }
 }

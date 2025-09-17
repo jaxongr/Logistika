@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Button Test</title>
+    <style>
+        .test-btn {
+            background: #3b82f6;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        .test-btn:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Button Test Page</h1>
+
+    <button class="test-btn" onclick="testClick()">Test Button 1 (onclick)</button>
+    <button class="test-btn" id="testBtn2">Test Button 2 (addEventListener)</button>
+    <button class="test-btn" id="addStaffButton">Yangi xodim (Copy)</button>
+
+    <div id="output"></div>
+
+    <script>
+        function testClick() {
+            alert('Button 1 works!');
+            document.getElementById('output').innerHTML += '<p>Button 1 clicked!</p>';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const btn2 = document.getElementById('testBtn2');
+            if (btn2) {
+                btn2.addEventListener('click', function() {
+                    alert('Button 2 works!');
+                    document.getElementById('output').innerHTML += '<p>Button 2 clicked!</p>';
+                });
+            }
+
+            const addStaffBtn = document.getElementById('addStaffButton');
+            if (addStaffBtn) {
+                addStaffBtn.addEventListener('click', function() {
+                    alert('Add staff button works!');
+                    document.getElementById('output').innerHTML += '<p>Add staff button clicked!</p>';
+                });
+            }
+        });
+    </script>
+</body>
+</html>
