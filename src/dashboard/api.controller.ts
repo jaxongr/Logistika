@@ -6,6 +6,18 @@ import { PerformanceService } from '../services/performance.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
+let uzbekistanLocations = { regions: [] };
+try {
+    const locationsPath = path.join(process.cwd(), 'src', 'data', 'uzbekistan-locations.json');
+    if (fs.existsSync(locationsPath)) {
+        uzbekistanLocations = JSON.parse(fs.readFileSync(locationsPath, 'utf8'));
+    } else {
+        console.log('⚠️ uzbekistan-locations.json not found at:', locationsPath);
+    }
+} catch (error) {
+    console.log('⚠️ Error loading uzbekistan-locations.json:', error.message);
+}
+
 @Controller('api/dashboard')
 export class DashboardApiController {
     constructor(
@@ -208,17 +220,22 @@ export class DashboardApiController {
                 try {
                     const customersData = fs.readFileSync(customersFilePath, 'utf-8');
                     const customersDb = JSON.parse(customersData);
-                    savedCustomer = customersDb.customers.find(customer =>
-                        customer.phone === phone
-                    );
+                    let customers = [];
+                    // Fayl strukturasini tekshirish
+                    if (Array.isArray(customersDb)) {
+                        customers = customersDb;
+                    } else if (customersDb && Array.isArray(customersDb.customers)) {
+                        customers = customersDb.customers;
+                    }
+                    savedCustomer = customers.find(customer => customer.phone === phone);
                 } catch (error) {
                     console.log('Error reading customers database:', error);
                 }
             }
 
-            // 2. Orders tarixidan ham qidirish
-            const orders = await this.getOrdersData();
-            const customerOrders = orders.filter(order =>
+            // 2. Bajarilgan buyurtmalar tarixidan ham qidirish
+            const completedOrders = await this.getCustomersOrdersHistory();
+            const customerOrders = completedOrders.filter(order =>
                 order.phone === phone || order.customer === phone ||
                 (order.customerPhone && order.customerPhone === phone)
             );
@@ -226,10 +243,9 @@ export class DashboardApiController {
             if (savedCustomer || customerOrders.length > 0) {
                 // Mavjud mijoz - statistikalarni hisoblash
                 const totalSpent = customerOrders
-                    .filter(order => order.status === 'completed')
-                    .reduce((sum, order) => sum + (order.amount || 0), 0);
+                    .reduce((sum, order) => sum + (order.price || order.amount || 0), 0);
 
-                const completedOrders = customerOrders.filter(order => order.status === 'completed').length;
+                const completedOrdersCount = customerOrders.length; // Hammasi bajarilgan
 
                 // Mijoz ismini topish (birinchi navbatda saqlangan mijozdan, keyin buyurtmalardan)
                 let customerName = '';
@@ -242,12 +258,12 @@ export class DashboardApiController {
                 }
 
                 const customer = {
-                    id: savedCustomer?.id || `C_${phone.replace(/[^0-9]/g, '')}`,
+                    id: savedCustomer?.id || `CUST_${Date.now()}_${phone.replace(/[^0-9]/g, '')}`,
                     name: customerName,
                     phone: phone,
                     orderCount: customerOrders.length,
                     totalSpent: totalSpent,
-                    completedOrders: completedOrders,
+                    completedOrders: completedOrdersCount,
                     lastOrderDate: customerOrders.length > 0 ? customerOrders[0].date : savedCustomer?.joinDate,
                     status: 'active'
                 };
@@ -274,55 +290,103 @@ export class DashboardApiController {
         }
     }
 
-    // MIJOZ TARIXINI OLISH
+    // MIJOZ TARIXINI OLISH (BAJARILGAN VA BEKOR QILINGAN)
     @Get('customers/:customerId/history')
     async getCustomerHistory(@Param('customerId') customerId: string) {
         try {
-            // Customer ID dan telefon raqamini ajratish
-            const phoneNumber = customerId.replace('C_', '').replace(/[^0-9]/g, '');
+            // Customer ID dan telefon raqamini ajratish (C_ yoki CUST_ prefikslarini olib tashlash)
+            let phoneNumber = customerId;
+            if (phoneNumber.startsWith('C_')) {
+                phoneNumber = phoneNumber.replace('C_', '');
+            } else if (phoneNumber.startsWith('CUST_')) {
+                phoneNumber = phoneNumber.replace('CUST_', '').split('_')[0];
+            }
+            phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
 
-            // Orders tarixidan mijoz buyurtmalarini olish
-            const allOrders = await this.getOrdersData();
-            const customerOrders = allOrders.filter(order => {
+            // 1. Bajarilgan buyurtmalar tarixidan olish
+            const completedOrders = await this.getCustomersOrdersHistory();
+            const customerCompletedOrders = completedOrders.filter(order => {
                 const orderPhone = (order.phone || order.customerPhone || '').replace(/[^0-9]/g, '');
                 return orderPhone === phoneNumber;
             });
 
-            if (customerOrders.length === 0) {
+            // 2. Bekor qilingan buyurtmalarni user-data.json dan olish
+            const userDataPath = path.join(process.cwd(), 'user-data.json');
+            let cancelledOrders = [];
+
+            if (fs.existsSync(userDataPath)) {
+                try {
+                    const userData = JSON.parse(fs.readFileSync(userDataPath, 'utf8'));
+                    if (userData.cargoOffers) {
+                        const allOrders = Object.values(userData.cargoOffers);
+                        cancelledOrders = allOrders.filter((order: any) => {
+                            const orderPhone = (order.phone || order.customerPhone || '').replace(/[^0-9]/g, '');
+                            return orderPhone === phoneNumber && order.status === 'cancelled';
+                        });
+                    }
+                } catch (error) {
+                    console.log('Error reading cancelled orders:', error);
+                }
+            }
+
+            // 3. Barcha buyurtmalarni birlashtirish
+            const allCustomerOrders = [
+                ...customerCompletedOrders.map(order => ({ ...order, status: 'completed' })),
+                ...cancelledOrders.map((order: any) => ({
+                    ...order,
+                    status: 'cancelled',
+                    date: order.cancelledAt || order.date || order.createdAt
+                }))
+            ];
+
+            if (allCustomerOrders.length === 0) {
                 return {
                     success: true,
                     orders: [],
                     stats: {
                         totalOrders: 0,
                         completedOrders: 0,
+                        cancelledOrders: 0,
                         totalSpent: 0
                     }
                 };
             }
 
-            // Buyurtmalarni sanalar bo'yicha tartiblash
-            const sortedOrders = customerOrders
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            // 4. Buyurtmalarni sanalar bo'yicha tartiblash
+            const sortedOrders = allCustomerOrders
+                .sort((a, b) => {
+                    const dateA = new Date(a.completedAt || a.cancelledAt || a.date || a.createdAt);
+                    const dateB = new Date(b.completedAt || b.cancelledAt || b.date || b.createdAt);
+                    return dateB.getTime() - dateA.getTime();
+                })
                 .map(order => ({
                     id: order.id,
-                    date: order.date,
-                    route: order.route || `${order.fromCity} → ${order.toCity}`,
+                    date: order.completedAt || order.cancelledAt || order.date || order.createdAt,
+                    fromCity: order.fromCity || 'N/A',
+                    toCity: order.toCity || 'N/A',
+                    route: `${order.fromCity || 'N/A'} → ${order.toCity || 'N/A'}`,
                     cargoType: order.cargoType || 'Noma\'lum',
-                    amount: order.amount || 0,
+                    price: order.price || order.amount || 0,
+                    amount: order.price || order.amount || 0,
                     status: order.status,
-                    driver: order.driver || 'Tayinlanmagan'
+                    driverName: order.driverName || 'Noma\'lum',
+                    createdAt: order.createdAt || order.date
                 }));
 
-            // Statistikalar
-            const completedOrders = customerOrders.filter(order => order.status === 'completed');
-            const totalSpent = completedOrders.reduce((sum, order) => sum + (order.amount || 0), 0);
+            // 5. Statistikalar
+            const completedCount = sortedOrders.filter(order => order.status === 'completed').length;
+            const cancelledCount = sortedOrders.filter(order => order.status === 'cancelled').length;
+            const totalSpent = sortedOrders
+                .filter(order => order.status === 'completed')
+                .reduce((sum, order) => sum + (order.price || 0), 0);
 
             return {
                 success: true,
                 orders: sortedOrders,
                 stats: {
-                    totalOrders: customerOrders.length,
-                    completedOrders: completedOrders.length,
+                    totalOrders: allCustomerOrders.length,
+                    completedOrders: completedCount,
+                    cancelledOrders: cancelledCount,
                     totalSpent: totalSpent
                 }
             };
@@ -338,16 +402,50 @@ export class DashboardApiController {
     @Get('customers/orders-history')
     async getCustomersOrdersHistory() {
         try {
-            const historyPath = path.join(process.cwd(), 'completed-orders-history.json');
+            const customerHistoryPath = path.join(process.cwd(), 'customer-orders-history.json');
 
-            if (!fs.existsSync(historyPath)) {
+            if (!fs.existsSync(customerHistoryPath)) {
                 return [];
             }
 
-            const historyData = JSON.parse(fs.readFileSync(historyPath, 'utf8'));
+            const historyData = JSON.parse(fs.readFileSync(customerHistoryPath, 'utf8'));
             return historyData || [];
         } catch (error) {
             console.error('Error loading customers orders history:', error);
+            return [];
+        }
+    }
+
+    @Get('drivers/orders-history')
+    async getDriversOrdersHistory() {
+        try {
+            const driverHistoryPath = path.join(process.cwd(), 'driver-orders-history.json');
+
+            if (!fs.existsSync(driverHistoryPath)) {
+                return [];
+            }
+
+            const historyData = JSON.parse(fs.readFileSync(driverHistoryPath, 'utf8'));
+            return historyData || [];
+        } catch (error) {
+            console.error('Error loading drivers orders history:', error);
+            return [];
+        }
+    }
+
+    @Get('orders-history')
+    async getDispatcherOrdersHistory() {
+        try {
+            const dispatcherHistoryPath = path.join(process.cwd(), 'dispatcher-orders-history.json');
+
+            if (!fs.existsSync(dispatcherHistoryPath)) {
+                return [];
+            }
+
+            const historyData = JSON.parse(fs.readFileSync(dispatcherHistoryPath, 'utf8'));
+            return historyData || [];
+        } catch (error) {
+            console.error('Error loading dispatcher orders history:', error);
             return [];
         }
     }
@@ -702,9 +800,9 @@ export class DashboardApiController {
     @Get('drivers/:driverId/orders')
     async getDriverOrders(@Param('driverId') driverId: string) {
         try {
-            const historyFilePath = path.join(process.cwd(), 'completed-orders-history.json');
+            const driverHistoryPath = path.join(process.cwd(), 'driver-orders-history.json');
 
-            if (!fs.existsSync(historyFilePath)) {
+            if (!fs.existsSync(driverHistoryPath)) {
                 return {
                     success: true,
                     data: [],
@@ -716,7 +814,7 @@ export class DashboardApiController {
                 };
             }
 
-            const historyData = fs.readFileSync(historyFilePath, 'utf-8');
+            const historyData = fs.readFileSync(driverHistoryPath, 'utf-8');
             const allHistory = JSON.parse(historyData);
 
             // Parse driver ID (remove prefix if exists)
@@ -802,9 +900,9 @@ export class DashboardApiController {
     // History faylidan statistikalarni olish
     private async getStatsFromHistory(): Promise<any> {
         try {
-            const historyFilePath = path.join(process.cwd(), 'completed-orders-history.json');
+            const dispatcherHistoryPath = path.join(process.cwd(), 'dispatcher-orders-history.json');
 
-            if (!fs.existsSync(historyFilePath)) {
+            if (!fs.existsSync(dispatcherHistoryPath)) {
                 return {
                     totalOrders: 0,
                     completedOrders: 0,
@@ -813,7 +911,7 @@ export class DashboardApiController {
                 };
             }
 
-            const historyData = fs.readFileSync(historyFilePath, 'utf-8');
+            const historyData = fs.readFileSync(dispatcherHistoryPath, 'utf-8');
             const allHistory = JSON.parse(historyData);
 
             const totalOrders = allHistory.length;
@@ -924,10 +1022,14 @@ export class DashboardApiController {
             const uniqueOrdersMap = new Map();
             filteredOrders.forEach(order => {
                 const existingOrder = uniqueOrdersMap.get(order.id);
-                if (!existingOrder || order.status === 'active') {
-                    // Yangi buyurtma yoki active status ustunlik qiladi
+                if (!existingOrder) {
+                    // Yangi buyurtma qo'shish
+                    uniqueOrdersMap.set(order.id, order);
+                } else if (order.status === 'active' && existingOrder.status !== 'active') {
+                    // Active status ustunlik qiladi (completed'ni bostirib o'tkazadi)
                     uniqueOrdersMap.set(order.id, order);
                 }
+                // Agar ikkala order ham active yoki ikkala order ham completed bo'lsa, birinchisini saqlash
             });
             const uniqueOrders = Array.from(uniqueOrdersMap.values());
 
@@ -1003,17 +1105,24 @@ export class DashboardApiController {
                 try {
                     const customersData = fs.readFileSync(customersFilePath, 'utf-8');
                     const customersDb = JSON.parse(customersData);
-                    savedCustomers = customersDb.customers || [];
+                    // Fayl strukturasini tekshirish
+                    if (Array.isArray(customersDb)) {
+                        savedCustomers = customersDb;
+                    } else if (customersDb && Array.isArray(customersDb.customers)) {
+                        savedCustomers = customersDb.customers;
+                    } else {
+                        savedCustomers = [];
+                    }
                 } catch (error) {
                     console.log('Error reading customers database:', error);
                 }
             }
 
-            // Orders tarixidan qo'shimcha mijozlarni olish
-            const orders = await this.getOrdersData();
+            // Faqat bajarilgan buyurtmalar tarixidan mijozlarni olish
+            const completedOrders = await this.getCustomersOrdersHistory();
             const orderCustomers = new Map();
 
-            orders.forEach(order => {
+            completedOrders.forEach(order => {
                 const phone = order.customerPhone || order.phone;
                 if (phone && !savedCustomers.find(c => c.phone === phone)) {
                     if (!orderCustomers.has(phone)) {
@@ -1021,32 +1130,29 @@ export class DashboardApiController {
                             id: `C_${phone.replace(/[^0-9]/g, '')}`,
                             phone: phone,
                             name: order.customerName || order.customer || 'Noma\'lum',
-                            joinDate: order.date || new Date().toISOString(),
+                            joinDate: order.orderDate || order.date || new Date().toISOString(),
                             status: 'active',
                             totalOrders: 0,
                             totalSpent: 0,
-                            source: 'orders'
+                            source: 'completed_orders'
                         });
                     }
                     const customer = orderCustomers.get(phone);
                     customer.totalOrders++;
-                    if (order.status === 'completed') {
-                        customer.totalSpent += order.amount || 0;
-                    }
+                    customer.totalSpent += order.price || order.amount || 0;
                 }
             });
 
-            // Saqlangan mijozlar uchun statistikalarni yangilash
+            // Saqlangan mijozlar uchun bajarilgan buyurtmalar statistikalarini yangilash
             savedCustomers.forEach(customer => {
-                const customerOrders = orders.filter(order =>
+                const customerCompletedOrders = completedOrders.filter(order =>
                     (order.customerPhone || order.phone) === customer.phone
                 );
-                customer.totalOrders = customerOrders.length;
-                customer.totalSpent = customerOrders
-                    .filter(order => order.status === 'completed')
-                    .reduce((sum, order) => sum + (order.amount || 0), 0);
-                customer.lastOrder = customerOrders.length > 0 ?
-                    customerOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0].date :
+                customer.totalOrders = customerCompletedOrders.length;
+                customer.totalSpent = customerCompletedOrders
+                    .reduce((sum, order) => sum + (order.price || order.amount || 0), 0);
+                customer.lastOrder = customerCompletedOrders.length > 0 ?
+                    customerCompletedOrders.sort((a, b) => new Date(b.completedAt || b.date).getTime() - new Date(a.completedAt || a.date).getTime())[0].completedAt :
                     null;
             });
 
@@ -1291,6 +1397,14 @@ export class DashboardApiController {
 
             const result = await this.botService.getOrderDetailsFromDashboard(orderId);
 
+            if (result === null) {
+                return {
+                    success: false,
+                    message: 'Buyurtma allaqachon bajarilgan yoki bekor qilingan',
+                    error: 'ORDER_NOT_ACTIVE'
+                };
+            }
+
             return {
                 success: true,
                 data: result
@@ -1368,6 +1482,75 @@ export class DashboardApiController {
                 success: false,
                 message: 'Registratsiya jarayonlarini tozalashda xatolik yuz berdi',
                 error: error.message
+            };
+        }
+    }
+
+    @Get('locations')
+    async getLocations() {
+        try {
+            return {
+                success: true,
+                data: uzbekistanLocations
+            };
+        } catch (error) {
+            console.error('❌ Error getting locations:', error);
+            return {
+                success: false,
+                error: 'Lokatsiyalarni olishda xatolik',
+                data: { regions: [] }
+            };
+        }
+    }
+
+    @Get('locations/:regionId')
+    async getRegionDetails(@Param('regionId') regionId: string) {
+        try {
+            const region = uzbekistanLocations.regions.find(r => r.id === regionId);
+
+            if (!region) {
+                return {
+                    success: false,
+                    error: 'Viloyat topilmadi'
+                };
+            }
+
+            return {
+                success: true,
+                data: region
+            };
+        } catch (error) {
+            console.error('❌ Error getting region details:', error);
+            return {
+                success: false,
+                error: 'Viloyat ma\'lumotlarini olishda xatolik'
+            };
+        }
+    }
+
+    @Get('locations/:regionId/districts')
+    async getDistrictsByRegion(@Param('regionId') regionId: string) {
+        try {
+            const region = uzbekistanLocations.regions.find(r => r.id === regionId);
+
+            if (!region) {
+                return {
+                    success: false,
+                    error: 'Viloyat topilmadi',
+                    data: []
+                };
+            }
+
+            return {
+                success: true,
+                data: region.districts || []
+            };
+        } catch (error) {
+            console.error('❌ Error getting districts:', error);
+            return {
+                success: false,
+                error: 'Tumanlar ma\'lumotlarini olishda xatolik',
+                data: []
             };
         }
     }

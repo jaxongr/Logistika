@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LogiMaster Pro | Professional Logistika Boshqaruv Tizimi</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root {
             --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
@@ -1000,6 +1001,12 @@
                         </div>
                         <span class="nav-label">Qo'llab-quvvatlash</span>
                     </button>
+                    <button class="nav-item" data-page="locations">
+                        <div class="nav-icon">
+                            <i class="fas fa-map-marked-alt"></i>
+                        </div>
+                        <span class="nav-label">Lokatsiyalar</span>
+                    </button>
                     <button class="nav-item" data-page="settings">
                         <div class="nav-icon">
                             <i class="fas fa-cog"></i>
@@ -1275,6 +1282,15 @@
                     case 'history':
                         console.log('📚 Rendering order history...');
                         content = this.renderOrderHistory();
+                        break;
+                    case 'locations':
+                        console.log('🗺️ Rendering locations...');
+                        content = this.renderLocations();
+                        // Setup location events after render
+                        setTimeout(() => {
+                            this.setupLocationEvents();
+                            this.setupLocationModalEvents();
+                        }, 100);
                         break;
                     default:
                         console.log('🔧 Rendering coming soon for:', page);
@@ -1967,6 +1983,807 @@
                 console.log('📝 Driver button events handled by global delegation');
             }
 
+            setupLocationEvents() {
+                console.log('🗺️ Setting up location events...');
+
+                // Initialize map if not exists
+                if (!window.locationsMap) {
+                    this.initializeLocationsMap();
+                }
+
+                // Load locations data
+                this.loadLocationsData();
+            }
+
+            initializeLocationsMap() {
+                console.log('🗺️ Initializing locations map...');
+
+                // Wait for Leaflet to be available
+                const initMap = () => {
+                    if (typeof L !== 'undefined') {
+                        this.createMap();
+                    } else {
+                        console.log('⏳ Waiting for Leaflet...');
+                        setTimeout(initMap, 100);
+                    }
+                };
+
+                initMap();
+            }
+
+            createMap() {
+                const mapContainer = document.getElementById('locationsMap');
+                if (!mapContainer) {
+                    console.error('❌ Map container not found!');
+                    return;
+                }
+
+                console.log('🗺️ Creating map in container:', mapContainer);
+
+                try {
+                    // Initialize map centered on Uzbekistan
+                    window.locationsMap = L.map('locationsMap', {
+                        center: [41.2995, 64.5853],
+                        zoom: 6,
+                        zoomControl: true,
+                        attributionControl: true
+                    });
+
+                    // Add tile layer
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors',
+                        maxZoom: 18,
+                        minZoom: 4
+                    }).addTo(window.locationsMap);
+
+                    // Initialize markers array
+                    window.locationMarkers = [];
+
+                    console.log('✅ Map initialized successfully');
+
+                    // Force map to update its size
+                    setTimeout(() => {
+                        window.locationsMap.invalidateSize();
+                        console.log('🔄 Map size updated');
+                    }, 250);
+
+                } catch (error) {
+                    console.error('❌ Error creating map:', error);
+                }
+            }
+
+            async loadLocationsData() {
+                try {
+                    // Try to load from API first
+                    const response = await fetch('/api/dashboard/locations');
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.success && result.data && result.data.regions) {
+                            this.allLocations = result.data.regions;
+                            this.processLocationsFromAPI();
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    console.log('📡 API not available, using local data');
+                }
+
+                // Fallback to comprehensive local data
+                this.allLocations = [
+                    {
+                        id: 'tashkent_city',
+                        name: 'Toshkent shahri',
+                        type: 'city',
+                        coordinates: [41.2995, 69.2401],
+                        districts: [
+                            { name: 'Bektemir tumani', coordinates: [41.2076, 69.3394] },
+                            { name: 'Chilonzor tumani', coordinates: [41.2750, 69.2036] },
+                            { name: 'Yakkasaroy tumani', coordinates: [41.2889, 69.2348] },
+                            { name: 'Mirobod tumani', coordinates: [41.2856, 69.2734] },
+                            { name: 'Mirzo Ulugbek tumani', coordinates: [41.3142, 69.2348] },
+                            { name: 'Sergeli tumani', coordinates: [41.2286, 69.2348] },
+                            { name: 'Shayxontohur tumani', coordinates: [41.3266, 69.2401] },
+                            { name: 'Olmazor tumani', coordinates: [41.3142, 69.2036] },
+                            { name: 'Uchtepa tumani', coordinates: [41.2889, 69.1724] },
+                            { name: 'Yunusobod tumani', coordinates: [41.3578, 69.2890] },
+                            { name: 'Yashnobod tumani', coordinates: [41.3578, 69.3394] }
+                        ]
+                    },
+                    {
+                        id: 'tashkent_region',
+                        name: 'Toshkent viloyati',
+                        type: 'region',
+                        coordinates: [41.0000, 69.0000],
+                        districts: [
+                            { name: 'Angren shahri', coordinates: [41.0167, 70.1444] },
+                            { name: 'Bekobod shahri', coordinates: [40.2167, 69.2667] },
+                            { name: 'Chirchiq shahri', coordinates: [41.4667, 69.5833] },
+                            { name: 'Olmaliq shahri', coordinates: [40.8444, 69.5972] },
+                            { name: 'Ohangaron shahri', coordinates: [40.9167, 69.6333] },
+                            { name: 'Yangiobod tumani', coordinates: [41.1167, 70.1167] },
+                            { name: 'Piskent tumani', coordinates: [41.0333, 69.3333] },
+                            { name: 'Qibray tumani', coordinates: [41.3833, 69.4833] },
+                            { name: 'Zangiota tumani', coordinates: [41.1167, 69.2833] },
+                            { name: 'Yuqorichirchiq tumani', coordinates: [41.5833, 70.0833] },
+                            { name: 'Parkent tumani', coordinates: [41.2833, 69.6667] },
+                            { name: 'Chinoz tumani', coordinates: [40.9333, 68.7667] },
+                            { name: 'Quyichirchiq tumani', coordinates: [41.4667, 69.4833] },
+                            { name: 'Ortachirchiq tumani', coordinates: [41.5000, 69.7833] },
+                            { name: 'Bostonliq tumani', coordinates: [41.2167, 70.0167] }
+                        ]
+                    },
+                    {
+                        id: 'samarkand',
+                        name: 'Samarqand viloyati',
+                        type: 'region',
+                        coordinates: [39.6542, 66.9597],
+                        districts: [
+                            { name: 'Samarqand shahri', coordinates: [39.6542, 66.9597] },
+                            { name: 'Kattaqo\'rg\'on shahri', coordinates: [39.8833, 66.2667] },
+                            { name: 'Jomboy tumani', coordinates: [39.7167, 67.1167] },
+                            { name: 'Urgut tumani', coordinates: [39.4000, 67.2333] },
+                            { name: 'Bulung\'ur tumani', coordinates: [39.7667, 67.2667] },
+                            { name: 'Ishtixon tumani', coordinates: [39.9167, 66.8833] },
+                            { name: 'Koshrabot tumani', coordinates: [39.5000, 66.8167] },
+                            { name: 'Narpay tumani', coordinates: [39.5833, 66.7667] },
+                            { name: 'Nurobod tumani', coordinates: [39.9833, 67.5667] },
+                            { name: 'Oqdaryo tumani', coordinates: [39.9167, 67.2000] },
+                            { name: 'Pastdarg\'om tumani', coordinates: [39.8167, 67.6667] },
+                            { name: 'Payariq tumani', coordinates: [39.4667, 67.0167] },
+                            { name: 'Toyloq tumani', coordinates: [39.9833, 66.6000] }
+                        ]
+                    },
+                    {
+                        id: 'bukhara',
+                        name: 'Buxoro viloyati',
+                        type: 'region',
+                        coordinates: [39.7747, 64.4286],
+                        districts: [
+                            { name: 'Buxoro shahri', coordinates: [39.7747, 64.4286] },
+                            { name: 'Olot tumani', coordinates: [40.4500, 64.4333] },
+                            { name: 'G\'ijduvon tumani', coordinates: [40.1000, 64.6833] },
+                            { name: 'Jondor tumani', coordinates: [39.0833, 64.0667] },
+                            { name: 'Kogon tumani', coordinates: [39.7167, 64.5500] },
+                            { name: 'Qorako\'l tumani', coordinates: [39.5500, 63.8333] },
+                            { name: 'Peshku tumani', coordinates: [40.0333, 63.8500] },
+                            { name: 'Romitan tumani', coordinates: [39.9667, 64.3833] },
+                            { name: 'Shofirkon tumani', coordinates: [39.9833, 64.5167] },
+                            { name: 'Vobkent tumani', coordinates: [40.0167, 64.5333] }
+                        ]
+                    },
+                    {
+                        id: 'navoi',
+                        name: 'Navoiy viloyati',
+                        type: 'region',
+                        coordinates: [40.0844, 65.3792],
+                        districts: [
+                            { name: 'Navoiy shahri', coordinates: [40.0844, 65.3792] },
+                            { name: 'Zarafshon shahri', coordinates: [41.5700, 64.2100] },
+                            { name: 'Karmana tumani', coordinates: [40.2833, 65.2167] },
+                            { name: 'Konimex tumani', coordinates: [40.6167, 65.1667] },
+                            { name: 'Navbahor tumani', coordinates: [39.7333, 65.1333] },
+                            { name: 'Nurota tumani', coordinates: [40.5667, 65.6833] },
+                            { name: 'Tomdi tumani', coordinates: [40.0833, 65.1000] },
+                            { name: 'Uchquduq tumani', coordinates: [42.1333, 63.5500] },
+                            { name: 'Xatirchi tumani', coordinates: [39.7500, 65.9833] }
+                        ]
+                    },
+                    {
+                        id: 'andijan',
+                        name: 'Andijon viloyati',
+                        type: 'region',
+                        coordinates: [40.7821, 72.3442],
+                        districts: [
+                            { name: 'Andijon shahri', coordinates: [40.7821, 72.3442] },
+                            { name: 'Asaka tumani', coordinates: [40.6333, 72.2333] },
+                            { name: 'Baliqchi tumani', coordinates: [40.8833, 72.1167] },
+                            { name: 'Bo\'z tumani', coordinates: [40.8167, 71.7500] },
+                            { name: 'Buloqboshi tumani', coordinates: [40.9667, 71.9333] },
+                            { name: 'Izboskan tumani', coordinates: [40.9167, 72.2000] },
+                            { name: 'Jalaquduq tumani', coordinates: [40.9167, 72.5833] },
+                            { name: 'Marhamat tumani', coordinates: [40.4833, 72.3000] },
+                            { name: 'Oltinko\'l tumani', coordinates: [40.7833, 72.1833] },
+                            { name: 'Pakhtaobod tumani', coordinates: [40.6167, 72.3833] },
+                            { name: 'Qo\'rg\'ontepa tumani', coordinates: [40.7333, 72.4667] },
+                            { name: 'Shahrixon tumani', coordinates: [40.7167, 72.0833] },
+                            { name: 'Ulug\'nor tumani', coordinates: [40.8333, 72.6333] },
+                            { name: 'Xo\'jaobod tumani', coordinates: [40.6500, 71.9667] }
+                        ]
+                    },
+                    {
+                        id: 'fergana',
+                        name: 'Farg\'ona viloyati',
+                        type: 'region',
+                        coordinates: [40.3842, 71.7843],
+                        districts: [
+                            { name: 'Farg\'ona shahri', coordinates: [40.3842, 71.7843] },
+                            { name: 'Marg\'ilon shahri', coordinates: [40.4667, 71.7167] },
+                            { name: 'Quvasoy shahri', coordinates: [40.2833, 71.9833] },
+                            { name: 'Qo\'qon shahri', coordinates: [40.5333, 70.9333] },
+                            { name: 'Beshariq tumani', coordinates: [40.4333, 70.6167] },
+                            { name: 'Bog\'dod tumani', coordinates: [40.3167, 71.5333] },
+                            { name: 'Buvayda tumani', coordinates: [40.6167, 71.0500] },
+                            { name: 'Dang\'ara tumani', coordinates: [40.4833, 70.9000] },
+                            { name: 'Farg\'ona tumani', coordinates: [40.2833, 71.6667] },
+                            { name: 'Furqat tumani', coordinates: [40.1167, 71.8833] },
+                            { name: 'O\'zbekiston tumani', coordinates: [40.1333, 71.0667] },
+                            { name: 'Qo\'shtepa tumani', coordinates: [40.6667, 71.6833] },
+                            { name: 'Rishton tumani', coordinates: [40.3500, 71.5500] },
+                            { name: 'So\'x tumani', coordinates: [40.2833, 71.1333] },
+                            { name: 'Toshloq tumani', coordinates: [40.4167, 71.4833] },
+                            { name: 'Uchko\'prik tumani', coordinates: [40.2000, 71.4333] },
+                            { name: 'Yozyovon tumani', coordinates: [40.2500, 71.9167] }
+                        ]
+                    },
+                    {
+                        id: 'namangan',
+                        name: 'Namangan viloyati',
+                        type: 'region',
+                        coordinates: [41.0000, 71.6726],
+                        districts: [
+                            { name: 'Namangan shahri', coordinates: [41.0000, 71.6726] },
+                            { name: 'Chortoq tumani', coordinates: [40.9333, 71.8167] },
+                            { name: 'Chust tumani', coordinates: [41.0000, 71.2333] },
+                            { name: 'Kosonsoy tumani', coordinates: [41.2167, 71.5500] },
+                            { name: 'Mingbuloq tumani', coordinates: [41.2667, 71.7333] },
+                            { name: 'Namangan tumani', coordinates: [40.9167, 71.5167] },
+                            { name: 'Norin tumani', coordinates: [41.3000, 71.4333] },
+                            { name: 'Pop tumani', coordinates: [40.8667, 71.1167] },
+                            { name: 'To\'raqo\'rg\'on tumani', coordinates: [40.8333, 71.8833] },
+                            { name: 'Uchqo\'rg\'on tumani', coordinates: [40.7667, 72.0000] },
+                            { name: 'Uychi tumani', coordinates: [41.0833, 71.9667] },
+                            { name: 'Yangiqo\'rg\'on tumani', coordinates: [40.9500, 71.7167] }
+                        ]
+                    },
+                    {
+                        id: 'kashkadarya',
+                        name: 'Qashqadaryo viloyati',
+                        type: 'region',
+                        coordinates: [38.8597, 65.7975],
+                        districts: [
+                            { name: 'Qarshi shahri', coordinates: [38.8597, 65.7975] },
+                            { name: 'Shahrisabz shahri', coordinates: [39.0500, 66.8333] },
+                            { name: 'Chiroqchi tumani', coordinates: [39.0167, 66.5500] },
+                            { name: 'Dehqonobod tumani', coordinates: [38.2833, 66.0833] },
+                            { name: 'G\'uzor tumani', coordinates: [38.6167, 66.2500] },
+                            { name: 'Kasbi tumani', coordinates: [38.5167, 66.2167] },
+                            { name: 'Kitob tumani', coordinates: [39.1833, 67.2667] },
+                            { name: 'Koson tumani', coordinates: [39.0333, 65.4000] },
+                            { name: 'Mirishkor tumani', coordinates: [39.0167, 66.1000] },
+                            { name: 'Muborak tumani', coordinates: [38.7833, 65.3667] },
+                            { name: 'Nishon tumani', coordinates: [38.9667, 65.8667] },
+                            { name: 'Qamashi tumani', coordinates: [38.8500, 66.4833] },
+                            { name: 'Qarshi tumani', coordinates: [38.7833, 65.9167] },
+                            { name: 'Shahrisabz tumani', coordinates: [39.0000, 66.7667] },
+                            { name: 'Yakkabog\' tumani', coordinates: [38.6500, 66.9000] }
+                        ]
+                    },
+                    {
+                        id: 'surkhandarya',
+                        name: 'Surxondaryo viloyati',
+                        type: 'region',
+                        coordinates: [37.9394, 67.5694],
+                        districts: [
+                            { name: 'Termiz shahri', coordinates: [37.2242, 67.2783] },
+                            { name: 'Angor tumani', coordinates: [38.0667, 67.5167] },
+                            { name: 'Bandixon tumani', coordinates: [37.9500, 68.0833] },
+                            { name: 'Boysun tumani', coordinates: [38.2167, 67.2000] },
+                            { name: 'Denov tumani', coordinates: [38.2667, 67.9000] },
+                            { name: 'Jarqo\'rg\'on tumani', coordinates: [37.8333, 67.4500] },
+                            { name: 'Qiziriq tumani', coordinates: [37.6167, 67.7667] },
+                            { name: 'Qo\'mqo\'rg\'on tumani', coordinates: [37.9167, 67.4833] },
+                            { name: 'Sariosiyo tumani', coordinates: [37.9833, 67.1333] },
+                            { name: 'Sherobod tumani', coordinates: [37.7167, 67.0167] },
+                            { name: 'Sho\'rchi tumani', coordinates: [37.9833, 67.7833] },
+                            { name: 'Termiz tumani', coordinates: [37.2667, 67.3333] },
+                            { name: 'Uzun tumani', coordinates: [38.0167, 67.8667] }
+                        ]
+                    },
+                    {
+                        id: 'khorezm',
+                        name: 'Xorazm viloyati',
+                        type: 'region',
+                        coordinates: [41.5269, 60.3725],
+                        districts: [
+                            { name: 'Urganch shahri', coordinates: [41.5500, 60.6333] },
+                            { name: 'Xiva shahri', coordinates: [41.3842, 60.3625] },
+                            { name: 'Bag\'at tumani', coordinates: [41.2500, 60.1333] },
+                            { name: 'Gurlan tumani', coordinates: [41.8500, 60.3833] },
+                            { name: 'Qo\'shko\'pir tumani', coordinates: [41.4667, 60.3167] },
+                            { name: 'Shovot tumani', coordinates: [41.6833, 60.1167] },
+                            { name: 'Urganch tumani', coordinates: [41.5833, 60.6000] },
+                            { name: 'Xonqa tumani', coordinates: [41.3000, 60.9000] },
+                            { name: 'Xazorasp tumani', coordinates: [41.3167, 61.0833] },
+                            { name: 'Yangiariq tumani', coordinates: [41.2167, 60.3667] },
+                            { name: 'Yangibozor tumani', coordinates: [41.7167, 60.4833] }
+                        ]
+                    },
+                    {
+                        id: 'jizzakh',
+                        name: 'Jizzax viloyati',
+                        type: 'region',
+                        coordinates: [40.1158, 67.8422],
+                        districts: [
+                            { name: 'Jizzax shahri', coordinates: [40.1158, 67.8422] },
+                            { name: 'Arnasoy tumani', coordinates: [40.3000, 68.5167] },
+                            { name: 'Baxtiyor tumani', coordinates: [40.3333, 67.8000] },
+                            { name: 'Do\'stlik tumani', coordinates: [40.3833, 68.0833] },
+                            { name: 'Forish tumani', coordinates: [40.1333, 67.9667] },
+                            { name: 'G\'allaorol tumani', coordinates: [40.0333, 68.0500] },
+                            { name: 'Mirzacho\'l tumani', coordinates: [40.6167, 68.2833] },
+                            { name: 'Paxtakor tumani', coordinates: [40.3000, 67.4333] },
+                            { name: 'Yangiobod tumani', coordinates: [39.9667, 67.6167] },
+                            { name: 'Zafarobod tumani', coordinates: [40.0167, 67.7167] },
+                            { name: 'Zarbdor tumani', coordinates: [40.1833, 68.1167] },
+                            { name: 'Zomin tumani', coordinates: [39.9667, 68.4000] }
+                        ]
+                    },
+                    {
+                        id: 'sirdarya',
+                        name: 'Sirdaryo viloyati',
+                        type: 'region',
+                        coordinates: [40.8375, 68.6706],
+                        districts: [
+                            { name: 'Guliston shahri', coordinates: [40.4833, 68.7833] },
+                            { name: 'Yangiyer shahri', coordinates: [40.2667, 68.8167] },
+                            { name: 'Shirin shahri', coordinates: [40.1167, 68.1167] },
+                            { name: 'Boyovut tumani', coordinates: [40.8167, 68.8000] },
+                            { name: 'Guliston tumani', coordinates: [40.4333, 68.6167] },
+                            { name: 'Mirzaobod tumani', coordinates: [40.6333, 68.6833] },
+                            { name: 'Oqoltin tumani', coordinates: [40.8500, 68.4667] },
+                            { name: 'Sardoba tumani', coordinates: [40.8667, 68.3000] },
+                            { name: 'Sayxunobod tumani', coordinates: [40.7500, 68.9000] },
+                            { name: 'Xovos tumani', coordinates: [40.3167, 68.9833] }
+                        ]
+                    },
+                    {
+                        id: 'karakalpakstan',
+                        name: 'Qoraqalpog\'iston Respublikasi',
+                        type: 'republic',
+                        coordinates: [43.8041, 59.4453],
+                        districts: [
+                            { name: 'Nukus shahri', coordinates: [42.4531, 59.6103] },
+                            { name: 'Amudaryo tumani', coordinates: [42.3667, 60.5833] },
+                            { name: 'Beruniy tumani', coordinates: [41.6833, 60.7500] },
+                            { name: 'Bo\'zatov tumani', coordinates: [42.8333, 58.3167] },
+                            { name: 'Chimboy tumani', coordinates: [42.9167, 59.7833] },
+                            { name: 'Ellikqala tumani', coordinates: [42.1167, 60.0000] },
+                            { name: 'Kegeyli tumani', coordinates: [42.4000, 58.6167] },
+                            { name: 'Qanliko\'l tumani', coordinates: [43.4000, 58.7167] },
+                            { name: 'Qorao\'zak tumani', coordinates: [43.4333, 58.9000] },
+                            { name: 'Qo\'ng\'irot tumani', coordinates: [43.0667, 58.9167] },
+                            { name: 'Mo\'ynoq tumani', coordinates: [43.7500, 59.0333] },
+                            { name: 'Nukus tumani', coordinates: [42.3833, 59.4833] },
+                            { name: 'Shumanay tumani', coordinates: [42.1833, 59.8167] },
+                            { name: 'Taxtako\'pir tumani', coordinates: [41.9333, 60.3000] },
+                            { name: 'To\'rtko\'l tumani', coordinates: [41.5500, 60.3833] },
+                            { name: 'Xo\'jayli tumani', coordinates: [42.3833, 59.9167] }
+                        ]
+                    }
+                ];
+
+                this.processLocationsFromData();
+            }
+
+            processLocationsFromAPI() {
+                this.locations = [];
+                let totalDistricts = 0;
+
+                this.allLocations.forEach(region => {
+                    // Add region/city itself
+                    this.locations.push({
+                        id: this.locations.length + 1,
+                        name: region.name,
+                        lat: region.coordinates[0],
+                        lng: region.coordinates[1],
+                        type: region.type,
+                        parentRegion: null
+                    });
+
+                    // Add districts
+                    if (region.districts) {
+                        region.districts.forEach(district => {
+                            this.locations.push({
+                                id: this.locations.length + 1,
+                                name: district.name,
+                                lat: district.coordinates[0],
+                                lng: district.coordinates[1],
+                                type: 'district',
+                                parentRegion: region.name
+                            });
+                            totalDistricts++;
+                        });
+                    }
+                });
+
+                this.updateStats(this.allLocations.length, totalDistricts);
+                this.renderLocationsList();
+                this.addMapMarkers();
+            }
+
+            processLocationsFromData() {
+                this.locations = [];
+                let totalDistricts = 0;
+
+                this.allLocations.forEach(region => {
+                    // Add region/city itself
+                    this.locations.push({
+                        id: this.locations.length + 1,
+                        name: region.name,
+                        lat: region.coordinates[0],
+                        lng: region.coordinates[1],
+                        type: region.type,
+                        parentRegion: null
+                    });
+
+                    // Add districts
+                    if (region.districts) {
+                        region.districts.forEach(district => {
+                            this.locations.push({
+                                id: this.locations.length + 1,
+                                name: district.name,
+                                lat: district.coordinates[0],
+                                lng: district.coordinates[1],
+                                type: 'district',
+                                parentRegion: region.name
+                            });
+                            totalDistricts++;
+                        });
+                    }
+                });
+
+                this.updateStats(this.allLocations.length, totalDistricts);
+                this.renderLocationsList();
+                this.addMapMarkers();
+            }
+
+            updateStats(regions, districts) {
+                const totalRegionsEl = document.getElementById('totalRegions');
+                const totalDistrictsEl = document.getElementById('totalDistricts');
+
+                if (totalRegionsEl) totalRegionsEl.textContent = regions;
+                if (totalDistrictsEl) totalDistrictsEl.textContent = districts;
+            }
+
+            renderLocationsList() {
+                const container = document.getElementById('locationsList');
+                if (!container) return;
+
+                // Group by parent regions
+                const regions = {};
+                this.locations.forEach(location => {
+                    if (!location.parentRegion) {
+                        // This is a region/city itself
+                        if (!regions[location.name]) {
+                            regions[location.name] = {
+                                region: location,
+                                districts: []
+                            };
+                        }
+                    } else {
+                        // This is a district
+                        if (!regions[location.parentRegion]) {
+                            regions[location.parentRegion] = {
+                                region: null,
+                                districts: []
+                            };
+                        }
+                        regions[location.parentRegion].districts.push(location);
+                    }
+                });
+
+                const locationsHtml = Object.entries(regions).map(([regionName, data], index) => {
+                    const region = data.region;
+                    const districts = data.districts;
+
+                    if (!region) return ''; // Skip if no region data
+
+                    const typeIcon = region.type === 'city' ? 'fas fa-city' :
+                                   region.type === 'republic' ? 'fas fa-flag' : 'fas fa-map';
+                    const typeColor = region.type === 'city' ? '#10b981' :
+                                    region.type === 'republic' ? '#8b5cf6' : '#3b82f6';
+                    const safeRegionId = `region_${index}`;
+
+                    return `
+                        <div class="region-group" style="margin-bottom: 15px; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;">
+                            <!-- Region Header -->
+                            <div class="region-header" onclick="dashboard.toggleRegion('${safeRegionId}')" style="padding: 15px; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.3s ease;" onmouseover="this.style.background='linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)'" onmouseout="this.style.background='linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)'">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <i class="${typeIcon}" style="color: ${typeColor}; font-size: 16px;"></i>
+                                    <div>
+                                        <div style="font-weight: 600; color: #1e293b; font-size: 16px;">${region.name}</div>
+                                        <div style="font-size: 12px; color: #64748b; margin-top: 2px;">${districts.length} ta joy</div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <button onclick="event.stopPropagation(); dashboard.focusLocation(${region.lat}, ${region.lng}, '${region.name}')" style="padding: 6px 12px; background: ${typeColor}; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                        <i class="fas fa-crosshairs"></i> Ko'rish
+                                    </button>
+                                    <i class="fas fa-chevron-down region-chevron" id="chevron-${safeRegionId}" style="color: #64748b; transition: transform 0.3s ease;"></i>
+                                </div>
+                            </div>
+                            <!-- Districts List -->
+                            <div class="districts-list" id="districts-${safeRegionId}" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease; background: #ffffff;">
+                                ${districts.map(district => `
+                                    <div onclick="dashboard.focusLocation(${district.lat}, ${district.lng}, '${district.name}')" style="padding: 12px 20px; border-bottom: 1px solid #f1f5f9; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <i class="fas fa-map-pin" style="color: #64748b; font-size: 12px;"></i>
+                                            <span style="color: #374151; font-size: 14px;">${district.name}</span>
+                                        </div>
+                                        <small style="color: #94a3b8; font-size: 11px;">${district.lat.toFixed(3)}, ${district.lng.toFixed(3)}</small>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                container.innerHTML = locationsHtml;
+            }
+
+            addMapMarkers() {
+                if (!window.locationsMap) return;
+
+                // Clear existing markers
+                if (window.locationMarkers) {
+                    window.locationMarkers.forEach(marker => window.locationsMap.removeLayer(marker));
+                }
+                window.locationMarkers = [];
+
+                // Add markers for each location
+                this.locations.forEach(location => {
+                    const marker = L.marker([location.lat, location.lng])
+                        .addTo(window.locationsMap)
+                        .bindPopup(`<b>${location.name}</b>`);
+
+                    window.locationMarkers.push(marker);
+                });
+            }
+
+            focusLocation(lat, lng, name) {
+                console.log(`📍 Focusing on ${name} (${lat}, ${lng})`);
+
+                // Update both Google and Yandex maps
+                this.updateMapCenter(`${lat},${lng}`);
+
+                // Show notification
+                this.showLocationToast(name, lat, lng);
+            }
+
+            showLocationToast(name, lat, lng) {
+                // Create toast notification
+                const toast = document.createElement('div');
+                toast.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+                    color: white;
+                    padding: 15px 20px;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+                    z-index: 10000;
+                    font-weight: 600;
+                    font-size: 14px;
+                    max-width: 300px;
+                    animation: slideIn 0.3s ease;
+                `;
+
+                toast.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-map-pin" style="color: #fbbf24;"></i>
+                        <div>
+                            <div style="font-weight: 700;">${name}</div>
+                            <div style="font-size: 12px; opacity: 0.9;">Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}</div>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(toast);
+
+                // Remove after 3 seconds
+                setTimeout(() => {
+                    toast.remove();
+                }, 3000);
+            }
+
+            filterLocations(searchTerm) {
+                this.renderLocationsList();
+            }
+
+            // Yangi funksiyalar qo'shish
+            toggleRegion(regionId) {
+                const districtsList = document.getElementById(`districts-${regionId}`);
+                const chevron = document.getElementById(`chevron-${regionId}`);
+
+                if (districtsList && chevron) {
+                    const isExpanded = districtsList.style.maxHeight && districtsList.style.maxHeight !== '0px';
+
+                    if (isExpanded) {
+                        districtsList.style.maxHeight = '0px';
+                        chevron.style.transform = 'rotate(0deg)';
+                    } else {
+                        districtsList.style.maxHeight = `${districtsList.scrollHeight}px`;
+                        chevron.style.transform = 'rotate(180deg)';
+                    }
+                } else {
+                    console.log('❌ Elements not found:', `districts-${regionId}`, `chevron-${regionId}`);
+                }
+            }
+
+            searchLocations(searchTerm) {
+                const term = searchTerm.toLowerCase().trim();
+                const regionGroups = document.querySelectorAll('.region-group');
+
+                regionGroups.forEach(group => {
+                    const regionName = group.querySelector('.region-header div div').textContent.toLowerCase();
+                    const districts = group.querySelectorAll('.districts-list > div');
+
+                    let hasMatch = regionName.includes(term);
+                    let visibleDistricts = 0;
+
+                    districts.forEach(district => {
+                        const districtName = district.querySelector('span').textContent.toLowerCase();
+                        if (districtName.includes(term) || term === '') {
+                            district.style.display = 'flex';
+                            visibleDistricts++;
+                            hasMatch = true;
+                        } else {
+                            district.style.display = 'none';
+                        }
+                    });
+
+                    if (hasMatch || term === '') {
+                        group.style.display = 'block';
+                        // Agar qidiruv natijasi bo'lsa, viloyatni ochib ko'rsatish
+                        if (term && visibleDistricts > 0) {
+                            const districtsList = group.querySelector('.districts-list');
+                            const chevron = group.querySelector('.region-chevron');
+                            if (districtsList && chevron) {
+                                districtsList.style.maxHeight = `${districtsList.scrollHeight}px`;
+                                chevron.style.transform = 'rotate(180deg)';
+                            }
+                        }
+                    } else {
+                        group.style.display = 'none';
+                    }
+                });
+            }
+
+            // Map switching functions
+            switchToOSMMap() {
+                const osmMap = document.getElementById('osmMap');
+                const googleMap = document.getElementById('googleMap');
+
+                if (osmMap && googleMap) {
+                    osmMap.style.display = 'block';
+                    googleMap.style.display = 'none';
+                    console.log('🗺️ Switched to OpenStreetMap');
+                }
+            }
+
+            switchToGoogleMap() {
+                const osmMap = document.getElementById('osmMap');
+                const googleMap = document.getElementById('googleMap');
+
+                if (osmMap && googleMap) {
+                    osmMap.style.display = 'none';
+                    googleMap.style.display = 'block';
+                    console.log('🗺️ Switched to Google Maps');
+                }
+            }
+
+            centerMap() {
+                // Center to Uzbekistan coordinates
+                const uzbekistanCoords = "41.2995,69.2401";
+                this.updateMapCenter(uzbekistanCoords);
+            }
+
+            updateMapCenter(coords) {
+                const [lat, lng] = coords.split(',');
+                const osmMap = document.getElementById('osmMap');
+                const googleMap = document.getElementById('googleMap');
+
+                console.log(`🗺️ Updating maps to: ${lat}, ${lng}`);
+
+                // Update OpenStreetMap
+                if (osmMap) {
+                    const bbox = this.calculateBbox(parseFloat(lat), parseFloat(lng), 0.1);
+                    const newOSMSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`;
+                    osmMap.src = newOSMSrc;
+                    console.log('✅ OpenStreetMap updated');
+                }
+
+                // Update Google Maps
+                if (googleMap) {
+                    const newGoogleSrc = `https://maps.google.com/maps?q=${lat},${lng}&hl=en&z=12&output=embed`;
+                    googleMap.src = newGoogleSrc;
+                    console.log('✅ Google Map updated');
+                }
+            }
+
+            calculateBbox(lat, lng, delta) {
+                const minLon = lng - delta;
+                const minLat = lat - delta;
+                const maxLon = lng + delta;
+                const maxLat = lat + delta;
+                return `${minLon},${minLat},${maxLon},${maxLat}`;
+            }
+
+            toggleMapStyle() {
+                // Toggle between OSM and Google
+                const osmMap = document.getElementById('osmMap');
+                if (osmMap && osmMap.style.display !== 'none') {
+                    this.switchToGoogleMap();
+                } else {
+                    this.switchToOSMMap();
+                }
+            }
+
+            showAddLocationModal() {
+                document.getElementById('addLocationModal').style.display = 'block';
+            }
+
+            closeAddLocationModal() {
+                document.getElementById('addLocationModal').style.display = 'none';
+                document.getElementById('addLocationForm').reset();
+            }
+
+            addNewLocation() {
+                // Modal orqali qo'shish
+                this.showAddLocationModal();
+
+                // Form submit event listener
+                const form = document.getElementById('addLocationForm');
+                form.onsubmit = (e) => {
+                    e.preventDefault();
+
+                    const name = document.getElementById('locationName').value;
+                    const lat = parseFloat(document.getElementById('locationLat').value);
+                    const lng = parseFloat(document.getElementById('locationLng').value);
+                    const type = document.getElementById('locationType').value;
+
+                    if (!name || isNaN(lat) || isNaN(lng)) {
+                        alert('Barcha maydonlarni to\'ldiring!');
+                        return;
+                    }
+
+                    const newLocation = {
+                        id: this.locations.length + 1,
+                        name: name,
+                        lat: lat,
+                        lng: lng,
+                        type: type,
+                        parentRegion: null
+                    };
+
+                    this.locations.push(newLocation);
+                    this.renderLocationsList();
+                    this.addMapMarkers();
+                    this.closeAddLocationModal();
+
+                    // Focus to new location
+                    this.focusLocation(lat, lng, name);
+                };
+            }
+
+            // Modal events
+            setupLocationModalEvents() {
+                // Click outside modal to close
+                document.getElementById('addLocationModal').addEventListener('click', (e) => {
+                    if (e.target.id === 'addLocationModal') {
+                        this.closeAddLocationModal();
+                    }
+                });
+
+                // ESC key to close modal
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        this.closeAddLocationModal();
+                    }
+                });
+            }
+
             renderDispatchers() {
                 const dispatchers = this.apiData.dispatchers || [];
                 console.log('📊 Rendering dispatchers:', dispatchers);
@@ -2162,6 +2979,128 @@
                 `;
             }
 
+            renderLocations() {
+                return `
+                    <div class="locations-container" style="height: 700px; display: grid; grid-template-columns: 1fr 2fr; gap: 20px; margin: 20px 0; overflow: hidden;">
+                        <!-- Locations Sidebar -->
+                        <div class="locations-sidebar" style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 16px; padding: 20px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); overflow-y: auto;">
+                            <div class="sidebar-header" style="margin-bottom: 20px;">
+                                <h2 style="color: #1e293b; font-size: 24px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                                    <i class="fas fa-map-marked-alt" style="color: #3b82f6;"></i>
+                                    O'zbekiston Lokatsiyalari
+                                </h2>
+                                <p style="color: #64748b; font-size: 14px; margin-bottom: 15px;">Barcha viloyat va tumanlar</p>
+
+                                <!-- Search -->
+                                <div style="position: relative; margin-bottom: 15px;">
+                                    <input type="text" id="locationSearch" placeholder="Lokatsiya qidirish..." style="width: 100%; padding: 12px 40px 12px 16px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 14px; background: #f8fafc; transition: all 0.3s ease;" oninput="dashboard.searchLocations(this.value)">
+                                    <i class="fas fa-search" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
+                                </div>
+
+                                <!-- Add Location Button -->
+                                <button onclick="dashboard.showAddLocationModal()" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 8px;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 24px rgba(59, 130, 246, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                                    <i class="fas fa-plus"></i>
+                                    Yangi lokatsiya qo'shish
+                                </button>
+                            </div>
+
+                            <!-- Stats -->
+                            <div class="location-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px; border-radius: 12px; text-align: center;">
+                                    <div style="font-size: 24px; font-weight: 700;" id="totalRegions">14</div>
+                                    <div style="font-size: 12px; opacity: 0.9;">Viloyatlar</div>
+                                </div>
+                                <div style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: 15px; border-radius: 12px; text-align: center;">
+                                    <div style="font-size: 24px; font-weight: 700;" id="totalDistricts">200+</div>
+                                    <div style="font-size: 12px; opacity: 0.9;">Tumanlar</div>
+                                </div>
+                            </div>
+
+                            <!-- Locations List -->
+                            <div id="locationsList" class="locations-list" style="max-height: 500px; overflow-y: auto; overscroll-behavior: contain;"></div>
+                        </div>
+
+                        <!-- Map Container -->
+                        <div class="map-container" style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-radius: 16px; padding: 20px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); position: relative;">
+                            <div class="map-header" style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                                <h3 style="color: #1e293b; font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                                    <i class="fas fa-globe" style="color: #3b82f6;"></i>
+                                    Interaktiv Xarita
+                                </h3>
+                                <div class="map-controls" style="display: flex; gap: 10px;">
+                                    <button onclick="dashboard.centerMap()" style="padding: 8px 12px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-size: 12px; color: #475569; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                                        <i class="fas fa-crosshairs"></i> Markazlashtirish
+                                    </button>
+                                    <button onclick="dashboard.toggleMapStyle()" style="padding: 8px 12px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-size: 12px; color: #475569; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
+                                        <i class="fas fa-layer-group"></i> Uslub
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- OpenStreetMap Embed (Primary) -->
+                            <iframe id="osmMap"
+                                src="https://www.openstreetmap.org/export/embed.html?bbox=55.99762,35.14073,73.05526,45.57609&layer=mapnik&marker=41.2995,69.2401"
+                                style="width: 100%; height: 600px; border: none; border-radius: 12px;"
+                                allowfullscreen="">
+                            </iframe>
+
+                            <!-- Google Maps (Alternative) -->
+                            <iframe id="googleMap" style="display: none; width: 100%; height: 600px; border: none; border-radius: 12px;"
+                                src="https://maps.google.com/maps?q=41.2995,69.2401&hl=en&z=8&output=embed"
+                                allowfullscreen="">
+                            </iframe>
+
+                            <!-- Map Controls -->
+                            <div class="map-controls-overlay" style="position: absolute; top: 80px; right: 30px; z-index: 10; display: flex; flex-direction: column; gap: 10px;">
+                                <button onclick="dashboard.switchToOSMMap()" style="padding: 10px; background: #7dd3fc; color: #1e293b; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+                                    <i class="fas fa-map"></i> OSM
+                                </button>
+                                <button onclick="dashboard.switchToGoogleMap()" style="padding: 10px; background: #4285f4; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+                                    <i class="fab fa-google"></i> Google
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Add Location Modal -->
+                    <div id="addLocationModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 10000; backdrop-filter: blur(4px);">
+                        <div class="modal-content" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); max-width: 500px; width: 90%;">
+                            <h3 style="margin-bottom: 20px; color: #1e293b; font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-map-pin" style="color: #3b82f6;"></i>
+                                Yangi Lokatsiya Qo'shish
+                            </h3>
+                            <form id="addLocationForm">
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #374151;">Nomi</label>
+                                    <input type="text" id="locationName" required style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;" placeholder="Masalan: Toshkent shahri">
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                                    <div>
+                                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #374151;">Latitude</label>
+                                        <input type="number" id="locationLat" required step="0.0001" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;" placeholder="41.2995">
+                                    </div>
+                                    <div>
+                                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #374151;">Longitude</label>
+                                        <input type="number" id="locationLng" required step="0.0001" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;" placeholder="69.2401">
+                                    </div>
+                                </div>
+                                <div style="margin-bottom: 20px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #374151;">Turi</label>
+                                    <select id="locationType" style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;">
+                                        <option value="city">Shahar</option>
+                                        <option value="region">Viloyat</option>
+                                        <option value="district">Tuman</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                                    <button type="button" onclick="dashboard.closeAddLocationModal()" style="padding: 12px 20px; background: #f3f4f6; color: #374151; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Bekor qilish</button>
+                                    <button type="submit" style="padding: 12px 20px; background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Qo'shish</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                `;
+            }
+
             renderComingSoon(page) {
                 const pageNames = {
                     finance: 'Moliyaviy hisobotlar',
@@ -2270,12 +3209,16 @@
                 console.log('📋 Showing customer order history for:', customerId);
 
                 try {
-                    const response = await fetch('/api/dashboard/customers/orders-history');
-                    const ordersHistory = await response.json();
+                    // Use the correct API endpoint that exists
+                    const response = await fetch(`/api/dashboard/customers/${customerId}/history`);
 
-                    const customerOrders = ordersHistory.filter(order => order.customerId === customerId);
+                    if (!response.ok) {
+                        throw new Error('API response not ok');
+                    }
 
-                    if (customerOrders.length === 0) {
+                    const historyData = await response.json();
+
+                    if (!historyData.orders || historyData.orders.length === 0) {
                         this.showNotification('Bu mijozning buyurtma tarixi topilmadi', 'warning');
                         return;
                     }
@@ -2298,10 +3241,14 @@
                         backdrop-filter: blur(4px);
                     `;
 
+                    // Calculate statistics for both completed and cancelled orders
+                    const completedOrders = historyData.orders.filter(order => order.status === 'completed');
+                    const cancelledOrders = historyData.orders.filter(order => order.status === 'cancelled');
+
                     modal.innerHTML = `
                         <div style="background: white; border-radius: 0.75rem; max-width: 80%; max-height: 80%; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
                             <div style="padding: 1.5rem; border-bottom: 1px solid #e5e7eb;">
-                                <div style="display: flex; justify-content: between; align-items: center;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <h3 style="margin: 0; font-size: 1.25rem; font-weight: 600; color: #111827;">
                                         <i class="fas fa-history" style="color: #3b82f6; margin-right: 0.5rem;"></i>
                                         ${customerName} - Buyurtmalar tarixi
@@ -2310,31 +3257,60 @@
                                 </div>
                             </div>
                             <div style="padding: 1.5rem;">
-                                <div style="margin-bottom: 1rem; color: #6b7280;">
-                                    Jami: ${customerOrders.length} ta buyurtma
+                                <!-- Statistics Cards -->
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                                    <div style="text-align: center; padding: 1rem; background: #f8fafc; border-radius: 0.5rem;">
+                                        <div style="font-size: 1.5rem; font-weight: 700; color: #3b82f6;">${historyData.orders.length}</div>
+                                        <div style="font-size: 0.875rem; color: #6b7280;">Jami buyurtmalar</div>
+                                    </div>
+                                    <div style="text-align: center; padding: 1rem; background: #f0fdf4; border-radius: 0.5rem;">
+                                        <div style="font-size: 1.5rem; font-weight: 700; color: #16a34a;">${completedOrders.length}</div>
+                                        <div style="font-size: 0.875rem; color: #6b7280;">Bajarilgan</div>
+                                    </div>
+                                    <div style="text-align: center; padding: 1rem; background: #fef2f2; border-radius: 0.5rem;">
+                                        <div style="font-size: 1.5rem; font-weight: 700; color: #dc2626;">${cancelledOrders.length}</div>
+                                        <div style="font-size: 0.875rem; color: #6b7280;">Bekor qilingan</div>
+                                    </div>
+                                    <div style="text-align: center; padding: 1rem; background: #f8fafc; border-radius: 0.5rem;">
+                                        <div style="font-size: 1.5rem; font-weight: 700; color: #059669;">${this.formatCurrency(historyData.stats.totalSpent)}</div>
+                                        <div style="font-size: 0.875rem; color: #6b7280;">Jami sarflangan</div>
+                                    </div>
                                 </div>
+
+                                <!-- Orders List -->
                                 <div style="max-height: 400px; overflow-y: auto;">
-                                    ${customerOrders.map(order => `
+                                    ${historyData.orders.map(order => {
+                                        const statusColor = order.status === 'completed' ? '#16a34a' : '#dc2626';
+                                        const statusBg = order.status === 'completed' ? '#dcfce7' : '#fee2e2';
+                                        const statusText = order.status === 'completed' ? 'Bajarilgan' : 'Bekor qilingan';
+                                        const statusIcon = order.status === 'completed' ? '✅' : '❌';
+
+                                        return `
                                         <div style="border: 1px solid #e5e7eb; border-radius: 0.5rem; margin-bottom: 1rem; padding: 1rem;">
                                             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
                                                 <div>
                                                     <div style="font-weight: 600; color: #111827;">Buyurtma #${order.id}</div>
-                                                    <div style="font-size: 0.875rem; color: #6b7280;">${new Date(order.createdAt).toLocaleDateString('uz-UZ')} ${new Date(order.createdAt).toLocaleTimeString('uz-UZ')}</div>
+                                                    <div style="font-size: 0.875rem; color: #6b7280;">${new Date(order.date || order.createdAt).toLocaleDateString('uz-UZ')}</div>
                                                 </div>
                                                 <div style="text-align: right;">
-                                                    <div style="font-weight: 600; color: #059669; font-size: 1.125rem;">${this.formatCurrency(order.price)}</div>
-                                                    <div style="font-size: 0.875rem; color: #6b7280;">Yakunlangan</div>
+                                                    <div style="font-weight: 600; color: ${statusColor}; font-size: 1.125rem;">${this.formatCurrency(order.price || order.amount)}</div>
+                                                    <div style="display: inline-block; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; background: ${statusBg}; color: ${statusColor}; font-weight: 600;">
+                                                        ${statusIcon} ${statusText}
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.875rem;">
                                                 <div>
                                                     <strong>Qayerdan:</strong><br>
-                                                    <span style="color: #6b7280;">${order.pickup}</span>
+                                                    <span style="color: #6b7280;">${order.fromCity || order.pickup || 'Noma\'lum'}</span>
                                                 </div>
                                                 <div>
                                                     <strong>Qayerga:</strong><br>
-                                                    <span style="color: #6b7280;">${order.destination}</span>
+                                                    <span style="color: #6b7280;">${order.toCity || order.destination || 'Noma\'lum'}</span>
                                                 </div>
+                                            </div>
+                                            <div style="margin-top: 0.5rem; font-size: 0.875rem;">
+                                                <strong>Yuk turi:</strong> <span style="color: #6b7280;">${order.cargoType || 'Noma\'lum'}</span>
                                             </div>
                                             ${order.driverName ? `
                                                 <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb; font-size: 0.875rem;">
@@ -2342,7 +3318,7 @@
                                                 </div>
                                             ` : ''}
                                         </div>
-                                    `).join('')}
+                                    `;}).join('')}
                                 </div>
                             </div>
                         </div>
@@ -2707,12 +3683,18 @@
                         if (lastOrder.price || lastOrder.amount) {
                             document.getElementById('price').value = lastOrder.price || lastOrder.amount || '';
                         }
+                        if (lastOrder.description) {
+                            document.getElementById('description').value = lastOrder.description || '';
+                        }
+                        if (lastOrder.loadingDate) {
+                            document.getElementById('loadingDate').value = lastOrder.loadingDate || '';
+                        }
 
                         // Formani o'zgartirilishi mumkinligini ko'rsatish
                         this.showNotification('Oxirgi buyurtma ma\'lumotlari yuklandi (o\'zgartirishingiz mumkin)', 'info');
 
                         // Barcha inputlarni edit qilish mumkin qilish
-                        const editableInputs = ['fromCity', 'toCity', 'cargoType', 'truckType', 'weight', 'price', 'description'];
+                        const editableInputs = ['fromCity', 'toCity', 'cargoType', 'truckType', 'weight', 'price', 'description', 'loadingDate'];
                         editableInputs.forEach(inputId => {
                             const input = document.getElementById(inputId);
                             if (input) {
@@ -2850,19 +3832,136 @@
 
                 try {
                     const response = await fetch(`/api/dashboard/customers/${this.currentCustomer.id}/history`);
-                    if (response.ok) {
-                        const history = await response.json();
-                        this.showCustomerHistoryModal(history);
-                    } else {
-                        this.showNotification('Tarixni yuklashda xatolik', 'error');
+                    if (!response.ok) {
+                        throw new Error('API response not ok');
                     }
+
+                    const historyData = await response.json();
+
+                    if (!historyData.orders || historyData.orders.length === 0) {
+                        this.showNotification('Bu mijozning buyurtma tarixi topilmadi', 'warning');
+                        return;
+                    }
+
+                    // Show customer order history modal
+                    this.showCustomerOrderHistoryModal(historyData, this.currentCustomer.name || 'Mijoz');
                 } catch (error) {
                     console.error('❌ History fetch error:', error);
                     this.showNotification('Tarixni yuklashda xatolik', 'error');
                 }
             }
 
-            // Mijoz tarix modali
+            // Customer order history modal (for order form)
+            showCustomerOrderHistoryModal(historyData, customerName) {
+                // Calculate statistics for both completed and cancelled orders
+                const completedOrders = historyData.orders.filter(order => order.status === 'completed');
+                const cancelledOrders = historyData.orders.filter(order => order.status === 'cancelled');
+
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1000;
+                    backdrop-filter: blur(4px);
+                `;
+
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 0.75rem; max-width: 80%; max-height: 80%; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+                        <div style="padding: 1.5rem; border-bottom: 1px solid #e5e7eb;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <h3 style="margin: 0; font-size: 1.25rem; font-weight: 600; color: #111827;">
+                                    <i class="fas fa-history" style="color: #3b82f6; margin-right: 0.5rem;"></i>
+                                    ${customerName} - Buyurtmalar tarixi
+                                </h3>
+                                <button onclick="this.closest('div').style.display='none'; this.closest('div').remove()" style="background: none; border: none; font-size: 1.5rem; color: #6b7280; cursor: pointer; padding: 0.5rem;">×</button>
+                            </div>
+                        </div>
+                        <div style="padding: 1.5rem;">
+                            <!-- Statistics Cards -->
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                                <div style="text-align: center; padding: 1rem; background: #f8fafc; border-radius: 0.5rem;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #3b82f6;">${historyData.orders.length}</div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">Jami buyurtmalar</div>
+                                </div>
+                                <div style="text-align: center; padding: 1rem; background: #f0fdf4; border-radius: 0.5rem;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #16a34a;">${completedOrders.length}</div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">Bajarilgan</div>
+                                </div>
+                                <div style="text-align: center; padding: 1rem; background: #fef2f2; border-radius: 0.5rem;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #dc2626;">${cancelledOrders.length}</div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">Bekor qilingan</div>
+                                </div>
+                                <div style="text-align: center; padding: 1rem; background: #f8fafc; border-radius: 0.5rem;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #059669;">${this.formatCurrency(historyData.stats.totalSpent)}</div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">Jami sarflangan</div>
+                                </div>
+                            </div>
+
+                            <!-- Orders List -->
+                            <div style="max-height: 400px; overflow-y: auto;">
+                                ${historyData.orders.map(order => {
+                                    const statusColor = order.status === 'completed' ? '#16a34a' : '#dc2626';
+                                    const statusBg = order.status === 'completed' ? '#dcfce7' : '#fee2e2';
+                                    const statusText = order.status === 'completed' ? 'Bajarilgan' : 'Bekor qilingan';
+                                    const statusIcon = order.status === 'completed' ? '✅' : '❌';
+
+                                    return `
+                                    <div style="border: 1px solid #e5e7eb; border-radius: 0.5rem; margin-bottom: 1rem; padding: 1rem;">
+                                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+                                            <div>
+                                                <div style="font-weight: 600; color: #111827;">Buyurtma #${order.id}</div>
+                                                <div style="font-size: 0.875rem; color: #6b7280;">${new Date(order.date || order.createdAt).toLocaleDateString('uz-UZ')}</div>
+                                            </div>
+                                            <div style="text-align: right;">
+                                                <div style="font-weight: 600; color: ${statusColor}; font-size: 1.125rem;">${this.formatCurrency(order.price || order.amount)}</div>
+                                                <div style="display: inline-block; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; background: ${statusBg}; color: ${statusColor}; font-weight: 600;">
+                                                    ${statusIcon} ${statusText}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.875rem;">
+                                            <div>
+                                                <strong>Qayerdan:</strong><br>
+                                                <span style="color: #6b7280;">${order.fromCity || order.pickup || 'Noma\'lum'}</span>
+                                            </div>
+                                            <div>
+                                                <strong>Qayerga:</strong><br>
+                                                <span style="color: #6b7280;">${order.toCity || order.destination || 'Noma\'lum'}</span>
+                                            </div>
+                                        </div>
+                                        <div style="margin-top: 0.5rem; font-size: 0.875rem;">
+                                            <strong>Yuk turi:</strong> <span style="color: #6b7280;">${order.cargoType || 'Noma\'lum'}</span>
+                                        </div>
+                                        ${order.driverName ? `
+                                            <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e5e7eb; font-size: 0.875rem;">
+                                                <strong>Haydovchi:</strong> ${order.driverName}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                `;}).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                modal.classList.add('modal');
+                document.body.appendChild(modal);
+
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                });
+            }
+
+            // Mijoz tarix modali (eski format - o'chirish kerak)
             showCustomerHistoryModal(history) {
                 const modal = document.createElement('div');
                 modal.style.cssText = `
@@ -3465,9 +4564,21 @@
                     console.log('👁️ Viewing order details:', orderId);
 
                     const response = await fetch(`/api/dashboard/orders/${orderId}`);
-                    if (response.ok) {
-                        const orderData = await response.json();
+                    const orderData = await response.json();
 
+                    if (!orderData.success) {
+                        if (orderData.error === 'ORDER_NOT_ACTIVE') {
+                            this.showNotification('Bu buyurtma allaqachon bajarilgan yoki bekor qilingan', 'warning');
+                            // Refresh page to remove inactive orders
+                            await this.loadApiData();
+                            this.loadPage(this.currentPage);
+                            return;
+                        } else {
+                            throw new Error(orderData.message || 'Xatolik yuz berdi');
+                        }
+                    }
+
+                    if (response.ok && orderData.success) {
                         // Create a detailed view modal
                         const modalContent = `
                             <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 1rem; padding: 2rem; box-shadow: 0 20px 25px rgba(0,0,0,0.1);">
@@ -4703,6 +5814,9 @@
             if (toCityInput) toCityInput.addEventListener('input', updateRouteInfo);
         });
     </script>
+
+    <!-- Leaflet Map Library -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- Role Management System -->
     <script src="js/role-manager.js"></script>

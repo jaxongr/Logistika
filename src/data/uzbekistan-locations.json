@@ -1,0 +1,1016 @@
+{
+  "regions": [
+    {
+      "id": "tashkent_city",
+      "name": "Toshkent shahri",
+      "type": "city",
+      "coordinates": [41.2995, 69.2401],
+      "districts": [
+        {
+          "id": "bektemir",
+          "name": "Bektemir tumani",
+          "coordinates": [41.2076, 69.3394]
+        },
+        {
+          "id": "chilanzar",
+          "name": "Chilonzor tumani",
+          "coordinates": [41.2750, 69.2036]
+        },
+        {
+          "id": "yakkasaray",
+          "name": "Yakkasaroy tumani",
+          "coordinates": [41.2889, 69.2348]
+        },
+        {
+          "id": "mirobod",
+          "name": "Mirobod tumani",
+          "coordinates": [41.2856, 69.2734]
+        },
+        {
+          "id": "mirzo_ulugbek",
+          "name": "Mirzo Ulug'bek tumani",
+          "coordinates": [41.3142, 69.2348]
+        },
+        {
+          "id": "sergeli",
+          "name": "Sergeli tumani",
+          "coordinates": [41.2286, 69.2348]
+        },
+        {
+          "id": "shayxontohur",
+          "name": "Shayxontohur tumani",
+          "coordinates": [41.3266, 69.2401]
+        },
+        {
+          "id": "olmazor",
+          "name": "Olmazor tumani",
+          "coordinates": [41.3142, 69.2036]
+        },
+        {
+          "id": "uchtepa",
+          "name": "Uchtepa tumani",
+          "coordinates": [41.2889, 69.1724]
+        },
+        {
+          "id": "yunusobod",
+          "name": "Yunusobod tumani",
+          "coordinates": [41.3578, 69.2890]
+        },
+        {
+          "id": "yashnobod",
+          "name": "Yashnobod tumani",
+          "coordinates": [41.3578, 69.3394]
+        }
+      ]
+    },
+    {
+      "id": "tashkent_region",
+      "name": "Toshkent viloyati",
+      "type": "region",
+      "coordinates": [41.0000, 69.0000],
+      "districts": [
+        {
+          "id": "angren",
+          "name": "Angren shahri",
+          "coordinates": [41.0167, 70.1444]
+        },
+        {
+          "id": "bekabad",
+          "name": "Bekobod shahri",
+          "coordinates": [40.2167, 69.2667]
+        },
+        {
+          "id": "chirchiq",
+          "name": "Chirchiq shahri",
+          "coordinates": [41.4667, 69.5833]
+        },
+        {
+          "id": "olmaliq",
+          "name": "Olmaliq shahri",
+          "coordinates": [40.8444, 69.5972]
+        },
+        {
+          "id": "ohangaron",
+          "name": "Ohangaron shahri",
+          "coordinates": [40.9167, 69.6333]
+        },
+        {
+          "id": "yangiabad",
+          "name": "Yangiobod tumani",
+          "coordinates": [41.1167, 70.1167]
+        },
+        {
+          "id": "piskent",
+          "name": "Piskent tumani",
+          "coordinates": [41.0333, 69.3333]
+        },
+        {
+          "id": "qibray",
+          "name": "Qibray tumani",
+          "coordinates": [41.3833, 69.4833]
+        },
+        {
+          "id": "zangiota",
+          "name": "Zangiota tumani",
+          "coordinates": [41.1167, 69.2833]
+        },
+        {
+          "id": "yuqorichirchiq",
+          "name": "Yuqorichirchiq tumani",
+          "coordinates": [41.5833, 70.0833]
+        },
+        {
+          "id": "parkent",
+          "name": "Parkent tumani",
+          "coordinates": [41.2833, 69.6667]
+        },
+        {
+          "id": "chinoz",
+          "name": "Chinoz tumani",
+          "coordinates": [40.9333, 68.7667]
+        },
+        {
+          "id": "quyichirchiq",
+          "name": "Quyichirchiq tumani",
+          "coordinates": [41.4667, 69.4833]
+        },
+        {
+          "id": "ortachirchiq",
+          "name": "O'rtachirchiq tumani",
+          "coordinates": [41.5000, 69.7833]
+        },
+        {
+          "id": "bostanliq",
+          "name": "Bo'stonliq tumani",
+          "coordinates": [41.2167, 70.0167]
+        }
+      ]
+    },
+    {
+      "id": "samarkand",
+      "name": "Samarqand viloyati",
+      "type": "region",
+      "coordinates": [39.6542, 66.9597],
+      "districts": [
+        {
+          "id": "samarkand_city",
+          "name": "Samarqand shahri",
+          "coordinates": [39.6542, 66.9597]
+        },
+        {
+          "id": "kattakurgan",
+          "name": "Kattaqo'rg'on shahri",
+          "coordinates": [39.8833, 66.2667]
+        },
+        {
+          "id": "jomboy",
+          "name": "Jomboy tumani",
+          "coordinates": [39.7167, 67.1167]
+        },
+        {
+          "id": "urgut",
+          "name": "Urgut tumani",
+          "coordinates": [39.4000, 67.2333]
+        },
+        {
+          "id": "bulungur",
+          "name": "Bulung'ur tumani",
+          "coordinates": [39.7667, 67.2667]
+        },
+        {
+          "id": "ishtixon",
+          "name": "Ishtixon tumani",
+          "coordinates": [39.9167, 66.8833]
+        },
+        {
+          "id": "koshrabot",
+          "name": "Koshrabot tumani",
+          "coordinates": [39.5000, 66.8167]
+        },
+        {
+          "id": "narpay",
+          "name": "Narpay tumani",
+          "coordinates": [39.5833, 66.7667]
+        },
+        {
+          "id": "nurabod",
+          "name": "Nurobod tumani",
+          "coordinates": [39.9833, 67.5667]
+        },
+        {
+          "id": "oqdaryo",
+          "name": "Oqdaryo tumani",
+          "coordinates": [39.9167, 67.2000]
+        },
+        {
+          "id": "pastdargom",
+          "name": "Pastdarg'om tumani",
+          "coordinates": [39.8167, 67.6667]
+        },
+        {
+          "id": "payariq",
+          "name": "Payariq tumani",
+          "coordinates": [39.4667, 67.0167]
+        },
+        {
+          "id": "qoshrabot",
+          "name": "Qoshrabot tumani",
+          "coordinates": [39.4833, 66.8000]
+        },
+        {
+          "id": "toyloq",
+          "name": "Toyloq tumani",
+          "coordinates": [39.9833, 66.6000]
+        }
+      ]
+    },
+    {
+      "id": "bukhara",
+      "name": "Buxoro viloyati",
+      "type": "region",
+      "coordinates": [39.7747, 64.4286],
+      "districts": [
+        {
+          "id": "bukhara_city",
+          "name": "Buxoro shahri",
+          "coordinates": [39.7747, 64.4286]
+        },
+        {
+          "id": "alat",
+          "name": "Olot tumani",
+          "coordinates": [40.4500, 64.4333]
+        },
+        {
+          "id": "bakhtiyor",
+          "name": "G'ijduvon tumani",
+          "coordinates": [40.1000, 64.6833]
+        },
+        {
+          "id": "jondor",
+          "name": "Jondor tumani",
+          "coordinates": [39.0833, 64.0667]
+        },
+        {
+          "id": "kogon",
+          "name": "Kogon tumani",
+          "coordinates": [39.7167, 64.5500]
+        },
+        {
+          "id": "qorako'l",
+          "name": "Qorako'l tumani",
+          "coordinates": [39.5500, 63.8333]
+        },
+        {
+          "id": "qorakul",
+          "name": "Qorakul tumani",
+          "coordinates": [39.5500, 63.8167]
+        },
+        {
+          "id": "peshku",
+          "name": "Peshku tumani",
+          "coordinates": [40.0333, 63.8500]
+        },
+        {
+          "id": "romitan",
+          "name": "Romitan tumani",
+          "coordinates": [39.9667, 64.3833]
+        },
+        {
+          "id": "shofirkon",
+          "name": "Shofirkon tumani",
+          "coordinates": [39.9833, 64.5167]
+        },
+        {
+          "id": "vobkent",
+          "name": "Vobkent tumani",
+          "coordinates": [40.0167, 64.5333]
+        }
+      ]
+    },
+    {
+      "id": "navoi",
+      "name": "Navoiy viloyati",
+      "type": "region",
+      "coordinates": [40.0844, 65.3792],
+      "districts": [
+        {
+          "id": "navoi_city",
+          "name": "Navoiy shahri",
+          "coordinates": [40.0844, 65.3792]
+        },
+        {
+          "id": "zarafshan",
+          "name": "Zarafshon shahri",
+          "coordinates": [41.5700, 64.2100]
+        },
+        {
+          "id": "karmana",
+          "name": "Karmana tumani",
+          "coordinates": [40.2833, 65.2167]
+        },
+        {
+          "id": "konimex",
+          "name": "Konimex tumani",
+          "coordinates": [40.6167, 65.1667]
+        },
+        {
+          "id": "navbahor",
+          "name": "Navbahor tumani",
+          "coordinates": [39.7333, 65.1333]
+        },
+        {
+          "id": "nurota",
+          "name": "Nurota tumani",
+          "coordinates": [40.5667, 65.6833]
+        },
+        {
+          "id": "tomdi",
+          "name": "Tomdi tumani",
+          "coordinates": [40.0833, 65.1000]
+        },
+        {
+          "id": "uchquduq",
+          "name": "Uchquduq tumani",
+          "coordinates": [42.1333, 63.5500]
+        },
+        {
+          "id": "xatirchi",
+          "name": "Xatirchi tumani",
+          "coordinates": [39.7500, 65.9833]
+        }
+      ]
+    },
+    {
+      "id": "andijan",
+      "name": "Andijon viloyati",
+      "type": "region",
+      "coordinates": [40.7821, 72.3442],
+      "districts": [
+        {
+          "id": "andijan_city",
+          "name": "Andijon shahri",
+          "coordinates": [40.7821, 72.3442]
+        },
+        {
+          "id": "asaka",
+          "name": "Asaka tumani",
+          "coordinates": [40.6333, 72.2333]
+        },
+        {
+          "id": "baliqchi",
+          "name": "Baliqchi tumani",
+          "coordinates": [40.8833, 72.1167]
+        },
+        {
+          "id": "boz",
+          "name": "Bo'z tumani",
+          "coordinates": [40.8167, 71.7500]
+        },
+        {
+          "id": "buloqboshi",
+          "name": "Buloqboshi tumani",
+          "coordinates": [40.9667, 71.9333]
+        },
+        {
+          "id": "izboskan",
+          "name": "Izboskan tumani",
+          "coordinates": [40.9167, 72.2000]
+        },
+        {
+          "id": "jalaquduq",
+          "name": "Jalaquduq tumani",
+          "coordinates": [40.9167, 72.5833]
+        },
+        {
+          "id": "marhamat",
+          "name": "Marhamat tumani",
+          "coordinates": [40.4833, 72.3000]
+        },
+        {
+          "id": "oltinko'l",
+          "name": "Oltinko'l tumani",
+          "coordinates": [40.7833, 72.1833]
+        },
+        {
+          "id": "pakhtaobod",
+          "name": "Pakhtaobod tumani",
+          "coordinates": [40.6167, 72.3833]
+        },
+        {
+          "id": "qo'rg'ontepa",
+          "name": "Qo'rg'ontepa tumani",
+          "coordinates": [40.7333, 72.4667]
+        },
+        {
+          "id": "shahrixon",
+          "name": "Shahrixon tumani",
+          "coordinates": [40.7167, 72.0833]
+        },
+        {
+          "id": "ulug'nor",
+          "name": "Ulug'nor tumani",
+          "coordinates": [40.8333, 72.6333]
+        },
+        {
+          "id": "xo'jaobod",
+          "name": "Xo'jaobod tumani",
+          "coordinates": [40.6500, 71.9667]
+        }
+      ]
+    },
+    {
+      "id": "fergana",
+      "name": "Farg'ona viloyati",
+      "type": "region",
+      "coordinates": [40.3842, 71.7843],
+      "districts": [
+        {
+          "id": "fergana_city",
+          "name": "Farg'ona shahri",
+          "coordinates": [40.3842, 71.7843]
+        },
+        {
+          "id": "margilan",
+          "name": "Marg'ilon shahri",
+          "coordinates": [40.4667, 71.7167]
+        },
+        {
+          "id": "quvasoy",
+          "name": "Quvasoy shahri",
+          "coordinates": [40.2833, 71.9833]
+        },
+        {
+          "id": "qo'qon",
+          "name": "Qo'qon shahri",
+          "coordinates": [40.5333, 70.9333]
+        },
+        {
+          "id": "beshariq",
+          "name": "Beshariq tumani",
+          "coordinates": [40.4333, 70.6167]
+        },
+        {
+          "id": "bog'dod",
+          "name": "Bog'dod tumani",
+          "coordinates": [40.3167, 71.5333]
+        },
+        {
+          "id": "buvayda",
+          "name": "Buvayda tumani",
+          "coordinates": [40.6167, 71.0500]
+        },
+        {
+          "id": "dang'ara",
+          "name": "Dang'ara tumani",
+          "coordinates": [40.4833, 70.9000]
+        },
+        {
+          "id": "farg'ona",
+          "name": "Farg'ona tumani",
+          "coordinates": [40.2833, 71.6667]
+        },
+        {
+          "id": "furqat",
+          "name": "Furqat tumani",
+          "coordinates": [40.1167, 71.8833]
+        },
+        {
+          "id": "o'zbekiston",
+          "name": "O'zbekiston tumani",
+          "coordinates": [40.1333, 71.0667]
+        },
+        {
+          "id": "qo'shtepa",
+          "name": "Qo'shtepa tumani",
+          "coordinates": [40.6667, 71.6833]
+        },
+        {
+          "id": "rishton",
+          "name": "Rishton tumani",
+          "coordinates": [40.3500, 71.5500]
+        },
+        {
+          "id": "so'x",
+          "name": "So'x tumani",
+          "coordinates": [40.2833, 71.1333]
+        },
+        {
+          "id": "toshloq",
+          "name": "Toshloq tumani",
+          "coordinates": [40.4167, 71.4833]
+        },
+        {
+          "id": "uchko'prik",
+          "name": "Uchko'prik tumani",
+          "coordinates": [40.2000, 71.4333]
+        },
+        {
+          "id": "yozyovon",
+          "name": "Yozyovon tumani",
+          "coordinates": [40.2500, 71.9167]
+        }
+      ]
+    },
+    {
+      "id": "namangan",
+      "name": "Namangan viloyati",
+      "type": "region",
+      "coordinates": [41.0000, 71.6726],
+      "districts": [
+        {
+          "id": "namangan_city",
+          "name": "Namangan shahri",
+          "coordinates": [41.0000, 71.6726]
+        },
+        {
+          "id": "chortoq",
+          "name": "Chortoq tumani",
+          "coordinates": [40.9333, 71.8167]
+        },
+        {
+          "id": "chust",
+          "name": "Chust tumani",
+          "coordinates": [41.0000, 71.2333]
+        },
+        {
+          "id": "kosonsoy",
+          "name": "Kosonsoy tumani",
+          "coordinates": [41.2167, 71.5500]
+        },
+        {
+          "id": "mingbuloq",
+          "name": "Mingbuloq tumani",
+          "coordinates": [41.2667, 71.7333]
+        },
+        {
+          "id": "namangan_t",
+          "name": "Namangan tumani",
+          "coordinates": [40.9167, 71.5167]
+        },
+        {
+          "id": "norin",
+          "name": "Norin tumani",
+          "coordinates": [41.3000, 71.4333]
+        },
+        {
+          "id": "pop",
+          "name": "Pop tumani",
+          "coordinates": [40.8667, 71.1167]
+        },
+        {
+          "id": "to'raqo'rg'on",
+          "name": "To'raqo'rg'on tumani",
+          "coordinates": [40.8333, 71.8833]
+        },
+        {
+          "id": "uchqo'rg'on",
+          "name": "Uchqo'rg'on tumani",
+          "coordinates": [40.7667, 72.0000]
+        },
+        {
+          "id": "uychi",
+          "name": "Uychi tumani",
+          "coordinates": [41.0833, 71.9667]
+        },
+        {
+          "id": "yangiqo'rg'on",
+          "name": "Yangiqo'rg'on tumani",
+          "coordinates": [40.9500, 71.7167]
+        }
+      ]
+    },
+    {
+      "id": "kashkadarya",
+      "name": "Qashqadaryo viloyati",
+      "type": "region",
+      "coordinates": [38.8597, 65.7975],
+      "districts": [
+        {
+          "id": "qarshi",
+          "name": "Qarshi shahri",
+          "coordinates": [38.8597, 65.7975]
+        },
+        {
+          "id": "shahrisabz",
+          "name": "Shahrisabz shahri",
+          "coordinates": [39.0500, 66.8333]
+        },
+        {
+          "id": "chiroqchi",
+          "name": "Chiroqchi tumani",
+          "coordinates": [39.0167, 66.5500]
+        },
+        {
+          "id": "dehqonobod",
+          "name": "Dehqonobod tumani",
+          "coordinates": [38.2833, 66.0833]
+        },
+        {
+          "id": "g'uzor",
+          "name": "G'uzor tumani",
+          "coordinates": [38.6167, 66.2500]
+        },
+        {
+          "id": "kasbi",
+          "name": "Kasbi tumani",
+          "coordinates": [38.5167, 66.2167]
+        },
+        {
+          "id": "kitob",
+          "name": "Kitob tumani",
+          "coordinates": [39.1833, 67.2667]
+        },
+        {
+          "id": "koson",
+          "name": "Koson tumani",
+          "coordinates": [39.0333, 65.4000]
+        },
+        {
+          "id": "mirishkor",
+          "name": "Mirishkor tumani",
+          "coordinates": [39.0167, 66.1000]
+        },
+        {
+          "id": "muborak",
+          "name": "Muborak tumani",
+          "coordinates": [38.7833, 65.3667]
+        },
+        {
+          "id": "nishon",
+          "name": "Nishon tumani",
+          "coordinates": [38.9667, 65.8667]
+        },
+        {
+          "id": "qamashi",
+          "name": "Qamashi tumani",
+          "coordinates": [38.8500, 66.4833]
+        },
+        {
+          "id": "qarshi_t",
+          "name": "Qarshi tumani",
+          "coordinates": [38.7833, 65.9167]
+        },
+        {
+          "id": "shahrisabz_t",
+          "name": "Shahrisabz tumani",
+          "coordinates": [39.0000, 66.7667]
+        },
+        {
+          "id": "yakkabog'",
+          "name": "Yakkabog' tumani",
+          "coordinates": [38.6500, 66.9000]
+        }
+      ]
+    },
+    {
+      "id": "surkhandarya",
+      "name": "Surxondaryo viloyati",
+      "type": "region",
+      "coordinates": [37.9394, 67.5694],
+      "districts": [
+        {
+          "id": "termez",
+          "name": "Termiz shahri",
+          "coordinates": [37.2242, 67.2783]
+        },
+        {
+          "id": "angor",
+          "name": "Angor tumani",
+          "coordinates": [38.0667, 67.5167]
+        },
+        {
+          "id": "bandixon",
+          "name": "Bandixon tumani",
+          "coordinates": [37.9500, 68.0833]
+        },
+        {
+          "id": "boysun",
+          "name": "Boysun tumani",
+          "coordinates": [38.2167, 67.2000]
+        },
+        {
+          "id": "denov",
+          "name": "Denov tumani",
+          "coordinates": [38.2667, 67.9000]
+        },
+        {
+          "id": "jarqo'rg'on",
+          "name": "Jarqo'rg'on tumani",
+          "coordinates": [37.8333, 67.4500]
+        },
+        {
+          "id": "qiziriq",
+          "name": "Qiziriq tumani",
+          "coordinates": [37.6167, 67.7667]
+        },
+        {
+          "id": "qo'mqo'rg'on",
+          "name": "Qo'mqo'rg'on tumani",
+          "coordinates": [37.9167, 67.4833]
+        },
+        {
+          "id": "sariosiyo",
+          "name": "Sariosiyo tumani",
+          "coordinates": [37.9833, 67.1333]
+        },
+        {
+          "id": "sherobod",
+          "name": "Sherobod tumani",
+          "coordinates": [37.7167, 67.0167]
+        },
+        {
+          "id": "sho'rchi",
+          "name": "Sho'rchi tumani",
+          "coordinates": [37.9833, 67.7833]
+        },
+        {
+          "id": "termez_t",
+          "name": "Termiz tumani",
+          "coordinates": [37.2667, 67.3333]
+        },
+        {
+          "id": "uzun",
+          "name": "Uzun tumani",
+          "coordinates": [38.0167, 67.8667]
+        }
+      ]
+    },
+    {
+      "id": "khorezm",
+      "name": "Xorazm viloyati",
+      "type": "region",
+      "coordinates": [41.5269, 60.3725],
+      "districts": [
+        {
+          "id": "urgench",
+          "name": "Urganch shahri",
+          "coordinates": [41.5500, 60.6333]
+        },
+        {
+          "id": "xiva",
+          "name": "Xiva shahri",
+          "coordinates": [41.3842, 60.3625]
+        },
+        {
+          "id": "bagat",
+          "name": "Bag'at tumani",
+          "coordinates": [41.2500, 60.1333]
+        },
+        {
+          "id": "gurlan",
+          "name": "Gurlan tumani",
+          "coordinates": [41.8500, 60.3833]
+        },
+        {
+          "id": "qo'shko'pir",
+          "name": "Qo'shko'pir tumani",
+          "coordinates": [41.4667, 60.3167]
+        },
+        {
+          "id": "shovot",
+          "name": "Shovot tumani",
+          "coordinates": [41.6833, 60.1167]
+        },
+        {
+          "id": "urganch_t",
+          "name": "Urganch tumani",
+          "coordinates": [41.5833, 60.6000]
+        },
+        {
+          "id": "xonqa",
+          "name": "Xonqa tumani",
+          "coordinates": [41.3000, 60.9000]
+        },
+        {
+          "id": "xazorasp",
+          "name": "Xazorasp tumani",
+          "coordinates": [41.3167, 61.0833]
+        },
+        {
+          "id": "yangiariq",
+          "name": "Yangiariq tumani",
+          "coordinates": [41.2167, 60.3667]
+        },
+        {
+          "id": "yangibozor",
+          "name": "Yangibozor tumani",
+          "coordinates": [41.7167, 60.4833]
+        }
+      ]
+    },
+    {
+      "id": "jizzakh",
+      "name": "Jizzax viloyati",
+      "type": "region",
+      "coordinates": [40.1158, 67.8422],
+      "districts": [
+        {
+          "id": "jizzakh_city",
+          "name": "Jizzax shahri",
+          "coordinates": [40.1158, 67.8422]
+        },
+        {
+          "id": "arnasoy",
+          "name": "Arnasoy tumani",
+          "coordinates": [40.3000, 68.5167]
+        },
+        {
+          "id": "bakhtiyor_j",
+          "name": "Baxtiyor tumani",
+          "coordinates": [40.3333, 67.8000]
+        },
+        {
+          "id": "do'stlik",
+          "name": "Do'stlik tumani",
+          "coordinates": [40.3833, 68.0833]
+        },
+        {
+          "id": "forish",
+          "name": "Forish tumani",
+          "coordinates": [40.1333, 67.9667]
+        },
+        {
+          "id": "g'allaorol",
+          "name": "G'allaorol tumani",
+          "coordinates": [40.0333, 68.0500]
+        },
+        {
+          "id": "mirzacho'l",
+          "name": "Mirzacho'l tumani",
+          "coordinates": [40.6167, 68.2833]
+        },
+        {
+          "id": "paxtakor",
+          "name": "Paxtakor tumani",
+          "coordinates": [40.3000, 67.4333]
+        },
+        {
+          "id": "yangiobod_j",
+          "name": "Yangiobod tumani",
+          "coordinates": [39.9667, 67.6167]
+        },
+        {
+          "id": "zafarobod",
+          "name": "Zafarobod tumani",
+          "coordinates": [40.0167, 67.7167]
+        },
+        {
+          "id": "zarbdor",
+          "name": "Zarbdor tumani",
+          "coordinates": [40.1833, 68.1167]
+        },
+        {
+          "id": "zomin",
+          "name": "Zomin tumani",
+          "coordinates": [39.9667, 68.4000]
+        }
+      ]
+    },
+    {
+      "id": "sirdarya",
+      "name": "Sirdaryo viloyati",
+      "type": "region",
+      "coordinates": [40.8375, 68.6706],
+      "districts": [
+        {
+          "id": "guliston",
+          "name": "Guliston shahri",
+          "coordinates": [40.4833, 68.7833]
+        },
+        {
+          "id": "yangiyer",
+          "name": "Yangiyer shahri",
+          "coordinates": [40.2667, 68.8167]
+        },
+        {
+          "id": "shirin",
+          "name": "Shirin shahri",
+          "coordinates": [40.1167, 68.1167]
+        },
+        {
+          "id": "boyovut",
+          "name": "Boyovut tumani",
+          "coordinates": [40.8167, 68.8000]
+        },
+        {
+          "id": "guliston_t",
+          "name": "Guliston tumani",
+          "coordinates": [40.4333, 68.6167]
+        },
+        {
+          "id": "mirzaobod",
+          "name": "Mirzaobod tumani",
+          "coordinates": [40.6333, 68.6833]
+        },
+        {
+          "id": "oqoltin",
+          "name": "Oqoltin tumani",
+          "coordinates": [40.8500, 68.4667]
+        },
+        {
+          "id": "sardoba",
+          "name": "Sardoba tumani",
+          "coordinates": [40.8667, 68.3000]
+        },
+        {
+          "id": "sayxunobod",
+          "name": "Sayxunobod tumani",
+          "coordinates": [40.7500, 68.9000]
+        },
+        {
+          "id": "xovos",
+          "name": "Xovos tumani",
+          "coordinates": [40.3167, 68.9833]
+        }
+      ]
+    },
+    {
+      "id": "karakalpakstan",
+      "name": "Qoraqalpog'iston Respublikasi",
+      "type": "republic",
+      "coordinates": [43.8041, 59.4453],
+      "districts": [
+        {
+          "id": "nukus",
+          "name": "Nukus shahri",
+          "coordinates": [42.4531, 59.6103]
+        },
+        {
+          "id": "amudaryo",
+          "name": "Amudaryo tumani",
+          "coordinates": [42.3667, 60.5833]
+        },
+        {
+          "id": "beruniy",
+          "name": "Beruniy tumani",
+          "coordinates": [41.6833, 60.7500]
+        },
+        {
+          "id": "bo'zatov",
+          "name": "Bo'zatov tumani",
+          "coordinates": [42.8333, 58.3167]
+        },
+        {
+          "id": "chimboy",
+          "name": "Chimboy tumani",
+          "coordinates": [42.9167, 59.7833]
+        },
+        {
+          "id": "ellikqala",
+          "name": "Ellikqala tumani",
+          "coordinates": [42.1167, 60.0000]
+        },
+        {
+          "id": "kegeyli",
+          "name": "Kegeyli tumani",
+          "coordinates": [42.4000, 58.6167]
+        },
+        {
+          "id": "qanliko'l",
+          "name": "Qanliko'l tumani",
+          "coordinates": [43.4000, 58.7167]
+        },
+        {
+          "id": "qorao'zak",
+          "name": "Qorao'zak tumani",
+          "coordinates": [43.4333, 58.9000]
+        },
+        {
+          "id": "qo'ng'irot",
+          "name": "Qo'ng'irot tumani",
+          "coordinates": [43.0667, 58.9167]
+        },
+        {
+          "id": "mo'ynoq",
+          "name": "Mo'ynoq tumani",
+          "coordinates": [43.7500, 59.0333]
+        },
+        {
+          "id": "nukus_t",
+          "name": "Nukus tumani",
+          "coordinates": [42.3833, 59.4833]
+        },
+        {
+          "id": "shumanay",
+          "name": "Shumanay tumani",
+          "coordinates": [42.1833, 59.8167]
+        },
+        {
+          "id": "taxtako'pir",
+          "name": "Taxtako'pir tumani",
+          "coordinates": [41.9333, 60.3000]
+        },
+        {
+          "id": "to'rtko'l",
+          "name": "To'rtko'l tumani",
+          "coordinates": [41.5500, 60.3833]
+        },
+        {
+          "id": "xo'jayli",
+          "name": "Xo'jayli tumani",
+          "coordinates": [42.3833, 59.9167]
+        }
+      ]
+    }
+  ]
+}

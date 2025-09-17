@@ -37,6 +37,9 @@ interface CargoPostingData {
 export class BotService implements OnModuleInit {
   private readonly logger = new Logger(BotService.name);
   private readonly historyFilePath = path.join(process.cwd(), 'completed-orders-history.json');
+  private readonly dispatcherHistoryPath = path.join(process.cwd(), 'dispatcher-orders-history.json');
+  private readonly customerHistoryPath = path.join(process.cwd(), 'customer-orders-history.json');
+  private readonly driverHistoryPath = path.join(process.cwd(), 'driver-orders-history.json');
 
   constructor(
     private readonly dataService: DataService,
@@ -6602,6 +6605,16 @@ ${currentBalance > 0 ? '✅ Balansingiz mavjud!' : '⏳ Balansni to\'ldiring'}
     cargo.acceptedDate = new Date().toISOString();
     this.cargoOffers.set(cargoId, cargo);
 
+    // Save updated data to file
+    await this.saveUserData();
+
+    // Broadcast real-time update to dashboard
+    this.dashboardGateway.broadcastOrderStatusChange(cargoId, 'matched', {
+      driverId: driverId,
+      driverName: driverRole?.profile?.fullName || ctx.from.first_name || 'Noma\'lum haydovchi',
+      acceptedAt: cargo.acceptedDate
+    });
+
     // Cancel any pending dispatcher fallback timers
     const activeOrder = this.activeOrders.get(cargoId);
     if (activeOrder) {
@@ -6781,6 +6794,17 @@ ${cargoDetails.description ? `📝 <b>Qo'shimcha:</b> ${cargoDetails.description
 
       // Save to permanent history file
       await this.saveCompletedOrderToHistory(cargo, driverId);
+
+      // Save updated data to file
+      await this.saveUserData();
+      this.logger.log(`💾 Order ${cargoId} status updated to completed and saved to file`);
+
+      // Broadcast real-time update to dashboard
+      this.dashboardGateway.broadcastOrderStatusChange(cargoId, 'completed', {
+        driverId: driverId,
+        driverName: driverRole?.profile?.fullName || ctx.from.first_name || 'Noma\'lum haydovchi',
+        completedAt: cargo.completedDate
+      });
     }
 
     // No virtual cashback system - using real balance only
@@ -7345,6 +7369,16 @@ ${allTransactions}
       cargo.status = 'active';
       cargo.assignedDriverId = null;
       this.cargoOffers.set(cargoId, cargo);
+
+      // Save updated data to file
+      await this.saveUserData();
+
+      // Broadcast real-time update to dashboard
+      this.dashboardGateway.broadcastOrderStatusChange(cargoId, 'active', {
+        cancelledBy: 'driver',
+        driverId: driverId,
+        cancelledAt: new Date().toISOString()
+      });
     }
 
     // Stop any contact warnings for this cargo
@@ -15882,9 +15916,9 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
               id: cargo.id,
               customer: cargo.customerName || cargo.username || 'Noma\'lum mijoz',
               driver: null, // faol buyurtmalarda haydovchi tayinlanmagan
-              route: `${cargo.fromCity} → ${cargo.toCity}`,
+              route: `${cargo.fromCity || 'N/A'} → ${cargo.toCity || 'N/A'}`,
               cargoType: cargo.cargoType,
-              amount: cargo.price,
+              amount: cargo.price || 0,
               date: cargo.date,
               status: cargo.status,
               createdAt: cargo.createdAt,
@@ -15995,11 +16029,11 @@ ${methodKey === 'percentage' ? '• Foiz ko\'rinishida (masalan: 15)' : '• So\
 
         const result = {
           id: order.id,
-          customer: order.username || 'Noma\'lum',
+          customer: order.customerName || order.username || 'Noma\'lum',
           driver: driverName,
-          route: `${order.fromCity} → ${order.toCity}`,
+          route: order.route || `${order.fromCity || 'N/A'} → ${order.toCity || 'N/A'}`,
           cargoType: order.cargoType,
-          amount: order.price,
+          amount: order.amount || order.price || 0,
           date: formattedDate,
           time: formattedTime,
           dateTime: displayDate.toISOString(),
@@ -16507,6 +16541,9 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
       cargoOfferAny.cancelledAt = new Date().toISOString();
       cargoOfferAny.cancelledBy = 'admin_dashboard';
 
+      // Save cancelled order to history files
+      await this.saveCancelledOrderToHistory(cargoOffer);
+
       // Update customer order history status
       if (this.customerOrderHistory.has(cargoOffer.userId)) {
         const customerOrders = this.customerOrderHistory.get(cargoOffer.userId)!;
@@ -16655,7 +16692,8 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
       // Find the order in cargo offers
       const cargoOffer = this.cargoOffers.get(orderId);
       if (!cargoOffer) {
-        throw new Error('Buyurtma topilmadi');
+        this.logger.log(`⚠️ Order ${orderId} not found in active orders - may be completed/cancelled`);
+        return null; // Don't throw error, return null for completed/cancelled orders
       }
 
       // Get additional details
@@ -16738,13 +16776,6 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
   // Permanent history save method
   private async saveCompletedOrderToHistory(cargo: any, driverId: number) {
     try {
-      // Read existing history
-      let history = [];
-      if (fs.existsSync(this.historyFilePath)) {
-        const historyData = fs.readFileSync(this.historyFilePath, 'utf-8');
-        history = JSON.parse(historyData);
-      }
-
       // Get driver info
       const driverRole = this.userRoles.get(driverId);
       const driverName = driverRole?.profile?.fullName || driverRole?.profile?.driverName || 'Noma\'lum haydovchi';
@@ -16755,37 +16786,131 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
         cargoId: cargo.id,
         customerId: cargo.userId,
         customerName: cargo.username || 'Noma\'lum mijoz',
+        customerPhone: cargo.phone,
         driverId: driverId,
         driverName: driverName,
         fromCity: cargo.fromCity || cargo.from,
         toCity: cargo.toCity || cargo.to,
+        pickup: cargo.fromCity || cargo.from,
+        destination: cargo.toCity || cargo.to,
         cargoType: cargo.cargoType || cargo.type,
         truckInfo: cargo.truckInfo,
         price: cargo.price || cargo.budget,
+        amount: cargo.price || cargo.budget,
         description: cargo.description || '',
         status: 'completed',
         orderDate: cargo.date || cargo.createdAt,
         completedDate: cargo.completedDate,
         completedAt: new Date().toISOString(),
+        createdAt: cargo.createdAt || new Date().toISOString(),
+        date: cargo.date || new Date().toISOString().split('T')[0],
         rating: cargo.rating || null,
         feedback: cargo.feedback || null,
-        savedAt: new Date().toISOString()
+        savedAt: new Date().toISOString(),
+        commission: Math.round((cargo.price || cargo.budget || 0) * 0.1) // 10% komissiya
       };
 
-      // Add to history
-      history.unshift(historyRecord); // Add to beginning (newest first)
+      // 1. Umumiy tarixga saqlash
+      await this.saveToHistoryFile(this.historyFilePath, historyRecord, 'umumiy');
 
-      // Keep only last 10000 records (prevent file from growing too large)
+      // 2. Dispatcher tarixiga saqlash
+      await this.saveToHistoryFile(this.dispatcherHistoryPath, historyRecord, 'dispatcher');
+
+      // 3. Mijoz tarixiga saqlash
+      if (cargo.userId || cargo.phone) {
+        await this.saveToHistoryFile(this.customerHistoryPath, historyRecord, 'customer');
+      }
+
+      // 4. Haydovchi tarixiga saqlash
+      await this.saveToHistoryFile(this.driverHistoryPath, historyRecord, 'driver');
+
+      this.logger.log(`📁 Completed order saved to all history files: ${cargo.id}`);
+
+    } catch (error) {
+      this.logger.error('❌ Error saving to order history:', error);
+    }
+  }
+
+  // Save cancelled order to history files
+  private async saveCancelledOrderToHistory(cargo: any) {
+    try {
+      // Create history record for cancelled order
+      const historyRecord = {
+        id: cargo.id,
+        cargoId: cargo.id,
+        customerId: cargo.userId,
+        customerName: cargo.username || cargo.customerName || 'Noma\'lum mijoz',
+        customerPhone: cargo.phone || cargo.customerPhone,
+        phone: cargo.phone || cargo.customerPhone,
+        driverId: cargo.assignedDriverId || null,
+        driverName: cargo.assignedDriverId ? this.userRoles.get(cargo.assignedDriverId)?.profile?.fullName || 'Noma\'lum haydovchi' : null,
+        fromCity: cargo.fromCity || cargo.from,
+        toCity: cargo.toCity || cargo.to,
+        pickup: cargo.fromCity || cargo.from,
+        destination: cargo.toCity || cargo.to,
+        cargoType: cargo.cargoType || cargo.type,
+        truckType: cargo.truckInfo,
+        truckInfo: cargo.truckInfo,
+        weight: cargo.weight,
+        price: cargo.price || cargo.budget,
+        amount: cargo.price || cargo.budget,
+        description: cargo.description || '',
+        loadingDate: cargo.loadingDate,
+        status: 'cancelled',
+        orderDate: cargo.date || cargo.createdAt,
+        cancelledDate: cargo.cancelledAt,
+        cancelledAt: cargo.cancelledAt || new Date().toISOString(),
+        cancelledBy: cargo.cancelledBy || 'admin_dashboard',
+        createdAt: cargo.createdAt || new Date().toISOString(),
+        date: cargo.cancelledAt || cargo.date || new Date().toISOString().split('T')[0],
+        savedAt: new Date().toISOString(),
+        source: cargo.adminCreated ? 'Dashboard' : 'Bot'
+      };
+
+      // 1. Umumiy tarixga saqlash
+      await this.saveToHistoryFile(this.historyFilePath, historyRecord, 'umumiy');
+
+      // 2. Dispatcher tarixiga saqlash
+      await this.saveToHistoryFile(this.dispatcherHistoryPath, historyRecord, 'dispatcher');
+
+      // 3. Mijoz tarixiga saqlash
+      if (cargo.userId || cargo.phone || cargo.customerPhone) {
+        await this.saveToHistoryFile(this.customerHistoryPath, historyRecord, 'customer');
+      }
+
+      // 4. Haydovchi tarixiga saqlash
+      await this.saveToHistoryFile(this.driverHistoryPath, historyRecord, 'driver');
+
+      this.logger.log(`📁 Cancelled order saved to all history files: ${cargo.id}`);
+
+    } catch (error) {
+      this.logger.error('❌ Error saving cancelled order to history:', error);
+    }
+  }
+
+  // Yangi yordamchi funksiya - ma'lum faylga saqlash
+  private async saveToHistoryFile(filePath: string, record: any, type: string) {
+    try {
+      let history = [];
+      if (fs.existsSync(filePath)) {
+        const historyData = fs.readFileSync(filePath, 'utf-8');
+        history = JSON.parse(historyData);
+      }
+
+      // Faylga qo'shish
+      history.unshift(record); // Yangi birinchi bo'ladi
+
+      // Fayl hajmini cheklash
       if (history.length > 10000) {
         history = history.slice(0, 10000);
       }
 
-      // Save back to file
-      fs.writeFileSync(this.historyFilePath, JSON.stringify(history, null, 2));
-      this.logger.log(`📁 Completed order saved to history: ${cargo.id}`);
+      // Faylga saqlash
+      fs.writeFileSync(filePath, JSON.stringify(history, null, 2));
+      this.logger.log(`📁 Order saved to ${type} history: ${record.id}`);
 
     } catch (error) {
-      this.logger.error('❌ Error saving to order history:', error);
+      this.logger.error(`❌ Error saving to ${type} history:`, error);
     }
   }
 
