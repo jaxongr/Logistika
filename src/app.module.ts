@@ -19,6 +19,7 @@ import { StaffModule } from './staff/staff.module';
 import { CommissionModule } from './commission/commission.module';
 import { DriverPaymentsModule } from './driver-payments/driver-payments.module';
 import { SettingsModule } from './settings/settings.module';
+import { FinanceModule } from './finance/finance.module';
 import { AnalyticsController } from './dashboard/analytics.controller';
 
 @Module({
@@ -44,7 +45,8 @@ import { AnalyticsController } from './dashboard/analytics.controller';
     StaffModule,
     CommissionModule,
     DriverPaymentsModule,
-    SettingsModule
+    SettingsModule,
+    FinanceModule
   ],
   controllers: [AppController, DashboardApiController, AuthController, UsersController, AnalyticsController],
   providers: [AppService, DataService, PerformanceService, UsersService],

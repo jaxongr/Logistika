@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Put, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
 import { CommissionService } from './commission.service';
+import { CommissionRule } from './interfaces/commission.interfaces';
 
 @Controller('api/commission')
 export class CommissionController {
@@ -87,6 +88,124 @@ export class CommissionController {
             return {
                 success: false,
                 message: 'Komissiya qo\'llashda xatolik',
+                error: error.message
+            };
+        }
+    }
+
+    // New flexible commission endpoints
+    @Get('rules')
+    async getAllCommissionRules() {
+        try {
+            const rules = await this.commissionService.getAllCommissionRules();
+            return {
+                success: true,
+                data: rules
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: 'Komissiya qoidalarini olishda xatolik',
+                error: error.message
+            };
+        }
+    }
+
+    @Post('rules')
+    async createCommissionRule(@Body() ruleData: Partial<CommissionRule>) {
+        try {
+            const rule = await this.commissionService.createCommissionRule(ruleData);
+            return {
+                success: true,
+                message: 'Komissiya qoidasi yaratildi',
+                data: rule
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: 'Komissiya qoidasini yaratishda xatolik',
+                error: error.message
+            };
+        }
+    }
+
+    @Put('rules/:ruleId')
+    async updateCommissionRule(@Param('ruleId') ruleId: string, @Body() updateData: Partial<CommissionRule>) {
+        try {
+            const rule = await this.commissionService.updateCommissionRule(ruleId, updateData);
+            return {
+                success: true,
+                message: 'Komissiya qoidasi yangilandi',
+                data: rule
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: 'Komissiya qoidasini yangilashda xatolik',
+                error: error.message
+            };
+        }
+    }
+
+    @Delete('rules/:ruleId')
+    async deleteCommissionRule(@Param('ruleId') ruleId: string) {
+        try {
+            await this.commissionService.deleteCommissionRule(ruleId);
+            return {
+                success: true,
+                message: 'Komissiya qoidasi o\'chirildi'
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: 'Komissiya qoidasini o\'chirishda xatolik',
+                error: error.message
+            };
+        }
+    }
+
+    @Put('rules/:ruleId/set-default')
+    async setDefaultRule(@Param('ruleId') ruleId: string) {
+        try {
+            await this.commissionService.setDefaultRule(ruleId);
+            return {
+                success: true,
+                message: 'Asosiy qoida o\'rnatildi'
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: 'Asosiy qoidani o\'rnatishda xatolik',
+                error: error.message
+            };
+        }
+    }
+
+    @Post('calculate-flexible')
+    async calculateFlexibleCommission(@Body() data: {
+        driverId: string;
+        amount: number;
+        orderData?: {
+            orderType?: string;
+            region?: string;
+            orderTime?: string;
+            orderId?: string;
+        }
+    }) {
+        try {
+            const calculation = await this.commissionService.calculateFlexibleCommission(
+                data.driverId,
+                data.amount,
+                data.orderData
+            );
+            return {
+                success: true,
+                data: calculation
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: 'Komissiya hisoblashda xatolik',
                 error: error.message
             };
         }
