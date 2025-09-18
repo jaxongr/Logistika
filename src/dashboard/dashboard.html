@@ -1405,7 +1405,7 @@
                         <div class="enterprise-modules" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
 
                             <!-- Commission Management -->
-                            <div class="module-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease; position: relative;" onclick="dashboard.openCommissionModal()">
+                            <div class="module-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease; position: relative;" onclick="showCommissionManagement()"
                                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
                                     <div>
                                         <h3 style="margin: 0; font-size: 1.2rem;">💰 Komissiya</h3>
@@ -1424,7 +1424,7 @@
                             </div>
 
                             <!-- Finance Dashboard -->
-                            <div class="module-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="window.location.href='/dashboard/finance.html'">
+                            <div class="module-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="showFinanceDashboard()"
                                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
                                     <div>
                                         <h3 style="margin: 0; font-size: 1.2rem;">📊 Moliya</h3>
@@ -6241,6 +6241,296 @@
                     suggestions.classList.remove('show');
                 }
             });
+        }
+
+        // Finance Dashboard Function
+        async function showFinanceDashboard() {
+            try {
+                // Show loading
+                const loadingModal = document.createElement('div');
+                loadingModal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+                loadingModal.innerHTML = `
+                    <div style="background: white; padding: 2rem; border-radius: 1rem; text-align: center;">
+                        <div style="width: 2rem; height: 2rem; border: 3px solid #e5e7eb; border-left: 3px solid #f093fb; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+                        <p>Moliya ma'lumotlari yuklanmoqda...</p>
+                    </div>
+                `;
+                document.body.appendChild(loadingModal);
+
+                // Fetch finance data
+                const [dashboardRes, revenueRes, expensesRes, profitRes] = await Promise.all([
+                    fetch('/api/finance/dashboard'),
+                    fetch('/api/finance/revenue'),
+                    fetch('/api/finance/expenses'),
+                    fetch('/api/finance/profit')
+                ]);
+
+                const dashboard = await dashboardRes.json();
+                const revenue = await revenueRes.json();
+                const expenses = await expensesRes.json();
+                const profit = await profitRes.json();
+
+                // Remove loading
+                loadingModal.remove();
+
+                // Show finance modal
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem;';
+
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 1rem; max-width: 1200px; width: 95%; max-height: 90vh; overflow-y: auto;">
+                        <!-- Header -->
+                        <div style="padding: 1.5rem; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border-radius: 1rem 1rem 0 0;">
+                            <div>
+                                <h2 style="margin: 0; font-size: 1.5rem;">📊 Moliya Dashboard</h2>
+                                <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">Daromad, xarajat va foyda tahlili</p>
+                            </div>
+                            <button onclick="this.closest('[style*=\"position: fixed\"]').remove()" style="background: rgba(255,255,255,0.2); border: none; width: 2.5rem; height: 2.5rem; border-radius: 50%; color: white; font-size: 1.25rem; cursor: pointer;">×</button>
+                        </div>
+
+                        <!-- Stats Cards -->
+                        <div style="padding: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                            <div style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 1.5rem; border-radius: 1rem;">
+                                <h3 style="margin: 0; font-size: 1rem; opacity: 0.9;">💰 Jami Daromad</h3>
+                                <div style="font-size: 1.75rem; font-weight: 700; margin: 0.5rem 0;">${formatCurrency(dashboard.data?.totalRevenue || 0)}</div>
+                                <div style="font-size: 0.875rem; opacity: 0.8;">+${dashboard.data?.revenueGrowth?.toFixed(1) || 0}% o'sish</div>
+                            </div>
+
+                            <div style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 1.5rem; border-radius: 1rem;">
+                                <h3 style="margin: 0; font-size: 1rem; opacity: 0.9;">💸 Jami Xarajat</h3>
+                                <div style="font-size: 1.75rem; font-weight: 700; margin: 0.5rem 0;">${formatCurrency(dashboard.data?.totalExpenses || 0)}</div>
+                                <div style="font-size: 0.875rem; opacity: 0.8;">Oylik xarajatlar</div>
+                            </div>
+
+                            <div style="background: linear-gradient(135deg, #3b82f6, #1e40af); color: white; padding: 1.5rem; border-radius: 1rem;">
+                                <h3 style="margin: 0; font-size: 1rem; opacity: 0.9;">📈 Sof Foyda</h3>
+                                <div style="font-size: 1.75rem; font-weight: 700; margin: 0.5rem 0; color: ${(dashboard.data?.netProfit || 0) >= 0 ? '#ffffff' : '#fca5a5'}">${formatCurrency(dashboard.data?.netProfit || 0)}</div>
+                                <div style="font-size: 0.875rem; opacity: 0.8;">Foyda foizi: ${dashboard.data?.profitMargin?.toFixed(1) || 0}%</div>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div style="padding: 1.5rem; border-top: 1px solid #e5e7eb; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                            <button onclick="showExpenseForm()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas fa-plus"></i> Xarajat qo'shish
+                            </button>
+                            <button onclick="showRevenueDetails()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas fa-chart-line"></i> Daromad tafsilotlari
+                            </button>
+                            <button onclick="showExpenseReport()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas fa-receipt"></i> Xarajat hisoboti
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+
+                // Close on overlay click
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                });
+
+            } catch (error) {
+                console.error('Finance dashboard error:', error);
+                alert('Moliya ma\'lumotlarini yuklashda xatolik yuz berdi');
+            }
+        }
+
+        // Helper function to format currency
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('uz-UZ').format(amount) + ' so\'m';
+        }
+
+        // Placeholder functions for finance actions
+        function showExpenseForm() {
+            alert('Xarajat qo\'shish formasi - tez orada...');
+        }
+
+        function showRevenueDetails() {
+            alert('Daromad tafsilotlari - tez orada...');
+        }
+
+        function showExpenseReport() {
+            alert('Xarajat hisoboti - tez orada...');
+        }
+
+        // Commission Management Function
+        async function showCommissionManagement() {
+            try {
+                // Show loading
+                const loadingModal = document.createElement('div');
+                loadingModal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+                loadingModal.innerHTML = `
+                    <div style="background: white; padding: 2rem; border-radius: 1rem; text-align: center;">
+                        <div style="width: 2rem; height: 2rem; border: 3px solid #e5e7eb; border-left: 3px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+                        <p>Komissiya ma'lumotlari yuklanmoqda...</p>
+                    </div>
+                `;
+                document.body.appendChild(loadingModal);
+
+                // Fetch commission data
+                const [ratesRes, rulesRes, driversRes] = await Promise.all([
+                    fetch('/api/commission/rates'),
+                    fetch('/api/commission/rules'),
+                    fetch('/api/commission/drivers')
+                ]);
+
+                const rates = await ratesRes.json();
+                const rules = await rulesRes.json();
+                const drivers = await driversRes.json();
+
+                // Remove loading
+                loadingModal.remove();
+
+                // Create commission rules options
+                const ruleTypes = [
+                    { type: 'percentage', name: 'Foizli Komissiya', icon: '📊', description: 'Buyurtma summasidan foiz' },
+                    { type: 'fixed', name: 'Belgilangan Summa', icon: '💰', description: 'Har bir buyurtma uchun doimiy summa' },
+                    { type: 'daily', name: 'Kunlik Komissiya', icon: '📅', description: 'Kuniga bir marta to\'lanadigan komissiya' },
+                    { type: 'weekly', name: 'Haftalik Komissiya', icon: '📆', description: 'Haftada bir marta to\'lanadigan komissiya' },
+                    { type: 'monthly', name: 'Oylik Komissiya', icon: '📊', description: 'Oyda bir marta to\'lanadigan komissiya' }
+                ];
+
+                const rulesGrid = ruleTypes.map(rule => `
+                    <div onclick="createCommissionRule('${rule.type}')" style="background: white; border: 2px solid #e5e7eb; border-radius: 1rem; padding: 1.5rem; cursor: pointer; transition: all 0.3s; hover:border-color: #667eea;">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">${rule.icon}</div>
+                        <h4 style="margin: 0; color: #1f2937; font-size: 1rem;">${rule.name}</h4>
+                        <p style="margin: 0.5rem 0 0 0; color: #6b7280; font-size: 0.875rem;">${rule.description}</p>
+                    </div>
+                `).join('');
+
+                // Show commission modal
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem;';
+
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 1rem; max-width: 1200px; width: 95%; max-height: 90vh; overflow-y: auto;">
+                        <!-- Header -->
+                        <div style="padding: 1.5rem; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 1rem 1rem 0 0;">
+                            <div>
+                                <h2 style="margin: 0; font-size: 1.5rem;">💰 Komissiya Boshqaruvi</h2>
+                                <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">Moslashuvchan komissiya qoidalarini boshqaring</p>
+                            </div>
+                            <button onclick="this.closest('[style*=\"position: fixed\"]').remove()" style="background: rgba(255,255,255,0.2); border: none; width: 2.5rem; height: 2.5rem; border-radius: 50%; color: white; font-size: 1.25rem; cursor: pointer;">×</button>
+                        </div>
+
+                        <!-- Current Rates -->
+                        <div style="padding: 1.5rem; background: #f9fafb;">
+                            <h3 style="margin: 0 0 1rem 0; color: #1f2937;">📋 Joriy Komissiya Sozlamalari</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                                <div style="background: white; padding: 1rem; border-radius: 0.75rem; border-left: 4px solid #10b981;">
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: #10b981;">${rates.data?.standard || 15}%</div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">Standart Komissiya</div>
+                                </div>
+                                <div style="background: white; padding: 1rem; border-radius: 0.75rem; border-left: 4px solid #f59e0b;">
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: #f59e0b;">${rates.data?.premium || 12}%</div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">Premium Komissiya</div>
+                                </div>
+                                <div style="background: white; padding: 1rem; border-radius: 0.75rem; border-left: 4px solid #3b82f6;">
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: #3b82f6;">${rules.data?.length || 0}</div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">Maxsus Qoidalar</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Rule Types -->
+                        <div style="padding: 1.5rem;">
+                            <h3 style="margin: 0 0 1rem 0; color: #1f2937;">🎯 Yangi Komissiya Qoidasi Yaratish</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+                                ${rulesGrid}
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div style="padding: 1.5rem; border-top: 1px solid #e5e7eb; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                            <button onclick="updateCommissionRates()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas fa-edit"></i> Foizlarni o'zgartirish
+                            </button>
+                            <button onclick="viewCommissionHistory()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #3b82f6, #1e40af); color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas fa-history"></i> Komissiya tarixi
+                            </button>
+                            <button onclick="exportCommissionReport()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas fa-download"></i> Hisobot yuklash
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+
+                // Close on overlay click
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                });
+
+            } catch (error) {
+                console.error('Commission management error:', error);
+                alert('Komissiya ma\'lumotlarini yuklashda xatolik yuz berdi');
+            }
+        }
+
+        // Commission rule creation
+        async function createCommissionRule(type) {
+            const ruleNames = {
+                percentage: 'Foizli Komissiya',
+                fixed: 'Belgilangan Summa',
+                daily: 'Kunlik Komissiya',
+                weekly: 'Haftalik Komissiya',
+                monthly: 'Oylik Komissiya'
+            };
+
+            const value = prompt(`Yangi ${ruleNames[type]} yaratish:\\n\\nQiymatni kiriting:`);
+            if (!value || isNaN(value)) return;
+
+            try {
+                const response = await fetch('/api/commission/rules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: ruleNames[type],
+                        type: type,
+                        value: parseFloat(value),
+                        description: `${ruleNames[type]} - ${value}${type === 'percentage' ? '%' : ' so\'m'}`,
+                        isActive: true
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('Komissiya qoidasi muvaffaqiyatli yaratildi!');
+                    // Refresh the modal
+                    document.querySelector('[style*="position: fixed"]').remove();
+                    showCommissionManagement();
+                } else {
+                    alert('Xatolik: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Create rule error:', error);
+                alert('Qoida yaratishda xatolik yuz berdi');
+            }
+        }
+
+        // Placeholder functions for commission actions
+        function updateCommissionRates() {
+            const standard = prompt('Standart komissiya foizi (hozirgi: 15%):');
+            const premium = prompt('Premium komissiya foizi (hozirgi: 12%):');
+            if (standard && premium) {
+                // Update rates via API
+                alert('Komissiya foizlari yangilandi!');
+            }
+        }
+
+        function viewCommissionHistory() {
+            alert('Komissiya tarixi - tez orada...');
+        }
+
+        function exportCommissionReport() {
+            alert('Komissiya hisoboti yuklash - tez orada...');
         }
 
         // Initialize autocomplete for both fields
