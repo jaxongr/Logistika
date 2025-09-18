@@ -437,6 +437,73 @@
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
         }
 
+        /* Enhanced Module Card Styles */
+        .module-card {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .module-card:hover {
+            transform: translateY(-8px) scale(1.02) !important;
+            box-shadow: 0 16px 56px rgba(0, 0, 0, 0.25) !important;
+        }
+
+        .module-card:active {
+            transform: translateY(-4px) scale(0.98) !important;
+            transition: all 0.1s ease !important;
+        }
+
+        /* Glassmorphism overlay effect */
+        .module-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border-radius: 1rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .module-card:hover::before {
+            opacity: 1;
+        }
+
+        /* Ripple effect */
+        .module-card::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s ease, height 0.6s ease, opacity 0.6s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .module-card:active::after {
+            width: 400px;
+            height: 400px;
+            opacity: 1;
+            transition: width 0.2s ease, height 0.2s ease, opacity 0.1s ease;
+        }
+
+        /* Icons animation */
+        .module-card i {
+            transition: transform 0.3s ease !important;
+        }
+
+        .module-card:hover i {
+            transform: scale(1.1) rotate(5deg) !important;
+        }
+
         .stat-header {
             display: flex;
             align-items: center;
@@ -1405,7 +1472,7 @@
                         <div class="enterprise-modules" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
 
                             <!-- Commission Management -->
-                            <div class="module-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease; position: relative;" onclick="showCommissionManagement()"
+                            <div class="module-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease; position: relative; box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4); border: 1px solid rgba(255, 255, 255, 0.1);" onclick="showCommissionManagement()">
                                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
                                     <div>
                                         <h3 style="margin: 0; font-size: 1.2rem;">💰 Komissiya</h3>
@@ -1424,7 +1491,7 @@
                             </div>
 
                             <!-- Finance Dashboard -->
-                            <div class="module-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="showFinanceDashboard()"
+                            <div class="module-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease; box-shadow: 0 8px 32px rgba(240, 147, 251, 0.4); border: 1px solid rgba(255, 255, 255, 0.1);" onclick="showFinanceDashboard()">
                                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
                                     <div>
                                         <h3 style="margin: 0; font-size: 1.2rem;">📊 Moliya</h3>
@@ -6344,17 +6411,136 @@
             return new Intl.NumberFormat('uz-UZ').format(amount) + ' so\'m';
         }
 
-        // Placeholder functions for finance actions
-        function showExpenseForm() {
-            alert('Xarajat qo\'shish formasi - tez orada...');
+        // Enhanced finance action functions
+        async function showExpenseForm() {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 1rem;';
+
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 1rem; max-width: 500px; width: 100%; padding: 2rem; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 1rem;">
+                        <h3 style="margin: 0; color: #1f2937; font-size: 1.25rem;">💸 Yangi Xarajat Qo'shish</h3>
+                        <button onclick="this.closest('[style*=\"position: fixed\"]').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6b7280; padding: 0.5rem;">×</button>
+                    </div>
+
+                    <form id="expenseForm" style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Summa (so'm)</label>
+                            <input type="number" id="amount" required style="width: 100%; padding: 0.75rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; font-size: 1rem;" placeholder="50000">
+                        </div>
+
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Kategoriya</label>
+                            <select id="category" required style="width: 100%; padding: 0.75rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; font-size: 1rem;">
+                                <option value="">Kategoriyani tanlang</option>
+                                <option value="yonilg'i">⛽ Yonilg'i</option>
+                                <option value="ta'mirlash">🔧 Ta'mirlash</option>
+                                <option value="soliq">📋 Soliq to'lovlari</option>
+                                <option value="maosh">💰 Maosh to'lovlari</option>
+                                <option value="marketing">📈 Marketing</option>
+                                <option value="ofis">🏢 Ofis xarajatlari</option>
+                                <option value="boshqa">📦 Boshqa</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151;">Izoh</label>
+                            <textarea id="description" required style="width: 100%; padding: 0.75rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; font-size: 1rem; min-height: 80px; resize: vertical;" placeholder="Xarajat haqida qisqacha ma'lumot..."></textarea>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1rem;">
+                            <button type="button" onclick="this.closest('[style*=\"position: fixed\"]').remove()" style="padding: 0.75rem 1.5rem; background: #f3f4f6; color: #374151; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">Bekor qilish</button>
+                            <button type="submit" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500;">Saqlash</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Form submit handler
+            document.getElementById('expenseForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const formData = {
+                    amount: parseFloat(document.getElementById('amount').value),
+                    category: document.getElementById('category').value,
+                    description: document.getElementById('description').value,
+                    date: new Date().toISOString().split('T')[0]
+                };
+
+                try {
+                    const response = await fetch('/api/finance/expense', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('✅ Xarajat muvaffaqiyatli qo\'shildi!');
+                        modal.remove();
+                        // Refresh finance data if modal is open
+                        const financeModal = document.querySelector('[style*="position: fixed"]');
+                        if (financeModal) {
+                            financeModal.remove();
+                            setTimeout(() => showFinanceDashboard(), 300);
+                        }
+                    } else {
+                        alert('❌ Xatolik: ' + result.message);
+                    }
+                } catch (error) {
+                    alert('❌ Tarmoq xatosi yuz berdi');
+                    console.error('Expense creation error:', error);
+                }
+            });
+
+            // Close on overlay click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
         }
 
-        function showRevenueDetails() {
-            alert('Daromad tafsilotlari - tez orada...');
+        async function showRevenueDetails() {
+            try {
+                const response = await fetch('/api/finance/revenue');
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`📊 Daromad Ma'lumotlari:\\n\\n💰 Buyurtma daromadi: ${formatCurrency(result.data.orderRevenue || 0)}\\n💸 Komissiya daromadi: ${formatCurrency(result.data.commissionRevenue || 0)}\\n📈 Jami daromad: ${formatCurrency(result.data.total || 0)}`);
+                } else {
+                    alert('Daromad ma\'lumotlarini yuklashda xatolik');
+                }
+            } catch (error) {
+                alert('Daromad tafsilotlarini yuklashda xatolik yuz berdi');
+            }
         }
 
-        function showExpenseReport() {
-            alert('Xarajat hisoboti - tez orada...');
+        async function showExpenseReport() {
+            try {
+                const response = await fetch('/api/finance/expenses');
+                const result = await response.json();
+
+                if (result.success) {
+                    const expenses = result.data;
+                    let reportText = '📋 Xarajatlar Hisoboti:\\n\\n';
+                    reportText += `💸 Jami xarajat: ${formatCurrency(expenses.total || 0)}\\n\\n`;
+
+                    if (expenses.byCategory) {
+                        reportText += '📊 Kategoriya bo\'yicha:\\n';
+                        Object.entries(expenses.byCategory).forEach(([category, amount]) => {
+                            const percentage = expenses.total > 0 ? ((amount / expenses.total) * 100).toFixed(1) : 0;
+                            reportText += `• ${category}: ${formatCurrency(amount)} (${percentage}%)\\n`;
+                        });
+                    }
+
+                    alert(reportText);
+                } else {
+                    alert('Xarajatlar hisobotini yuklashda xatolik');
+                }
+            } catch (error) {
+                alert('Xarajatlar hisobotini yuklashda xatolik yuz berdi');
+            }
         }
 
         // Commission Management Function
@@ -6515,22 +6701,132 @@
             }
         }
 
-        // Placeholder functions for commission actions
-        function updateCommissionRates() {
-            const standard = prompt('Standart komissiya foizi (hozirgi: 15%):');
-            const premium = prompt('Premium komissiya foizi (hozirgi: 12%):');
-            if (standard && premium) {
-                // Update rates via API
-                alert('Komissiya foizlari yangilandi!');
+        // Enhanced commission action functions
+        async function updateCommissionRates() {
+            try {
+                const response = await fetch('/api/commission/rates');
+                const current = await response.json();
+
+                const standard = prompt(`Standart komissiya foizi (hozirgi: ${current.data?.standard || 15}%):`, current.data?.standard || 15);
+                const premium = prompt(`Premium komissiya foizi (hozirgi: ${current.data?.premium || 12}%):`, current.data?.premium || 12);
+
+                if (standard && premium && !isNaN(standard) && !isNaN(premium)) {
+                    const updateResponse = await fetch('/api/commission/rates', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            standard: parseFloat(standard),
+                            premium: parseFloat(premium)
+                        })
+                    });
+
+                    const result = await updateResponse.json();
+                    if (result.success) {
+                        alert(`✅ Komissiya foizlari yangilandi!\\n\\n📊 Standart: ${standard}%\\n🏆 Premium: ${premium}%`);
+
+                        // Refresh commission modal if open
+                        const commissionModal = document.querySelector('[style*="position: fixed"]');
+                        if (commissionModal) {
+                            commissionModal.remove();
+                            setTimeout(() => showCommissionManagement(), 300);
+                        }
+                    } else {
+                        alert('❌ Xatolik: ' + result.message);
+                    }
+                } else if (standard || premium) {
+                    alert('❌ Iltimos, to\'g\'ri raqam kiriting');
+                }
+            } catch (error) {
+                console.error('Update rates error:', error);
+                alert('❌ Komissiya foizlarini yangilashda xatolik yuz berdi');
             }
         }
 
-        function viewCommissionHistory() {
-            alert('Komissiya tarixi - tez orada...');
+        async function viewCommissionHistory() {
+            try {
+                const response = await fetch('/api/commission/drivers');
+                const result = await response.json();
+
+                if (result.success && result.data.length > 0) {
+                    let historyText = '📋 Komissiya Tarixi (Oxirgi Haydovchilar):\\n\\n';
+
+                    result.data.slice(0, 10).forEach((driver, index) => {
+                        historyText += `${index + 1}. ${driver.driverName}\\n`;
+                        historyText += `   💰 Jami: ${formatCurrency(driver.totalEarnings)}\\n`;
+                        historyText += `   📉 Komissiya: ${formatCurrency(driver.commissionDeducted)} (${(driver.commissionRate || 0)}%)\\n`;
+                        historyText += `   ✅ Sof: ${formatCurrency(driver.netAmount)}\\n\\n`;
+                    });
+
+                    alert(historyText);
+                } else {
+                    alert('📭 Hali komissiya tarixi mavjud emas');
+                }
+            } catch (error) {
+                console.error('Commission history error:', error);
+                alert('❌ Komissiya tarixini yuklashda xatolik yuz berdi');
+            }
         }
 
-        function exportCommissionReport() {
-            alert('Komissiya hisoboti yuklash - tez orada...');
+        async function exportCommissionReport() {
+            try {
+                const [ratesResponse, driversResponse, rulesResponse] = await Promise.all([
+                    fetch('/api/commission/rates'),
+                    fetch('/api/commission/drivers'),
+                    fetch('/api/commission/rules')
+                ]);
+
+                const rates = await ratesResponse.json();
+                const drivers = await driversResponse.json();
+                const rules = await rulesResponse.json();
+
+                // Create comprehensive report
+                let report = '📊 KOMISSIYA HISOBOTI\\n';
+                report += '═══════════════════════\\n\\n';
+
+                report += '⚙️ JORIY SOZLAMALAR:\\n';
+                report += `• Standart: ${rates.data?.standard || 15}%\\n`;
+                report += `• Premium: ${rates.data?.premium || 12}%\\n`;
+                report += `• Faol qoidalar: ${rules.data?.length || 0} ta\\n\\n`;
+
+                if (drivers.success && drivers.data.length > 0) {
+                    report += '👥 HAYDOVCHILAR HISOBOTI:\\n';
+                    let totalRevenue = 0, totalCommission = 0;
+
+                    drivers.data.forEach((driver, index) => {
+                        report += `${index + 1}. ${driver.driverName}\\n`;
+                        report += `   Daromad: ${formatCurrency(driver.totalEarnings)}\\n`;
+                        report += `   Komissiya: ${formatCurrency(driver.commissionDeducted)}\\n`;
+                        report += `   Sof: ${formatCurrency(driver.netAmount)}\\n\\n`;
+
+                        totalRevenue += driver.totalEarnings;
+                        totalCommission += driver.commissionDeducted;
+                    });
+
+                    report += '💰 JAMI STATISTIKA:\\n';
+                    report += `• Jami daromad: ${formatCurrency(totalRevenue)}\\n`;
+                    report += `• Jami komissiya: ${formatCurrency(totalCommission)}\\n`;
+                    report += `• O'rtacha komissiya: ${totalRevenue > 0 ? ((totalCommission / totalRevenue) * 100).toFixed(1) : 0}%\\n`;
+                }
+
+                report += `\\n📅 Hisobot sanasi: ${new Date().toLocaleDateString('uz-UZ')}`;
+
+                // Create downloadable file
+                const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = \`komissiya-hisobot-\${new Date().toISOString().split('T')[0]}.txt\`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                alert('✅ Komissiya hisoboti yuklandi!');
+
+            } catch (error) {
+                console.error('Export commission report error:', error);
+                alert('❌ Hisobotni yuklashda xatolik yuz berdi');
+            }
         }
 
         // Initialize autocomplete for both fields

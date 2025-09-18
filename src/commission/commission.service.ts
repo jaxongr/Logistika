@@ -187,6 +187,11 @@ export class CommissionService {
                 updatedAt: new Date().toISOString()
             };
 
+            // Ensure rules array exists
+            if (!rates.rules || !Array.isArray(rates.rules)) {
+                rates.rules = [];
+            }
+
             rates.rules.push(newRule);
             rates.lastUpdated = new Date().toISOString();
 
@@ -259,6 +264,10 @@ export class CommissionService {
     async getAllCommissionRules(): Promise<CommissionRule[]> {
         try {
             const rates = await this.getCurrentRates();
+            if (!rates || !rates.rules || !Array.isArray(rates.rules)) {
+                this.logger.warn('No rules found in rates, returning empty array');
+                return [];
+            }
             return rates.rules.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
         } catch (error) {
             this.logger.error('Error getting commission rules:', error);

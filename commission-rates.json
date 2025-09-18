@@ -1,5 +1,56 @@
 {
   "standard": 15,
   "premium": 12,
-  "lastUpdated": "2025-09-18T07:03:38.861Z"
+  "rules": [
+    {
+      "id": "default_percentage",
+      "name": "Standart Foizli",
+      "type": "percentage",
+      "value": 15,
+      "description": "Buyurtma summasidan 15% komissiya",
+      "isActive": true,
+      "conditions": {
+        "driverCategory": "standard"
+      },
+      "createdAt": "2025-09-18T07:03:38.861Z",
+      "updatedAt": "2025-09-18T07:03:38.861Z"
+    },
+    {
+      "id": "premium_percentage",
+      "name": "Premium Foizli",
+      "type": "percentage",
+      "value": 12,
+      "description": "Premium haydovchilar uchun 12% komissiya",
+      "isActive": true,
+      "conditions": {
+        "driverCategory": "premium"
+      },
+      "createdAt": "2025-09-18T07:03:38.861Z",
+      "updatedAt": "2025-09-18T07:03:38.861Z"
+    },
+    {
+      "id": "rule_1758180796346_55bxleybc",
+      "name": "Kunlik Komissiya",
+      "type": "daily",
+      "value": 5000,
+      "description": "Kunlik 5000 som",
+      "isActive": true,
+      "conditions": {},
+      "createdAt": "2025-09-18T07:33:16.346Z",
+      "updatedAt": "2025-09-18T07:33:16.346Z"
+    },
+    {
+      "id": "rule_1758180964582_3yk4pt1ls",
+      "name": "Belgilangan Summa",
+      "type": "fixed",
+      "value": 20000,
+      "description": "Belgilangan Summa - 20000 so'm",
+      "isActive": true,
+      "conditions": {},
+      "createdAt": "2025-09-18T07:36:04.582Z",
+      "updatedAt": "2025-09-18T07:36:04.582Z"
+    }
+  ],
+  "defaultRule": "default_percentage",
+  "lastUpdated": "2025-09-18T07:36:04.582Z"
 }
