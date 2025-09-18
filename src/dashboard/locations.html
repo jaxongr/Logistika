@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lokatsiyalar - O'zbekiston</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar h1 {
+            color: #333;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .navbar .back-btn {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .navbar .back-btn:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .search-bar {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: calc(100vh - 200px);
+        }
+
+        .regions-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+
+        .map-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+        }
+
+        .region-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .region-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            border-color: #007bff;
+        }
+
+        .region-card.active {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            border-color: #0056b3;
+        }
+
+        .region-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .region-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .region-type {
+            font-size: 12px;
+            background: rgba(0, 123, 255, 0.1);
+            color: #007bff;
+            padding: 3px 8px;
+            border-radius: 15px;
+            text-transform: uppercase;
+        }
+
+        .region-card.active .region-type {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .districts-count {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .region-card.active .districts-count {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .districts-list {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .districts-list.expanded {
+            max-height: 300px;
+            margin-top: 10px;
+        }
+
+        .district-item {
+            background: rgba(255, 255, 255, 0.8);
+            margin: 5px 0;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .district-item:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: translateX(5px);
+        }
+
+        .region-card.active .district-item {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .region-card.active .district-item:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .expand-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .expand-icon.rotated {
+            transform: rotate(180deg);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .stats-bar {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-around;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            .navbar {
+                padding: 10px 15px;
+            }
+
+            .navbar h1 {
+                font-size: 20px;
+            }
+
+            .container {
+                padding: 0 10px;
+            }
+
+            .map-container {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h1><i class="fas fa-map-marked-alt"></i> O'zbekiston Lokatsiyalari</h1>
+        <a href="/dashboard" class="back-btn">
+            <i class="fas fa-arrow-left"></i> Dashboard
+        </a>
+    </div>
+
+    <div class="container">
+        <div class="search-bar">
+            <input type="text" class="search-input" placeholder="Viloyat yoki tuman nomini qidiring..." id="searchInput">
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-number" id="totalRegions">-</div>
+                <div class="stat-label">Viloyatlar</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="totalDistricts">-</div>
+                <div class="stat-label">Tumanlar</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="totalCities">-</div>
+                <div class="stat-label">Shaharlar</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="regions-panel">
+                <div id="regionsContainer" class="loading">
+                    <i class="fas fa-spinner fa-spin"></i> Lokatsiyalar yuklanmoqda...
+                </div>
+            </div>
+
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        class LocationsManager {
+            constructor() {
+                this.map = null;
+                this.markers = [];
+                this.locations = null;
+                this.activeRegion = null;
+                this.init();
+            }
+
+            async init() {
+                await this.initMap();
+                await this.loadLocations();
+                this.setupEventListeners();
+            }
+
+            initMap() {
+                // O'zbekiston markaziy koordinatalari
+                this.map = L.map('map').setView([41.2995, 64.5853], 6);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 18
+                }).addTo(this.map);
+            }
+
+            async loadLocations() {
+                try {
+                    const response = await fetch('/api/dashboard/locations');
+                    const result = await response.json();
+
+                    if (result.success) {
+                        this.locations = result.data;
+                        this.renderRegions();
+                        this.addMarkersToMap();
+                        this.updateStats();
+                    } else {
+                        throw new Error(result.error);
+                    }
+                } catch (error) {
+                    console.error('Lokatsiyalarni yuklashda xatolik:', error);
+                    document.getElementById('regionsContainer').innerHTML =
+                        '<p style="color: red;"><i class="fas fa-exclamation-triangle"></i> Lokatsiyalarni yuklashda xatolik yuz berdi</p>';
+                }
+            }
+
+            renderRegions() {
+                const container = document.getElementById('regionsContainer');
+                container.innerHTML = '';
+
+                this.locations.regions.forEach(region => {
+                    const regionCard = this.createRegionCard(region);
+                    container.appendChild(regionCard);
+                });
+            }
+
+            createRegionCard(region) {
+                const card = document.createElement('div');
+                card.className = 'region-card';
+                card.dataset.regionId = region.id;
+
+                const districtsCount = region.districts ? region.districts.length : 0;
+                const regionType = region.type === 'city' ? 'Shahar' :
+                                   region.type === 'republic' ? 'Respublika' : 'Viloyat';
+
+                card.innerHTML = `
+                    <div class="region-header">
+                        <div>
+                            <div class="region-name">${region.name}</div>
+                            <span class="region-type">${regionType}</span>
+                        </div>
+                        <i class="fas fa-chevron-down expand-icon"></i>
+                    </div>
+                    <div class="districts-count">${districtsCount} ta tuman/shahar</div>
+                    <div class="districts-list">
+                        ${region.districts ? region.districts.map(district => `
+                            <div class="district-item" data-coordinates="${district.coordinates[0]},${district.coordinates[1]}">
+                                <i class="fas fa-map-pin"></i> ${district.name}
+                            </div>
+                        `).join('') : ''}
+                    </div>
+                `;
+
+                card.addEventListener('click', (e) => {
+                    if (!e.target.closest('.district-item')) {
+                        this.toggleRegion(card, region);
+                    }
+                });
+
+                // Tuman elementlari uchun click event
+                card.querySelectorAll('.district-item').forEach(districtEl => {
+                    districtEl.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const coords = e.target.dataset.coordinates.split(',');
+                        this.map.setView([parseFloat(coords[0]), parseFloat(coords[1])], 12);
+
+                        // District marker qo'shish
+                        this.clearMarkers();
+                        const marker = L.marker([parseFloat(coords[0]), parseFloat(coords[1])])
+                            .addTo(this.map)
+                            .bindPopup(`<b>${e.target.textContent.replace('📍 ', '')}</b><br>${region.name}`)
+                            .openPopup();
+                        this.markers.push(marker);
+                    });
+                });
+
+                return card;
+            }
+
+            toggleRegion(card, region) {
+                const districtsList = card.querySelector('.districts-list');
+                const expandIcon = card.querySelector('.expand-icon');
+
+                if (this.activeRegion === region.id) {
+                    // Close current region
+                    card.classList.remove('active');
+                    districtsList.classList.remove('expanded');
+                    expandIcon.classList.remove('rotated');
+                    this.activeRegion = null;
+                    this.showAllRegions();
+                } else {
+                    // Close all other regions
+                    document.querySelectorAll('.region-card').forEach(otherCard => {
+                        otherCard.classList.remove('active');
+                        otherCard.querySelector('.districts-list').classList.remove('expanded');
+                        otherCard.querySelector('.expand-icon').classList.remove('rotated');
+                    });
+
+                    // Open current region
+                    card.classList.add('active');
+                    districtsList.classList.add('expanded');
+                    expandIcon.classList.add('rotated');
+                    this.activeRegion = region.id;
+                    this.focusOnRegion(region);
+                }
+            }
+
+            focusOnRegion(region) {
+                this.map.setView([region.coordinates[0], region.coordinates[1]], 8);
+                this.clearMarkers();
+
+                // Viloyat markeri
+                const regionMarker = L.marker([region.coordinates[0], region.coordinates[1]], {
+                    icon: L.divIcon({
+                        className: 'region-marker',
+                        html: '<i class="fas fa-map-marker-alt" style="color: #007bff; font-size: 24px;"></i>',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 30]
+                    })
+                }).addTo(this.map)
+                  .bindPopup(`<b>${region.name}</b><br>Viloyat markazi`)
+                  .openPopup();
+
+                this.markers.push(regionMarker);
+
+                // Tumanlar markerlari
+                if (region.districts) {
+                    region.districts.forEach(district => {
+                        const districtMarker = L.marker([district.coordinates[0], district.coordinates[1]], {
+                            icon: L.divIcon({
+                                className: 'district-marker',
+                                html: '<i class="fas fa-circle" style="color: #28a745; font-size: 12px;"></i>',
+                                iconSize: [20, 20],
+                                iconAnchor: [10, 10]
+                            })
+                        }).addTo(this.map)
+                          .bindPopup(`<b>${district.name}</b><br>${region.name}`);
+
+                        this.markers.push(districtMarker);
+                    });
+                }
+            }
+
+            showAllRegions() {
+                this.map.setView([41.2995, 64.5853], 6);
+                this.clearMarkers();
+                this.addMarkersToMap();
+            }
+
+            addMarkersToMap() {
+                this.locations.regions.forEach(region => {
+                    const marker = L.marker([region.coordinates[0], region.coordinates[1]], {
+                        icon: L.divIcon({
+                            className: 'region-marker',
+                            html: '<i class="fas fa-map-marker-alt" style="color: #dc3545; font-size: 20px;"></i>',
+                            iconSize: [25, 25],
+                            iconAnchor: [12, 25]
+                        })
+                    }).addTo(this.map)
+                      .bindPopup(`<b>${region.name}</b><br>${region.districts ? region.districts.length : 0} ta tuman`);
+
+                    this.markers.push(marker);
+                });
+            }
+
+            clearMarkers() {
+                this.markers.forEach(marker => this.map.removeLayer(marker));
+                this.markers = [];
+            }
+
+            updateStats() {
+                const totalRegions = this.locations.regions.length;
+                const totalDistricts = this.locations.regions.reduce((sum, region) =>
+                    sum + (region.districts ? region.districts.length : 0), 0);
+                const totalCities = this.locations.regions.filter(region =>
+                    region.type === 'city').length;
+
+                document.getElementById('totalRegions').textContent = totalRegions;
+                document.getElementById('totalDistricts').textContent = totalDistricts;
+                document.getElementById('totalCities').textContent = totalCities;
+            }
+
+            setupEventListeners() {
+                const searchInput = document.getElementById('searchInput');
+                searchInput.addEventListener('input', (e) => {
+                    this.filterRegions(e.target.value);
+                });
+            }
+
+            filterRegions(searchTerm) {
+                const term = searchTerm.toLowerCase();
+                const regionCards = document.querySelectorAll('.region-card');
+
+                regionCards.forEach(card => {
+                    const regionName = card.querySelector('.region-name').textContent.toLowerCase();
+                    const districts = card.querySelectorAll('.district-item');
+                    let hasMatch = regionName.includes(term);
+
+                    districts.forEach(district => {
+                        const districtName = district.textContent.toLowerCase();
+                        if (districtName.includes(term)) {
+                            hasMatch = true;
+                            district.style.backgroundColor = 'rgba(255, 193, 7, 0.3)';
+                        } else {
+                            district.style.backgroundColor = '';
+                        }
+                    });
+
+                    card.style.display = hasMatch ? 'block' : 'none';
+                });
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new LocationsManager();
+        });
+    </script>
+</body>
+</html>

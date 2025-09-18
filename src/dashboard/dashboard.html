@@ -1369,6 +1369,108 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <div class="stat-info">
+                                    <h3>Xodimlar</h3>
+                                    <div class="stat-value">${stats.staff || 1}</div>
+                                    <div class="stat-change positive">
+                                        <i class="fas fa-arrow-up"></i>
+                                        <span>Staff Management Faol</span>
+                                    </div>
+                                </div>
+                                <div class="stat-icon orange">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NEW: Enterprise Modules Section -->
+                    <div class="content-card" style="margin-bottom: 2rem;">
+                        <div class="card-header">
+                            <h2><i class="fas fa-rocket"></i> Enterprise Xususiyatlari</h2>
+                            <p>Yangi qo'shilgan professional modullar</p>
+                        </div>
+                        <div class="enterprise-modules" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+
+                            <!-- AI Module -->
+                            <div class="module-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="this.style.transform='translateY(-5px)'; setTimeout(() => this.style.transform='translateY(0)', 200); alert('🤖 AI Modullar:\\n\\n✅ Yo\\'l optimizatsiyasi\\n✅ Narx tahlili\\n✅ Talab bashorati\\n✅ Mijoz tahlili\\n\\nAPI: /api/ai/optimize');">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 1.2rem;">🤖 AI Xizmatlar</h3>
+                                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Sun'iy intellekt</p>
+                                    </div>
+                                    <i class="fas fa-brain" style="font-size: 2rem; opacity: 0.8;"></i>
+                                </div>
+                                <div style="font-size: 0.85rem; opacity: 0.9;">
+                                    ✓ Yo'l optimizatsiyasi<br>
+                                    ✓ Narx tahlili<br>
+                                    ✓ Talab bashorati
+                                </div>
+                                <div style="margin-top: 1rem; padding: 0.5rem; background: rgba(255,255,255,0.2); border-radius: 0.5rem; text-align: center; font-size: 0.8rem;">
+                                    Status: <strong>Faol ✅</strong>
+                                </div>
+                            </div>
+
+                            <!-- Payment Module -->
+                            <div class="module-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="this.style.transform='translateY(-5px)'; setTimeout(() => this.style.transform='translateY(0)', 200); alert('💳 To\\'lov Modullari:\\n\\n✅ Click integratsiya\\n✅ Payme integratsiya\\n✅ Komissiya hisoblash\\n✅ Hisob-kitob\\n\\nAPI: /api/payment/status');">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 1.2rem;">💳 To'lov Tizimlari</h3>
+                                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Click & Payme</p>
+                                    </div>
+                                    <i class="fas fa-credit-card" style="font-size: 2rem; opacity: 0.8;"></i>
+                                </div>
+                                <div style="font-size: 0.85rem; opacity: 0.9;">
+                                    ✓ Click to'lovlari<br>
+                                    ✓ Payme to'lovlari<br>
+                                    ✓ Avtomatik hisob-kitob
+                                </div>
+                                <div style="margin-top: 1rem; padding: 0.5rem; background: rgba(255,255,255,0.2); border-radius: 0.5rem; text-align: center; font-size: 0.8rem;">
+                                    Status: <strong>Faol ✅</strong>
+                                </div>
+                            </div>
+
+                            <!-- Staff Module -->
+                            <div class="module-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="window.location.href='/dashboard/staff'">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 1.2rem;">👥 Xodimlar</h3>
+                                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Staff Management</p>
+                                    </div>
+                                    <i class="fas fa-users-cog" style="font-size: 2rem; opacity: 0.8;"></i>
+                                </div>
+                                <div style="font-size: 0.85rem; opacity: 0.9;">
+                                    ✓ Rollar va huquqlar<br>
+                                    ✓ Bo'limlar boshqaruvi<br>
+                                    ✓ Faoliyat kuzatuvi
+                                </div>
+                                <div style="margin-top: 1rem; padding: 0.5rem; background: rgba(255,255,255,0.2); border-radius: 0.5rem; text-align: center; font-size: 0.8rem;">
+                                    <strong>Sahifaga o'tish →</strong>
+                                </div>
+                            </div>
+
+                            <!-- Mobile PWA -->
+                            <div class="module-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="window.open('/dashboard/mobile.html', '_blank')">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 1.2rem;">📱 Mobil Ilova</h3>
+                                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Progressive Web App</p>
+                                    </div>
+                                    <i class="fas fa-mobile-alt" style="font-size: 2rem; opacity: 0.8;"></i>
+                                </div>
+                                <div style="font-size: 0.85rem; opacity: 0.9;">
+                                    ✓ Offline ishlash<br>
+                                    ✓ Push bildirishnomalar<br>
+                                    ✓ Telefonga o'rnatish
+                                </div>
+                                <div style="margin-top: 1rem; padding: 0.5rem; background: rgba(255,255,255,0.2); border-radius: 0.5rem; text-align: center; font-size: 0.8rem;">
+                                    <strong>Ochish →</strong>
+                                </div>
+                            </div>
+
+                        </div>
                     </div>
                     <div class="content-card">
                         <div class="content-header">

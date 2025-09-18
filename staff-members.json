@@ -1,0 +1,41 @@
+[
+  {
+    "id": 1,
+    "employeeId": "EMP000001",
+    "username": "admin",
+    "password": "admin123",
+    "fullName": "Avtohabar Admin",
+    "email": "admin@avtohabar.uz",
+    "phone": "+998901234567",
+    "position": "System Administrator",
+    "department": "IT",
+    "role": "Super Admin",
+    "roleId": 1,
+    "permissions": [
+      "*.*"
+    ],
+    "salary": 15000000,
+    "hireDate": "2025-09-18T06:10:36.237Z",
+    "status": "active",
+    "schedule": {
+      "workDays": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday"
+      ],
+      "startTime": "09:00",
+      "endTime": "18:00",
+      "timeZone": "Asia/Tashkent"
+    },
+    "performance": {
+      "rating": 5,
+      "lastReview": "2025-09-18T06:10:36.237Z",
+      "goals": []
+    },
+    "createdAt": "2025-09-18T06:10:36.237Z",
+    "updatedAt": "2025-09-18T06:10:36.237Z",
+    "createdBy": 1
+  }
+]

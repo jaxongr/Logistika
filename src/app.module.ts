@@ -10,11 +10,13 @@ import { DataService } from './services/data.service';
 import { PerformanceService } from './services/performance.service';
 import { UsersService } from './services/users.service';
 import { UsersController } from './users/users.controller';
-import { StaffService } from './services/staff.service';
-import { StaffController } from './staff/staff.controller';
 import { WebSocketModule } from './websocket/websocket.module';
 import { AuthController } from './auth/auth.controller';
 import { AuthMiddleware } from './auth/auth.middleware';
+import { AIModule } from './ai/ai.module';
+import { PaymentModule } from './payment/payment.module';
+import { StaffModule } from './staff/staff.module';
+import { AnalyticsController } from './dashboard/analytics.controller';
 
 @Module({
   imports: [
@@ -33,10 +35,13 @@ import { AuthMiddleware } from './auth/auth.middleware';
       serveRoot: '/auth',
     }),
     BotModule,
-    WebSocketModule
+    WebSocketModule,
+    AIModule,
+    PaymentModule,
+    StaffModule
   ],
-  controllers: [AppController, DashboardApiController, AuthController, UsersController, StaffController],
-  providers: [AppService, DataService, PerformanceService, UsersService, StaffService],
+  controllers: [AppController, DashboardApiController, AuthController, UsersController, AnalyticsController],
+  providers: [AppService, DataService, PerformanceService, UsersService],
 })
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {

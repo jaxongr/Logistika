@@ -1,7 +1,8 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, HttpStatus, HttpException } from '@nestjs/common';
-import { StaffService, StaffMember } from '../services/staff.service';
+import { StaffService } from './staff.service';
+import { StaffMember } from './interfaces/staff.interfaces';
 
-@Controller('api/dashboard/staff')
+@Controller('api/staff')
 export class StaffController {
     constructor(private readonly staffService: StaffService) {}
 
