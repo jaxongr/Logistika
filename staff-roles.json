@@ -1,0 +1,298 @@
+[
+  {
+    "id": 1,
+    "name": "Super Admin",
+    "description": "Full system access",
+    "permissions": [
+      {
+        "id": 99,
+        "name": "Full Access",
+        "description": "Complete system access",
+        "category": "System",
+        "resource": "*",
+        "action": "all"
+      }
+    ],
+    "level": 5,
+    "isSystem": true,
+    "color": "#DC2626",
+    "createdAt": "2025-09-18T06:24:47.989Z",
+    "updatedAt": "2025-09-18T06:24:47.989Z"
+  },
+  {
+    "id": 2,
+    "name": "Manager",
+    "description": "Management access",
+    "permissions": [
+      {
+        "id": 1,
+        "name": "View Dashboard",
+        "description": "Access to main dashboard",
+        "category": "Dashboard",
+        "resource": "dashboard",
+        "action": "read"
+      },
+      {
+        "id": 2,
+        "name": "View Analytics",
+        "description": "Access to analytics data",
+        "category": "Dashboard",
+        "resource": "analytics",
+        "action": "read"
+      },
+      {
+        "id": 10,
+        "name": "View Orders",
+        "description": "View order listings",
+        "category": "Orders",
+        "resource": "orders",
+        "action": "read"
+      },
+      {
+        "id": 11,
+        "name": "Create Orders",
+        "description": "Create new orders",
+        "category": "Orders",
+        "resource": "orders",
+        "action": "create"
+      },
+      {
+        "id": 12,
+        "name": "Update Orders",
+        "description": "Modify existing orders",
+        "category": "Orders",
+        "resource": "orders",
+        "action": "update"
+      },
+      {
+        "id": 13,
+        "name": "Delete Orders",
+        "description": "Delete orders",
+        "category": "Orders",
+        "resource": "orders",
+        "action": "delete"
+      },
+      {
+        "id": 20,
+        "name": "View Drivers",
+        "description": "View driver information",
+        "category": "Drivers",
+        "resource": "drivers",
+        "action": "read"
+      },
+      {
+        "id": 21,
+        "name": "Manage Drivers",
+        "description": "Add/edit driver information",
+        "category": "Drivers",
+        "resource": "drivers",
+        "action": "update"
+      },
+      {
+        "id": 30,
+        "name": "View Customers",
+        "description": "View customer information",
+        "category": "Customers",
+        "resource": "customers",
+        "action": "read"
+      },
+      {
+        "id": 31,
+        "name": "Manage Customers",
+        "description": "Add/edit customer information",
+        "category": "Customers",
+        "resource": "customers",
+        "action": "update"
+      },
+      {
+        "id": 40,
+        "name": "View Finances",
+        "description": "View financial data",
+        "category": "Finance",
+        "resource": "finance",
+        "action": "read"
+      },
+      {
+        "id": 41,
+        "name": "Manage Payments",
+        "description": "Process payments",
+        "category": "Finance",
+        "resource": "payments",
+        "action": "update"
+      },
+      {
+        "id": 42,
+        "name": "View Reports",
+        "description": "Access financial reports",
+        "category": "Finance",
+        "resource": "reports",
+        "action": "read"
+      },
+      {
+        "id": 50,
+        "name": "View Staff",
+        "description": "View staff information",
+        "category": "Staff",
+        "resource": "staff",
+        "action": "read"
+      },
+      {
+        "id": 51,
+        "name": "Manage Staff",
+        "description": "Add/edit staff members",
+        "category": "Staff",
+        "resource": "staff",
+        "action": "update"
+      },
+      {
+        "id": 52,
+        "name": "Manage Roles",
+        "description": "Create and modify roles",
+        "category": "Staff",
+        "resource": "roles",
+        "action": "all"
+      },
+      {
+        "id": 61,
+        "name": "Audit Logs",
+        "description": "View audit logs",
+        "category": "System",
+        "resource": "audit",
+        "action": "read"
+      }
+    ],
+    "level": 4,
+    "isSystem": true,
+    "color": "#2563EB",
+    "createdAt": "2025-09-18T06:24:47.991Z",
+    "updatedAt": "2025-09-18T06:24:47.991Z"
+  },
+  {
+    "id": 3,
+    "name": "Supervisor",
+    "description": "Supervisory access",
+    "permissions": [
+      {
+        "id": 1,
+        "name": "View Dashboard",
+        "description": "Access to main dashboard",
+        "category": "Dashboard",
+        "resource": "dashboard",
+        "action": "read"
+      },
+      {
+        "id": 2,
+        "name": "View Analytics",
+        "description": "Access to analytics data",
+        "category": "Dashboard",
+        "resource": "analytics",
+        "action": "read"
+      },
+      {
+        "id": 10,
+        "name": "View Orders",
+        "description": "View order listings",
+        "category": "Orders",
+        "resource": "orders",
+        "action": "read"
+      },
+      {
+        "id": 11,
+        "name": "Create Orders",
+        "description": "Create new orders",
+        "category": "Orders",
+        "resource": "orders",
+        "action": "create"
+      },
+      {
+        "id": 12,
+        "name": "Update Orders",
+        "description": "Modify existing orders",
+        "category": "Orders",
+        "resource": "orders",
+        "action": "update"
+      },
+      {
+        "id": 20,
+        "name": "View Drivers",
+        "description": "View driver information",
+        "category": "Drivers",
+        "resource": "drivers",
+        "action": "read"
+      },
+      {
+        "id": 21,
+        "name": "Manage Drivers",
+        "description": "Add/edit driver information",
+        "category": "Drivers",
+        "resource": "drivers",
+        "action": "update"
+      },
+      {
+        "id": 30,
+        "name": "View Customers",
+        "description": "View customer information",
+        "category": "Customers",
+        "resource": "customers",
+        "action": "read"
+      },
+      {
+        "id": 31,
+        "name": "Manage Customers",
+        "description": "Add/edit customer information",
+        "category": "Customers",
+        "resource": "customers",
+        "action": "update"
+      }
+    ],
+    "level": 3,
+    "isSystem": true,
+    "color": "#059669",
+    "createdAt": "2025-09-18T06:24:47.991Z",
+    "updatedAt": "2025-09-18T06:24:47.991Z"
+  },
+  {
+    "id": 4,
+    "name": "Employee",
+    "description": "Basic employee access",
+    "permissions": [
+      {
+        "id": 1,
+        "name": "View Dashboard",
+        "description": "Access to main dashboard",
+        "category": "Dashboard",
+        "resource": "dashboard",
+        "action": "read"
+      },
+      {
+        "id": 2,
+        "name": "View Analytics",
+        "description": "Access to analytics data",
+        "category": "Dashboard",
+        "resource": "analytics",
+        "action": "read"
+      },
+      {
+        "id": 10,
+        "name": "View Orders",
+        "description": "View order listings",
+        "category": "Orders",
+        "resource": "orders",
+        "action": "read"
+      },
+      {
+        "id": 30,
+        "name": "View Customers",
+        "description": "View customer information",
+        "category": "Customers",
+        "resource": "customers",
+        "action": "read"
+      }
+    ],
+    "level": 2,
+    "isSystem": true,
+    "color": "#7C3AED",
+    "createdAt": "2025-09-18T06:24:47.992Z",
+    "updatedAt": "2025-09-18T06:24:47.992Z"
+  }
+]

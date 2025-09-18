@@ -65,7 +65,10 @@
       "Bash(ssh:*)",
       "Bash(set PORT=3004)",
       "Bash(tar:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(echo:*)",
+      "Bash(md5sum:*)",
+      "Bash(start http://localhost:3004/dashboard?v=2)"
     ],
     "deny": [],
     "ask": []

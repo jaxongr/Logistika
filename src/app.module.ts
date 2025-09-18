@@ -16,6 +16,9 @@ import { AuthMiddleware } from './auth/auth.middleware';
 import { AIModule } from './ai/ai.module';
 import { PaymentModule } from './payment/payment.module';
 import { StaffModule } from './staff/staff.module';
+import { CommissionModule } from './commission/commission.module';
+import { DriverPaymentsModule } from './driver-payments/driver-payments.module';
+import { SettingsModule } from './settings/settings.module';
 import { AnalyticsController } from './dashboard/analytics.controller';
 
 @Module({
@@ -38,7 +41,10 @@ import { AnalyticsController } from './dashboard/analytics.controller';
     WebSocketModule,
     AIModule,
     PaymentModule,
-    StaffModule
+    StaffModule,
+    CommissionModule,
+    DriverPaymentsModule,
+    SettingsModule
   ],
   controllers: [AppController, DashboardApiController, AuthController, UsersController, AnalyticsController],
   providers: [AppService, DataService, PerformanceService, UsersService],

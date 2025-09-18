@@ -197,10 +197,28 @@
       "assignedDriverId": 6099086283,
       "acceptedDate": "2025-09-15T14:37:18.103Z",
       "completedDate": "2025-09-15T14:37:24.900Z"
+    },
+    "cargo_1758175682134_dashboard": {
+      "id": "cargo_1758175682134_dashboard",
+      "userId": 0,
+      "username": "Admin Dashboard",
+      "customerName": "Admin Dashboard",
+      "fromCity": "Toshkent",
+      "toCity": "Andijon",
+      "cargoType": "10 tonna taxta bor",
+      "truckInfo": "Kamaz",
+      "price": 2000000,
+      "description": "[Vazn: 10 tonna]",
+      "phone": "+998945642233",
+      "date": "2025-09-18",
+      "status": "active",
+      "loadingDate": "2025-09-19",
+      "adminCreated": true,
+      "createdAt": "2025-09-18T06:08:02.136Z"
     }
   },
   "customerOrderHistory": {},
   "driverPerformance": {},
   "activeOrders": {},
-  "timestamp": "2025-09-17T10:31:25.531Z"
+  "timestamp": "2025-09-18T06:08:02.140Z"
 }
