@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import * as fs from 'fs';
 import * as path from 'path';
 
-interface DriverBalance {
+export interface DriverBalance {
     driverId: string;
     driverName: string;
     balance: number;
@@ -17,7 +17,7 @@ interface DriverBalance {
     };
 }
 
-interface PaymentHistory {
+export interface PaymentHistory {
     id: string;
     driverId: string;
     type: 'payment' | 'withdrawal' | 'commission' | 'order_payment';

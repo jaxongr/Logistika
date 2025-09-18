@@ -2,13 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 
-interface CommissionRates {
+export interface CommissionRates {
     standard: number;
     premium: number;
     lastUpdated: string;
 }
 
-interface DriverCommission {
+export interface DriverCommission {
     driverId: string;
     driverName: string;
     totalEarnings: number;

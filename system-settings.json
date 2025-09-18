@@ -1,0 +1,33 @@
+{
+  "bot": {
+    "botName": "@yoldauz_yukbot",
+    "autoResponse": true,
+    "welcomeMessage": "Assalomu alaykum! Yuk tashish xizmatiga xush kelibsiz.",
+    "workingHours": {
+      "start": "09:00",
+      "end": "18:00",
+      "timezone": "Asia/Tashkent"
+    },
+    "notificationSettings": {
+      "newOrders": true,
+      "paymentConfirmations": true,
+      "driverUpdates": true
+    }
+  },
+  "pricing": {
+    "minimumRate": 2000,
+    "baseRate": 2500,
+    "nightSurcharge": 20,
+    "weekendSurcharge": 15,
+    "longDistanceSurcharge": 10,
+    "fuelSurcharge": 5,
+    "additionalServiceRate": 10,
+    "currency": "UZS"
+  },
+  "commission": {
+    "standard": 15,
+    "premium": 12
+  },
+  "createdAt": "2025-09-18T07:04:03.836Z",
+  "lastUpdated": "2025-09-18T07:04:03.836Z"
+}
