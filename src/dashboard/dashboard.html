@@ -1548,7 +1548,7 @@
                             </div>
 
                             <!-- Order History -->
-                            <div class="module-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="window.location.href='/dashboard/history.html'">
+                            <div class="module-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease; box-shadow: 0 8px 32px rgba(17, 153, 142, 0.4); border: 1px solid rgba(255, 255, 255, 0.1);" onclick="showOrderHistory()">
                                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
                                     <div>
                                         <h3 style="margin: 0; font-size: 1.2rem;">📚 Buyurtmalar Tarixi</h3>
@@ -6764,6 +6764,167 @@
             } catch (error) {
                 console.error('Commission history error:', error);
                 alert('❌ Komissiya tarixini yuklashda xatolik yuz berdi');
+            }
+        }
+
+        // Order History Function
+        async function showOrderHistory() {
+            try {
+                // Show loading
+                const loadingModal = document.createElement('div');
+                loadingModal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+                loadingModal.innerHTML = `
+                    <div style="background: white; padding: 2rem; border-radius: 1rem; text-align: center;">
+                        <div style="width: 2rem; height: 2rem; border: 3px solid #e5e7eb; border-left: 3px solid #11998e; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+                        <p>Buyurtmalar tarixi yuklanmoqda...</p>
+                    </div>
+                `;
+                document.body.appendChild(loadingModal);
+
+                // Fetch order history
+                const response = await fetch('/api/dashboard/orders?limit=100');
+                const result = await response.json();
+
+                // Remove loading
+                loadingModal.remove();
+
+                if (result.success) {
+                    const orders = result.data || [];
+
+                    // Create orders table
+                    const ordersTable = orders.length > 0 ? orders.map(order => `
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 0.75rem; font-family: monospace; font-size: 0.75rem; font-weight: 600; color: #3b82f6;">${order.id}</td>
+                            <td style="padding: 0.75rem;">${order.customer || order.customerName || 'Noma\\'lum'}</td>
+                            <td style="padding: 0.75rem; font-weight: 500;">${order.route}</td>
+                            <td style="padding: 0.75rem;">${order.cargoType}</td>
+                            <td style="padding: 0.75rem; font-weight: 600; color: #059669;">${formatCurrency(order.amount || order.price || 0)}</td>
+                            <td style="padding: 0.75rem;">
+                                <span style="padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 500;
+                                    ${order.status === 'active' ? 'background: #fef3c7; color: #92400e;' :
+                                      order.status === 'completed' ? 'background: #d1fae5; color: #065f46;' :
+                                      'background: #fee2e2; color: #991b1b;'}">
+                                    ${order.status === 'active' ? '🟡 Faol' :
+                                      order.status === 'completed' ? '✅ Tugallangan' :
+                                      '❌ Bekor qilingan'}
+                                </span>
+                            </td>
+                            <td style="padding: 0.75rem; font-size: 0.75rem; color: #6b7280;">${order.date || 'Noma\\'lum'}</td>
+                        </tr>
+                    `).join('') : `
+                        <tr>
+                            <td colspan="7" style="padding: 2rem; text-align: center; color: #6b7280;">
+                                <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                                Hali buyurtmalar mavjud emas
+                            </td>
+                        </tr>
+                    `;
+
+                    // Calculate statistics
+                    const stats = {
+                        total: orders.length,
+                        active: orders.filter(o => o.status === 'active').length,
+                        completed: orders.filter(o => o.status === 'completed').length,
+                        cancelled: orders.filter(o => o.status === 'cancelled').length,
+                        totalRevenue: orders.reduce((sum, o) => sum + (o.amount || o.price || 0), 0)
+                    };
+
+                    // Show order history modal
+                    const modal = document.createElement('div');
+                    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem;';
+
+                    modal.innerHTML = `
+                        <div style="background: white; border-radius: 1rem; max-width: 1400px; width: 95%; max-height: 90vh; overflow-y: auto;">
+                            <!-- Header -->
+                            <div style="padding: 1.5rem; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border-radius: 1rem 1rem 0 0;">
+                                <div>
+                                    <h2 style="margin: 0; font-size: 1.5rem;">📚 Buyurtmalar Tarixi</h2>
+                                    <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">Barcha buyurtmalar va ularning holati</p>
+                                </div>
+                                <button onclick="this.closest('[style*=\"position: fixed\"]').remove()" style="background: rgba(255,255,255,0.2); border: none; width: 2.5rem; height: 2.5rem; border-radius: 50%; color: white; font-size: 1.25rem; cursor: pointer;">×</button>
+                            </div>
+
+                            <!-- Statistics -->
+                            <div style="padding: 1.5rem; background: #f9fafb; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                                <div style="background: white; padding: 1rem; border-radius: 0.75rem; border-left: 4px solid #3b82f6;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #3b82f6;">${stats.total}</div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">Jami buyurtmalar</div>
+                                </div>
+                                <div style="background: white; padding: 1rem; border-radius: 0.75rem; border-left: 4px solid #f59e0b;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #f59e0b;">${stats.active}</div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">Faol buyurtmalar</div>
+                                </div>
+                                <div style="background: white; padding: 1rem; border-radius: 0.75rem; border-left: 4px solid #059669;">
+                                    <div style="font-size: 1.5rem; font-weight: 700; color: #059669;">${stats.completed}</div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">Tugallangan</div>
+                                </div>
+                                <div style="background: white; padding: 1rem; border-radius: 0.75rem; border-left: 4px solid #11998e;">
+                                    <div style="font-size: 1.25rem; font-weight: 700; color: #11998e;">${formatCurrency(stats.totalRevenue)}</div>
+                                    <div style="font-size: 0.875rem; color: #6b7280;">Jami daromad</div>
+                                </div>
+                            </div>
+
+                            <!-- Orders Table -->
+                            <div style="padding: 1.5rem;">
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                                        <thead>
+                                            <tr style="background: #f9fafb;">
+                                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">ID</th>
+                                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Mijoz</th>
+                                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Yo'nalish</th>
+                                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Yuk turi</th>
+                                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Narx</th>
+                                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Holat</th>
+                                                <th style="padding: 0.75rem; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Sana</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${ordersTable}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div style="padding: 1.5rem; border-top: 1px solid #e5e7eb; display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+                                <button onclick="exportOrderHistory()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #11998e, #38ef7d); color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fas fa-download"></i> Excel yuklash
+                                </button>
+                                <button onclick="refreshOrderHistory()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #3b82f6, #1e40af); color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fas fa-sync"></i> Yangilash
+                                </button>
+                            </div>
+                        </div>
+                    `;
+
+                    document.body.appendChild(modal);
+
+                    // Close on overlay click
+                    modal.addEventListener('click', (e) => {
+                        if (e.target === modal) modal.remove();
+                    });
+
+                } else {
+                    alert('❌ Buyurtmalar tarixini yuklashda xatolik yuz berdi');
+                }
+
+            } catch (error) {
+                console.error('Order history error:', error);
+                alert('❌ Buyurtmalar tarixini yuklashda xatolik yuz berdi');
+            }
+        }
+
+        // Order history helper functions
+        async function exportOrderHistory() {
+            alert('📊 Excel yuklash - tez orada...');
+        }
+
+        async function refreshOrderHistory() {
+            const modal = document.querySelector('[style*="position: fixed"]');
+            if (modal) {
+                modal.remove();
+                setTimeout(() => showOrderHistory(), 300);
             }
         }
 
