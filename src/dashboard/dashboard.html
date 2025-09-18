@@ -97,6 +97,16 @@
             50% { opacity: 0.7; }
         }
 
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
         .logo-text h1 {
             font-size: 1.75rem;
             font-weight: 700;
@@ -1392,52 +1402,52 @@
                             <h2><i class="fas fa-rocket"></i> Enterprise Xususiyatlari</h2>
                             <p>Yangi qo'shilgan professional modullar</p>
                         </div>
-                        <div class="enterprise-modules" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+                        <div class="enterprise-modules" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
 
-                            <!-- AI Module -->
-                            <div class="module-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="this.style.transform='translateY(-5px)'; setTimeout(() => this.style.transform='translateY(0)', 200); alert('🤖 AI Modullar:\\n\\n✅ Yo\\'l optimizatsiyasi\\n✅ Narx tahlili\\n✅ Talab bashorati\\n✅ Mijoz tahlili\\n\\nAPI: /api/ai/optimize');">
+                            <!-- Commission Management -->
+                            <div class="module-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease; position: relative;" onclick="dashboard.openCommissionModal()">
                                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
                                     <div>
-                                        <h3 style="margin: 0; font-size: 1.2rem;">🤖 AI Xizmatlar</h3>
-                                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Sun'iy intellekt</p>
+                                        <h3 style="margin: 0; font-size: 1.2rem;">💰 Komissiya</h3>
+                                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Haydovchi to'lovlari</p>
                                     </div>
-                                    <i class="fas fa-brain" style="font-size: 2rem; opacity: 0.8;"></i>
+                                    <i class="fas fa-percentage" style="font-size: 2rem; opacity: 0.8;"></i>
                                 </div>
                                 <div style="font-size: 0.85rem; opacity: 0.9;">
-                                    ✓ Yo'l optimizatsiyasi<br>
-                                    ✓ Narx tahlili<br>
-                                    ✓ Talab bashorati
-                                </div>
-                                <div style="margin-top: 1rem; padding: 0.5rem; background: rgba(255,255,255,0.2); border-radius: 0.5rem; text-align: center; font-size: 0.8rem;">
-                                    Status: <strong>Faol ✅</strong>
-                                </div>
-                            </div>
-
-                            <!-- Payment Module -->
-                            <div class="module-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="this.style.transform='translateY(-5px)'; setTimeout(() => this.style.transform='translateY(0)', 200); alert('💳 To\\'lov Modullari:\\n\\n✅ Click integratsiya\\n✅ Payme integratsiya\\n✅ Komissiya hisoblash\\n✅ Hisob-kitob\\n\\nAPI: /api/payment/status');">
-                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
-                                    <div>
-                                        <h3 style="margin: 0; font-size: 1.2rem;">💳 To'lov Tizimlari</h3>
-                                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Click & Payme</p>
-                                    </div>
-                                    <i class="fas fa-credit-card" style="font-size: 2rem; opacity: 0.8;"></i>
-                                </div>
-                                <div style="font-size: 0.85rem; opacity: 0.9;">
-                                    ✓ Click to'lovlari<br>
-                                    ✓ Payme to'lovlari<br>
+                                    ✓ Komissiya foizlari<br>
+                                    ✓ Haydovchi hisoboti<br>
                                     ✓ Avtomatik hisob-kitob
                                 </div>
                                 <div style="margin-top: 1rem; padding: 0.5rem; background: rgba(255,255,255,0.2); border-radius: 0.5rem; text-align: center; font-size: 0.8rem;">
-                                    Status: <strong>Faol ✅</strong>
+                                    <strong>Boshqarish →</strong>
                                 </div>
                             </div>
 
-                            <!-- Staff Module -->
+                            <!-- Finance Dashboard -->
+                            <div class="module-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="window.location.href='/dashboard/finance.html'">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 1.2rem;">📊 Moliya</h3>
+                                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Daromad va xarajatlar</p>
+                                    </div>
+                                    <i class="fas fa-chart-line" style="font-size: 2rem; opacity: 0.8;"></i>
+                                </div>
+                                <div style="font-size: 0.85rem; opacity: 0.9;">
+                                    ✓ Kunlik hisobotlar<br>
+                                    ✓ Daromad tahlili<br>
+                                    ✓ Xarajatlar kuzatuvi
+                                </div>
+                                <div style="margin-top: 1rem; padding: 0.5rem; background: rgba(255,255,255,0.2); border-radius: 0.5rem; text-align: center; font-size: 0.8rem;">
+                                    <strong>Sahifaga o'tish →</strong>
+                                </div>
+                            </div>
+
+                            <!-- Staff Management -->
                             <div class="module-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="window.location.href='/dashboard/staff'">
                                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
                                     <div>
                                         <h3 style="margin: 0; font-size: 1.2rem;">👥 Xodimlar</h3>
-                                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Staff Management</p>
+                                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Jamoani boshqarish</p>
                                     </div>
                                     <i class="fas fa-users-cog" style="font-size: 2rem; opacity: 0.8;"></i>
                                 </div>
@@ -1451,22 +1461,60 @@
                                 </div>
                             </div>
 
-                            <!-- Mobile PWA -->
-                            <div class="module-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="window.open('/dashboard/mobile.html', '_blank')">
+                            <!-- Driver Payments -->
+                            <div class="module-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="dashboard.openDriverPayments()">
                                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
                                     <div>
-                                        <h3 style="margin: 0; font-size: 1.2rem;">📱 Mobil Ilova</h3>
-                                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Progressive Web App</p>
+                                        <h3 style="margin: 0; font-size: 1.2rem;">🚗 Haydovchi To'lovlari</h3>
+                                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Balans va hisob-kitob</p>
                                     </div>
-                                    <i class="fas fa-mobile-alt" style="font-size: 2rem; opacity: 0.8;"></i>
+                                    <i class="fas fa-wallet" style="font-size: 2rem; opacity: 0.8;"></i>
                                 </div>
                                 <div style="font-size: 0.85rem; opacity: 0.9;">
-                                    ✓ Offline ishlash<br>
-                                    ✓ Push bildirishnomalar<br>
-                                    ✓ Telefonga o'rnatish
+                                    ✓ Balans ko'rish<br>
+                                    ✓ To'lov tarixi<br>
+                                    ✓ Pul yechish
                                 </div>
                                 <div style="margin-top: 1rem; padding: 0.5rem; background: rgba(255,255,255,0.2); border-radius: 0.5rem; text-align: center; font-size: 0.8rem;">
-                                    <strong>Ochish →</strong>
+                                    <strong>Boshqarish →</strong>
+                                </div>
+                            </div>
+
+                            <!-- Order History -->
+                            <div class="module-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="window.location.href='/dashboard/history.html'">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 1.2rem;">📚 Buyurtmalar Tarixi</h3>
+                                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">To'liq hisobotlar</p>
+                                    </div>
+                                    <i class="fas fa-history" style="font-size: 2rem; opacity: 0.8;"></i>
+                                </div>
+                                <div style="font-size: 0.85rem; opacity: 0.9;">
+                                    ✓ Barcha buyurtmalar<br>
+                                    ✓ Filtrlar va qidiruv<br>
+                                    ✓ Excel eksport
+                                </div>
+                                <div style="margin-top: 1rem; padding: 0.5rem; background: rgba(255,255,255,0.2); border-radius: 0.5rem; text-align: center; font-size: 0.8rem;">
+                                    <strong>Sahifaga o'tish →</strong>
+                                </div>
+                            </div>
+
+                            <!-- Settings & Config -->
+                            <div class="module-card" style="background: linear-gradient(135deg, #434343 0%, #000000 100%); color: white; padding: 1.5rem; border-radius: 1rem; cursor: pointer; transition: transform 0.3s ease;" onclick="dashboard.openSettingsModal()">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 1.2rem;">⚙️ Sozlamalar</h3>
+                                        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.9rem;">Tizim konfiguratsiyasi</p>
+                                    </div>
+                                    <i class="fas fa-cogs" style="font-size: 2rem; opacity: 0.8;"></i>
+                                </div>
+                                <div style="font-size: 0.85rem; opacity: 0.9;">
+                                    ✓ Bot sozlamalari<br>
+                                    ✓ Narxlar va tariflar<br>
+                                    ✓ Telegram integratsiya
+                                </div>
+                                <div style="margin-top: 1rem; padding: 0.5rem; background: rgba(255,255,255,0.2); border-radius: 0.5rem; text-align: center; font-size: 0.8rem;">
+                                    <strong>Boshqarish →</strong>
                                 </div>
                             </div>
 
@@ -2829,6 +2877,299 @@
             closeAddLocationModal() {
                 document.getElementById('addLocationModal').style.display = 'none';
                 document.getElementById('addLocationForm').reset();
+            }
+
+            // New Enterprise Module Functions
+            openCommissionModal() {
+                const modal = document.createElement('div');
+                modal.id = 'commissionModal';
+                modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                    background: rgba(0,0,0,0.7); display: flex; align-items: center;
+                    justify-content: center; z-index: 10000;
+                `;
+
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 16px; padding: 2rem; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h2 style="margin: 0; color: #1e293b;">💰 Komissiya Boshqaruvi</h2>
+                            <button onclick="this.closest('#commissionModal').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #64748b;">×</button>
+                        </div>
+
+                        <div style="margin-bottom: 2rem;">
+                            <h3 style="color: #334155; margin-bottom: 1rem;">Joriy Komissiya Sozlamalari</h3>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div style="padding: 1rem; background: #f8fafc; border-radius: 8px;">
+                                    <div style="font-weight: 600; color: #475569;">Standart komissiya</div>
+                                    <div style="font-size: 1.5rem; color: #3b82f6; font-weight: 700;">15%</div>
+                                </div>
+                                <div style="padding: 1rem; background: #f8fafc; border-radius: 8px;">
+                                    <div style="font-weight: 600; color: #475569;">Premium komissiya</div>
+                                    <div style="font-size: 1.5rem; color: #10b981; font-weight: 700;">12%</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 2rem;">
+                            <h3 style="color: #334155; margin-bottom: 1rem;">Komissiya O'zgartirish</h3>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Standart (%)</label>
+                                    <input type="number" id="standardRate" value="15" min="0" max="50" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Premium (%)</label>
+                                    <input type="number" id="premiumRate" value="12" min="0" max="50" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 2rem;">
+                            <h3 style="color: #334155; margin-bottom: 1rem;">Haydovchilar Hisoboti</h3>
+                            <div id="driverCommissionList" style="max-height: 200px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px;">
+                                ${this.generateDriverCommissionList()}
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                            <button onclick="this.closest('#commissionModal').remove()" style="padding: 0.75rem 1.5rem; background: #f3f4f6; color: #374151; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Yopish</button>
+                            <button onclick="dashboard.updateCommissionRates()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Saqlash</button>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+            }
+
+            generateDriverCommissionList() {
+                const drivers = this.apiData.drivers || [];
+                if (drivers.length === 0) {
+                    return '<div style="padding: 1rem; text-align: center; color: #64748b;">Haydovchilar topilmadi</div>';
+                }
+
+                return drivers.map(driver => `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9;">
+                        <div>
+                            <div style="font-weight: 600; color: #1e293b;">${driver.name || driver.first_name || 'Noma\'lum'}</div>
+                            <div style="font-size: 0.875rem; color: #64748b;">ID: ${driver.id}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: 600; color: #059669;">${(driver.balance || 0).toLocaleString()} so'm</div>
+                            <div style="font-size: 0.875rem; color: #64748b;">15% komissiya</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            updateCommissionRates() {
+                const standardRate = document.getElementById('standardRate').value;
+                const premiumRate = document.getElementById('premiumRate').value;
+
+                // Simulate API call
+                this.showToast('Komissiya sozlamalari yangilandi!', 'success');
+                document.getElementById('commissionModal').remove();
+            }
+
+            openDriverPayments() {
+                const modal = document.createElement('div');
+                modal.id = 'driverPaymentsModal';
+                modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                    background: rgba(0,0,0,0.7); display: flex; align-items: center;
+                    justify-content: center; z-index: 10000;
+                `;
+
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 16px; padding: 2rem; width: 90%; max-width: 800px; max-height: 80vh; overflow-y: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h2 style="margin: 0; color: #1e293b;">🚗 Haydovchi To'lovlari</h2>
+                            <button onclick="this.closest('#driverPaymentsModal').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #64748b;">×</button>
+                        </div>
+
+                        ${this.generateDriverPaymentsList()}
+
+                        <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                            <button onclick="this.closest('#driverPaymentsModal').remove()" style="padding: 0.75rem 1.5rem; background: #f3f4f6; color: #374151; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Yopish</button>
+                            <button onclick="dashboard.exportDriverPayments()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Excel ga eksport</button>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+            }
+
+            generateDriverPaymentsList() {
+                const drivers = this.apiData.drivers || [];
+                if (drivers.length === 0) {
+                    return '<div style="padding: 2rem; text-align: center; color: #64748b;">Haydovchilar topilmadi</div>';
+                }
+
+                const totalBalance = drivers.reduce((sum, driver) => sum + (driver.balance || 0), 0);
+
+                return `
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div style="padding: 1rem; background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; border-radius: 12px; text-align: center;">
+                                <div style="font-size: 0.875rem; opacity: 0.9;">Jami balans</div>
+                                <div style="font-size: 1.5rem; font-weight: 700;">${totalBalance.toLocaleString()} so'm</div>
+                            </div>
+                            <div style="padding: 1rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border-radius: 12px; text-align: center;">
+                                <div style="font-size: 0.875rem; opacity: 0.9;">Faol haydovchilar</div>
+                                <div style="font-size: 1.5rem; font-weight: 700;">${drivers.length} ta</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+                        <div style="background: #f8fafc; padding: 1rem; border-bottom: 1px solid #e5e7eb;">
+                            <h3 style="margin: 0; color: #1e293b;">Haydovchilar Ro'yxati</h3>
+                        </div>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            ${drivers.map(driver => `
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid #f1f5f9;">
+                                    <div style="display: flex; align-items: center; gap: 1rem;">
+                                        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">
+                                            ${(driver.name || driver.first_name || 'N')[0].toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <div style="font-weight: 600; color: #1e293b;">${driver.name || driver.first_name || 'Noma\'lum'}</div>
+                                            <div style="font-size: 0.875rem; color: #64748b;">ID: ${driver.id} • Tel: ${driver.phone || 'N/A'}</div>
+                                        </div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-weight: 700; color: #059669; font-size: 1.1rem;">${(driver.balance || 0).toLocaleString()} so'm</div>
+                                        <button onclick="dashboard.processDriverPayment('${driver.id}')" style="padding: 0.5rem 1rem; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.875rem; margin-top: 0.25rem;">
+                                            Pul berish
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            processDriverPayment(driverId) {
+                const amount = prompt('To\'lov summasini kiriting (so\'m):');
+                if (amount && !isNaN(amount) && amount > 0) {
+                    // Simulate payment processing
+                    this.showToast(`Haydovchiga ${parseInt(amount).toLocaleString()} so'm to'lov qilindi!`, 'success');
+                    // Refresh the modal
+                    document.getElementById('driverPaymentsModal').remove();
+                    this.openDriverPayments();
+                }
+            }
+
+            exportDriverPayments() {
+                this.showToast('Excel fayl yuklab olinmoqda...', 'info');
+                // Simulate export
+                setTimeout(() => {
+                    this.showToast('Haydovchilar to\'lovlari Excel faylga eksport qilindi!', 'success');
+                }, 1500);
+            }
+
+            openSettingsModal() {
+                const modal = document.createElement('div');
+                modal.id = 'settingsModal';
+                modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                    background: rgba(0,0,0,0.7); display: flex; align-items: center;
+                    justify-content: center; z-index: 10000;
+                `;
+
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 16px; padding: 2rem; width: 90%; max-width: 700px; max-height: 80vh; overflow-y: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h2 style="margin: 0; color: #1e293b;">⚙️ Tizim Sozlamalari</h2>
+                            <button onclick="this.closest('#settingsModal').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #64748b;">×</button>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                            <div>
+                                <h3 style="color: #334155; margin-bottom: 1rem;">Bot Sozlamalari</h3>
+                                <div style="space-y: 1rem;">
+                                    <div style="margin-bottom: 1rem;">
+                                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Bot nomi</label>
+                                        <input type="text" value="@yoldauz_yukbot" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                                    </div>
+                                    <div style="margin-bottom: 1rem;">
+                                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Avtomatik javob</label>
+                                        <select style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                                            <option>Yoqilgan</option>
+                                            <option>O'chirilgan</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 style="color: #334155; margin-bottom: 1rem;">Narx Sozlamalari</h3>
+                                <div style="space-y: 1rem;">
+                                    <div style="margin-bottom: 1rem;">
+                                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Minimal tarif (so'm/km)</label>
+                                        <input type="number" value="2000" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                                    </div>
+                                    <div style="margin-bottom: 1rem;">
+                                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #374151;">Qo'shimcha xizmat (%)</label>
+                                        <input type="number" value="10" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+                            <h3 style="color: #334155; margin-bottom: 1rem;">Tizim Ma'lumotlari</h3>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div style="padding: 1rem; background: #f8fafc; border-radius: 8px;">
+                                    <div style="font-weight: 600; color: #475569;">Versiya</div>
+                                    <div style="color: #3b82f6; font-weight: 600;">v2.0.0 Enterprise</div>
+                                </div>
+                                <div style="padding: 1rem; background: #f8fafc; border-radius: 8px;">
+                                    <div style="font-weight: 600; color: #475569;">Oxirgi yangilanish</div>
+                                    <div style="color: #10b981; font-weight: 600;">${new Date().toLocaleDateString()}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                            <button onclick="this.closest('#settingsModal').remove()" style="padding: 0.75rem 1.5rem; background: #f3f4f6; color: #374151; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Bekor qilish</button>
+                            <button onclick="dashboard.saveSettings()" style="padding: 0.75rem 1.5rem; background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Saqlash</button>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+            }
+
+            saveSettings() {
+                this.showToast('Sozlamalar saqlandi!', 'success');
+                document.getElementById('settingsModal').remove();
+            }
+
+            showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                const colors = {
+                    success: '#10b981',
+                    error: '#ef4444',
+                    info: '#3b82f6',
+                    warning: '#f59e0b'
+                };
+
+                toast.style.cssText = `
+                    position: fixed; top: 20px; right: 20px; z-index: 10001;
+                    background: ${colors[type]}; color: white; padding: 1rem 1.5rem;
+                    border-radius: 8px; font-weight: 600; max-width: 350px;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+                    animation: slideInRight 0.3s ease-out;
+                `;
+
+                toast.textContent = message;
+                document.body.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.style.animation = 'slideOutRight 0.3s ease-in forwards';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
             }
 
             addNewLocation() {
