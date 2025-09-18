@@ -112,4 +112,15 @@ export class DashboardGateway implements OnGatewayConnection, OnGatewayDisconnec
   hasConnectedClients(): boolean {
     return this.connectedClients.size > 0;
   }
+
+  // Force refresh orders list in dashboard
+  broadcastOrdersRefresh() {
+    if (this.hasConnectedClients()) {
+      this.logger.log('🔄 Broadcasting orders refresh to dashboard');
+      this.server.emit('orders-refresh', {
+        message: 'Orders list updated, please refresh',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
 }

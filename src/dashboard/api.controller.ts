@@ -1554,4 +1554,50 @@ export class DashboardApiController {
             };
         }
     }
+
+    @Post('cleanup-stuck-orders')
+    async cleanupStuckOrders() {
+        try {
+            console.log('🧹 Manual cleanup requested from dashboard');
+
+            const result = await this.botService.forceCleanupStuckOrders();
+
+            return {
+                success: result.success,
+                message: result.success ? 'Qatib qolgan buyurtmalar tozalandi' : 'Xatolik yuz berdi',
+                cleaned: result.cleaned,
+                errors: result.errors
+            };
+        } catch (error) {
+            console.error('❌ Error in manual cleanup:', error);
+            return {
+                success: false,
+                error: 'Tozalashda xatolik yuz berdi',
+                message: error.message
+            };
+        }
+    }
+
+    @Post('clear-all-orders')
+    async clearAllOrders() {
+        try {
+            console.log('🗑️ Clear all orders requested from dashboard');
+
+            const result = await this.botService.clearAllActiveOrders();
+
+            return {
+                success: result.success,
+                message: result.success ? 'Barcha buyurtmalar tozalandi' : 'Xatolik yuz berdi',
+                cleared: result.cleared,
+                errors: result.errors || []
+            };
+        } catch (error) {
+            console.error('❌ Error clearing all orders:', error);
+            return {
+                success: false,
+                error: 'Barcha buyurtmalarni tozalashda xatolik',
+                message: error.message
+            };
+        }
+    }
 }

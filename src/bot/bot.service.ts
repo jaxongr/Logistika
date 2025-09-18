@@ -68,6 +68,7 @@ export class BotService implements OnModuleInit {
   private driverContactWarnings = new Map<string, {driverId: number, warnings: number, timerId?: NodeJS.Timeout}>();
   private acceptedCargos = new Map<number, Set<string>>(); // driverId -> Set of accepted cargo IDs
   private completedCargos = new Map<number, Set<string>>(); // driverId -> Set of completed cargo IDs
+  private orderCleanupTimer: NodeJS.Timeout; // Auto cleanup timer for stuck orders
   private demoDrivers: any[] = []; // Demo drivers array for dashboard display
   private customerOrderHistory = new Map<number, any[]>(); // customerId -> Array of completed orders
   private driverWarningTimers = new Map<string, NodeJS.Timeout[]>(); // Legacy timers for compatibility
@@ -385,7 +386,10 @@ export class BotService implements OnModuleInit {
     // Commission settings'ni yuklash
     await this.loadCommissionSettings();
     await this.loadBalanceSettings();
-    
+
+    // Start automatic cleanup scheduler for stuck orders
+    this.startOrderCleanupScheduler();
+
     // Global update logger - catches ALL incoming updates
     this.bot.use(async (ctx, next) => {
       this.logger.log(`🌍 INCOMING UPDATE: ${ctx.update.update_id} from user ${ctx.from?.id} (@${ctx.from?.username}) - Type: ${Object.keys(ctx.update)[1]}`);
@@ -404,7 +408,7 @@ export class BotService implements OnModuleInit {
     this.bot.on('callback_query:data', async (ctx) => {
       try {
         const data = ctx.callbackQuery.data;
-        this.logger.log(`🔍 Callback received: ${data} from user ${ctx.from.id}`);
+        this.logger.log(`🔍 [CALLBACK DEBUG] Received: "${data}" from user ${ctx.from.id} (@${ctx.from.username})`);
       
       switch (data) {
         case 'features':
@@ -6607,6 +6611,7 @@ ${currentBalance > 0 ? '✅ Balansingiz mavjud!' : '⏳ Balansni to\'ldiring'}
 
     // Save updated data to file
     await this.saveUserData();
+    await this.saveDataToFile();
 
     // Broadcast real-time update to dashboard
     this.dashboardGateway.broadcastOrderStatusChange(cargoId, 'matched', {
@@ -6614,6 +6619,9 @@ ${currentBalance > 0 ? '✅ Balansingiz mavjud!' : '⏳ Balansni to\'ldiring'}
       driverName: driverRole?.profile?.fullName || ctx.from.first_name || 'Noma\'lum haydovchi',
       acceptedAt: cargo.acceptedDate
     });
+
+    // Force refresh dashboard orders list
+    this.dashboardGateway.broadcastOrdersRefresh();
 
     // Cancel any pending dispatcher fallback timers
     const activeOrder = this.activeOrders.get(cargoId);
@@ -6643,8 +6651,8 @@ ${currentBalance > 0 ? '✅ Balansingiz mavjud!' : '⏳ Balansni to\'ldiring'}
     // Set contact timer - 15 minutes for driver to contact customer
     this.setDriverContactTimer(cargoId, driverId);
 
-    // Notify other drivers that the cargo has been taken
-    await this.notifyOtherDriversCargoTaken(cargoId, driverId);
+    // Silently remove cargo from other drivers' notifications (no message sent)
+    await this.silentlyRemoveCargoFromOtherDrivers(cargoId, driverId);
 
     await this.safeAnswerCallback(ctx, '✅ Buyurtma qabul qilindi!');
     
@@ -6749,6 +6757,72 @@ ${cargoDetails.description ? `📝 <b>Qo'shimcha:</b> ${cargoDetails.description
 
     } catch (error) {
       this.logger.error(`Error notifying other drivers about cargo taken:`, error);
+    }
+  }
+
+  // Silently remove cargo from other drivers' notifications without sending messages
+  private async silentlyRemoveCargoFromOtherDrivers(cargoId: string, acceptingDriverId: number) {
+    try {
+      this.logger.log(`🔕 Silently removing cargo ${cargoId} from other drivers' notifications`);
+
+      // Find all users who have this cargo in their notifications
+      for (const [userId, notifications] of this.driverNotifications.entries()) {
+        if (userId !== acceptingDriverId && notifications.includes(cargoId)) {
+          // Remove this cargo from the user's notifications (silently)
+          const index = notifications.indexOf(cargoId);
+          if (index > -1) {
+            notifications.splice(index, 1);
+            this.logger.log(`🗑️ Removed cargo ${cargoId} from user ${userId} notifications`);
+          }
+        }
+      }
+
+      // YANGI: Also remove buttons from Telegram messages
+      await this.removeCargoButtonsFromAllDrivers(cargoId, acceptingDriverId);
+
+      this.logger.log(`✅ Cargo ${cargoId} silently removed from other drivers`);
+
+    } catch (error) {
+      this.logger.error(`Error silently removing cargo from other drivers:`, error);
+    }
+  }
+
+  private async removeCargoButtonsFromAllDrivers(cargoId: string, acceptingDriverId: number) {
+    try {
+      this.logger.log(`🗑️ Removing cargo ${cargoId} buttons from all drivers' Telegram messages`);
+
+      // Find all drivers who received this cargo notification
+      const cargoOffer = this.cargoOffers.get(cargoId);
+      if (!cargoOffer) return;
+
+      // Get all active drivers
+      for (const userId of this.connectedUsers.keys()) {
+        if (userId !== acceptingDriverId) {
+          try {
+            // Try to send "Already taken" message
+            const takenMessage = `
+❌ <b>ZAKAZ OLINGAN</b>
+
+📦 <b>Yo'nalish:</b> ${cargoOffer.fromCity} → ${cargoOffer.toCity}
+💰 <b>Summa:</b> ${cargoOffer.price?.toLocaleString()} so'm
+
+🔴 <b>Bu zakaz boshqa haydovchi tomonidan olindi!</b>
+            `;
+
+            await this.bot.api.sendMessage(userId, takenMessage, {
+              parse_mode: 'HTML',
+            });
+
+            this.logger.log(`✅ Sent "zakaz olingan" message to driver ${userId}`);
+
+          } catch (error) {
+            this.logger.log(`❌ Failed to notify driver ${userId} about taken cargo: ${error.message}`);
+          }
+        }
+      }
+
+    } catch (error) {
+      this.logger.error(`Error removing cargo buttons from drivers:`, error);
     }
   }
 
@@ -16532,7 +16606,13 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
       // Find the order in cargo offers
       const cargoOffer = this.cargoOffers.get(orderId);
       if (!cargoOffer) {
-        throw new Error('Buyurtma topilmadi');
+        // Check if order already processed or cancelled
+        this.logger.warn(`Order ${orderId} not found in active offers - may already be processed`);
+        return {
+          success: false,
+          error: 'Buyurtma topilmadi yoki allaqachon bajarilgan/bekor qilingan',
+          orderId: orderId
+        };
       }
 
       // Update order status to cancelled
@@ -16554,8 +16634,11 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
         }
       }
 
-      // Remove from active offers and send cancellation message to all drivers
+      // Remove from active offers FIRST, then save to file
       this.cargoOffers.delete(orderId);
+
+      // Save updated data to file immediately
+      await this.saveDataToFile();
 
       // Broadcast cancellation to all drivers
       const drivers = Array.from(this.userRoles.entries())
@@ -16583,6 +16666,9 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
         cancelledBy: 'admin_dashboard',
         cancelledAt: cargoOfferAny.cancelledAt
       });
+
+      // Force refresh dashboard orders list
+      this.dashboardGateway.broadcastOrdersRefresh();
 
       return {
         success: true,
@@ -17345,5 +17431,180 @@ ${cargoOffer.description ? `📝 **Qo'shimcha:** ${cargoOffer.description}` : ''
       this.logger.error('❌ Error loading balance history:', error);
     }
     return [];
+  }
+
+  // Auto cleanup system for stuck orders
+  private startOrderCleanupScheduler() {
+    this.logger.log('🔄 Starting automatic order cleanup scheduler');
+
+    // Run cleanup every 30 minutes
+    this.orderCleanupTimer = setInterval(async () => {
+      await this.cleanupStuckOrders();
+    }, 30 * 60 * 1000); // 30 minutes
+
+    // Run initial cleanup after 5 minutes
+    setTimeout(async () => {
+      await this.cleanupStuckOrders();
+    }, 5 * 60 * 1000); // 5 minutes
+  }
+
+  private async cleanupStuckOrders() {
+    try {
+      this.logger.log('🧹 Starting automatic cleanup of stuck orders...');
+
+      const now = new Date();
+      const cutoffTime = new Date(now.getTime() - (24 * 60 * 60 * 1000)); // 24 hours ago
+      let cleanedCount = 0;
+
+      const ordersToClean = [];
+
+      // Check all cargo offers for stuck orders
+      for (const [orderId, cargoOffer] of this.cargoOffers.entries()) {
+        const cargoOfferAny = cargoOffer as any;
+
+        // Get order creation time
+        const orderTime = cargoOfferAny.createdAt ? new Date(cargoOfferAny.createdAt) : new Date(cargoOfferAny.date);
+
+        // Check if order is older than 24 hours and still active
+        if (orderTime < cutoffTime && cargoOffer.status === 'active') {
+          ordersToClean.push({
+            id: orderId,
+            age: Math.round((now.getTime() - orderTime.getTime()) / (60 * 60 * 1000)), // hours
+            status: cargoOffer.status
+          });
+        }
+      }
+
+      // Clean old orders
+      for (const orderInfo of ordersToClean) {
+        try {
+          const cargoOffer = this.cargoOffers.get(orderInfo.id);
+          if (cargoOffer) {
+            // Mark as expired and save to history
+            const cargoOfferAny = cargoOffer as any;
+            cargoOffer.status = 'expired';
+            cargoOfferAny.expiredAt = now.toISOString();
+            cargoOfferAny.expiredBy = 'auto_cleanup';
+            cargoOfferAny.expiredReason = `Order expired after ${orderInfo.age} hours`;
+
+            // Save to history
+            await this.saveCancelledOrderToHistory(cargoOffer);
+
+            // Remove from active offers
+            this.cargoOffers.delete(orderInfo.id);
+
+            // Broadcast update to dashboard
+            this.dashboardGateway.broadcastOrderStatusChange(orderInfo.id, 'expired', {
+              expiredBy: 'auto_cleanup',
+              expiredAt: cargoOfferAny.expiredAt,
+              reason: cargoOfferAny.expiredReason
+            });
+
+            cleanedCount++;
+            this.logger.log(`🗑️ Cleaned stuck order: ${orderInfo.id} (${orderInfo.age}h old)`);
+          }
+        } catch (error) {
+          this.logger.error(`❌ Error cleaning order ${orderInfo.id}:`, error);
+        }
+      }
+
+      if (cleanedCount > 0) {
+        this.logger.log(`✅ Cleanup completed: ${cleanedCount} stuck orders cleaned`);
+      } else {
+        this.logger.log('✅ Cleanup completed: No stuck orders found');
+      }
+
+      // Also cleanup old demo data
+      await this.cleanupOldDemoData();
+
+    } catch (error) {
+      this.logger.error('❌ Error during automatic cleanup:', error);
+    }
+  }
+
+  private async cleanupOldDemoData() {
+    try {
+      let demoCount = 0;
+
+      // Clean old demo orders from memory
+      for (const [orderId, cargoOffer] of this.cargoOffers.entries()) {
+        const cargoOfferAny = cargoOffer as any;
+
+        // Check if it's a demo order
+        if (orderId.includes('_dashboard') ||
+            cargoOfferAny.customer === 'unknown' ||
+            cargoOfferAny.route === 'Noma\'lum → Noma\'lum' ||
+            cargoOfferAny.customer === 'Abdujalol oken') {
+
+          this.cargoOffers.delete(orderId);
+          demoCount++;
+        }
+      }
+
+      if (demoCount > 0) {
+        this.logger.log(`🧹 Cleaned ${demoCount} demo orders from memory`);
+      }
+
+    } catch (error) {
+      this.logger.error('❌ Error cleaning demo data:', error);
+    }
+  }
+
+  // Manual cleanup method for dashboard
+  async forceCleanupStuckOrders(): Promise<{success: boolean, cleaned: number, errors: string[]}> {
+    try {
+      this.logger.log('🔧 Manual cleanup of stuck orders requested');
+
+      await this.cleanupStuckOrders();
+
+      return {
+        success: true,
+        cleaned: 0, // Will be updated in the actual cleanup
+        errors: []
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Error in manual cleanup:', error);
+      return {
+        success: false,
+        cleaned: 0,
+        errors: [error.message]
+      };
+    }
+  }
+
+  // Clear all active orders method
+  async clearAllActiveOrders(): Promise<{success: boolean, cleared: number, errors: string[]}> {
+    try {
+      this.logger.log('🗑️ Clearing ALL active orders from memory and file');
+
+      const beforeCount = this.cargoOffers.size;
+      const orderIds = Array.from(this.cargoOffers.keys());
+
+      // Clear all from memory
+      this.cargoOffers.clear();
+
+      // Save empty state to file
+      await this.saveDataToFile();
+
+      // Broadcast to dashboard
+      this.dashboardGateway.broadcastOrdersRefresh();
+
+      this.logger.log(`✅ Cleared ${beforeCount} active orders from system`);
+
+      return {
+        success: true,
+        cleared: beforeCount,
+        errors: []
+      };
+
+    } catch (error) {
+      this.logger.error('❌ Error clearing all orders:', error);
+      return {
+        success: false,
+        cleared: 0,
+        errors: [error.message]
+      };
+    }
   }
 }
